@@ -74,6 +74,7 @@ struct DeviceCommand {
     DeviceCommand() {};
 
     // command extraction
+    void reset();
     void load(String& command_string);
     void extractParam(char* param, int size);
     void extractVariable();
@@ -107,15 +108,23 @@ struct DeviceCommand {
 };
 
 void DeviceCommand::makeStartupLog() {
+  reset();
   strcpy(type, "startup");
   getStateKeyValue(data, sizeof(data), "startup", "complete", PATTERN_KV_JSON_QUOTED);
+  ret_val = CMD_RET_SUCCESS;
 }
 
 /****** COMMAND PARSING *******/
 
 void DeviceCommand::load(String& command_string) {
+  reset();
   command_string.toCharArray(command, sizeof(command));
   strcpy(buffer, command);
+}
+
+void DeviceCommand::reset() {
+  buffer[0] = 0;
+  command[0] = 0;
   value[0] = 0;
   units[0] = 0;
   notes[0] = 0;

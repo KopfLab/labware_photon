@@ -32,6 +32,14 @@ static void getStateValue(char* target, int size, char* value, char* pattern = P
   snprintf(target, size, pattern, value);
 }
 
+// helper function to assemble char/string state text
+static void getStateStringText(char* key, char* value, char* target, int size, char* pattern, bool include_key = true) {
+  if (include_key)
+    getStateKeyValue(target, size, key, value, pattern);
+  else
+    getStateValue(target, size, value, pattern);
+}
+
 // helper function to assemble boolean state text
 static void getStateBooleanText(char* key, bool value, char* value_true, char* value_false, char* target, int size, char* pattern, bool include_key = true) {
   char value_text[20];
