@@ -4,7 +4,7 @@
 #include "device/DeviceInfo.h"
 
 // particle log webhook
-#define LOG_WEBHOOK  "device_state_log"  // name of the webhoook name
+#define STATE_LOG_WEBHOOK  "device_state_log"  // name of the webhoook name
 
 // return codes:
 //  -  0 : success without warning
@@ -50,8 +50,8 @@
 #define CMD_TIMEZONE        "tz"
 
 // command from spark cloud
-#define CMD_MAX_CHAR 63       // spark.functions are limited to 63 char long call
-#define LOG_MAX_CHAR 255      // spark.publish is limited to 255 chars of data
+#define CMD_MAX_CHAR 63         // spark.functions are limited to 63 char long call
+#define STATE_LOG_MAX_CHAR 255  // spark.publish is limited to 255 chars of data
 struct DeviceCommand {
 
     // command message
@@ -67,7 +67,7 @@ struct DeviceCommand {
     char type[20]; // command type
     char msg[50]; // log message
     char data[50]; // data text
-    char cmd_log[LOG_MAX_CHAR]; // full log text (max size limited by Particle.publish())
+    char cmd_log[STATE_LOG_MAX_CHAR]; // full log text (max size limited by Particle.publish())
     int ret_val; // return value
 
     // constructors
@@ -110,7 +110,7 @@ struct DeviceCommand {
 void DeviceCommand::makeStartupLog() {
   reset();
   strcpy(type, "startup");
-  getStateKeyValue(data, sizeof(data), "startup", "complete", PATTERN_KV_JSON_QUOTED);
+  getInfoKeyValue(data, sizeof(data), "startup", "complete", PATTERN_KV_JSON_QUOTED);
   ret_val = CMD_RET_SUCCESS;
 }
 
@@ -266,8 +266,8 @@ void DeviceCommand::assembleLog() {
 }
 
 bool DeviceCommand::publishLog() {
-  Serial.print("INFO: publishing log to event '" + String(LOG_WEBHOOK) + "'... ");
-  if(Particle.publish(LOG_WEBHOOK, cmd_log, PRIVATE, WITH_ACK)) {
+  Serial.print("INFO: publishing log to event '" + String(STATE_LOG_WEBHOOK) + "'... ");
+  if(Particle.publish(STATE_LOG_WEBHOOK, cmd_log, PRIVATE, WITH_ACK)) {
     Serial.println("successful.");
     return(true);
   } else {

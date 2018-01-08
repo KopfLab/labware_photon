@@ -21,11 +21,12 @@ class DeviceController {
     bool startup_logged = false;
     char state_information_buffer[STATE_INFO_MAX_CHAR-2];
 
+  protected:
+
     // call backs
     void (*name_callback)();
     void (*command_callback)();
-
-  protected:
+    void (*data_callback)();
 
     // command
     DeviceCommand command;
@@ -37,8 +38,8 @@ class DeviceController {
     DeviceController (int reset_pin) : reset_pin(reset_pin) {}
 
     // setup and loop methods
-    void init(); // to be run during setup()
-    void update(); // to be run during loop()
+    virtual void init(); // to be run during setup()
+    virtual void update(); // to be run during loop()
 
     // reset
     bool wasReset() { reset; }; // whether controller was started in reset mode
@@ -65,6 +66,9 @@ class DeviceController {
     bool changeStateLogging(bool on);
     bool changeDataLogging(bool on);
     bool changeTimezone(int tz);
+
+    // data
+    void setDataCallback(void (*cb)()); // assign a callback function
 
     // particle command parsing functions
     DeviceCommand* getCommand(); // get pointer to the command object
@@ -240,6 +244,12 @@ bool DeviceController::changeTimezone (int tz) {
     Serial.println("INFO: timezone unchanged (" + String(getDS()->timezone) + ")");
   }
   return(changed);
+}
+
+/* DATA */
+
+void DeviceController::setDataCallback(void (*cb)()) {
+  data_callback = cb;
 }
 
 /* COMMAND PARSING FUNCTIONS */
