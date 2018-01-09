@@ -38,6 +38,7 @@ struct DeviceData {
   void setNewestValue(char* val);
   void setNewestValueInvalid();
   void saveNewestValue(bool average); // set value based on current newest_value (calculate average if true)
+  void setNewestDataTime(long dt);
   void setUnits(char* u);
 
   // operations
@@ -79,6 +80,10 @@ void DeviceData::setNewestValue(char* val) {
 
 void DeviceData::setNewestValueInvalid() {
   newest_value_valid = false;
+}
+
+void DeviceData::setNewestDataTime(long dt) {
+  newest_data_time = dt;
 }
 
 void DeviceData::saveNewestValue(bool average) {

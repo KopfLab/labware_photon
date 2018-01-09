@@ -39,7 +39,7 @@ class DeviceController {
 
     // command
     DeviceCommand command;
-    //FIXME std::vector<DeviceData> data;
+    std::vector<DeviceData> data;
 
     // constructor
     DeviceController();
