@@ -21,8 +21,8 @@ class DeviceController {
     bool name_handler_registered = false;
     bool name_handler_succeeded = false;
     bool startup_logged = false;
-    char state_information_buffer[STATE_INFO_MAX_CHAR-2];
-    char data_information_buffer[DATA_INFO_MAX_CHAR];
+    char state_information_buffer[STATE_INFO_MAX_CHAR-50];
+    char data_information_buffer[DATA_INFO_MAX_CHAR-50];
 
     // data log
     char data_log[DATA_LOG_MAX_CHAR];
@@ -33,6 +33,9 @@ class DeviceController {
     void (*name_callback)();
     void (*command_callback)();
     void (*data_callback)();
+
+    // buffer for date time
+    char date_time_buffer[21];
 
   public:
 
@@ -59,12 +62,12 @@ class DeviceController {
     // data information
     char data_information[DATA_INFO_MAX_CHAR];
     virtual void assembleDataInformation();
+    void addToDataInformation(char* info, char* sep);
     void setDataCallback(void (*cb)()); // assign a callback function
 
     // state information
     char state_information[STATE_INFO_MAX_CHAR];
     virtual void assembleStateInformation();
-    void addToStateInformation(char* info);
     void addToStateInformation(char* info, char* sep);
 
     // state control & persistence functions (implement in derived classes)
@@ -175,12 +178,27 @@ void DeviceController::setNameCallback(void (*cb)()) {
 
 void DeviceController::updateDataInformation() {
   Serial.print("INFO: updating data information: ");
+  data_information_buffer[0] = 0; // reset buffer
+  assembleDataInformation();
   snprintf(data_information, sizeof(data_information), "{data:[%s]}", data_information_buffer);
+  Serial.println(data_information);
   if (data_callback) data_callback();
 }
 
-void DeviceController::assembleDataInformation() {
+void DeviceController::addToDataInformation(char* info, char* sep = ",") {
+  if (data_information_buffer[0] == 0) {
+    strncpy(data_information_buffer, info, sizeof(data_information_buffer));
+  } else {
+    snprintf(data_information_buffer, sizeof(data_information_buffer),
+        "%s%s%s", data_information_buffer, sep, info);
+  }
+}
 
+void DeviceController::assembleDataInformation() {
+  for (int i=0; i<data.size(); i++) {
+    data[i].assembleInfo();
+    addToDataInformation(data[i].json);
+  }
 }
 
 void DeviceController::setDataCallback(void (*cb)()) {
@@ -193,15 +211,13 @@ void DeviceController::updateStateInformation() {
   Serial.print("INFO: updating state information: ");
   state_information_buffer[0] = 0; // reset buffer
   assembleStateInformation();
-  snprintf(state_information, sizeof(state_information), "[%s]", state_information_buffer);
+  Time.format(Time.now(), "%Y-%m-%d %H:%M:%S").toCharArray(date_time_buffer, sizeof(date_time_buffer));
+  snprintf(state_information, sizeof(state_information), "{dt:\"%s\",state:[%s]}",
+    date_time_buffer, state_information_buffer);
   Serial.println(state_information);
 }
 
-void DeviceController::addToStateInformation(char* info) {
-  addToStateInformation(info, ",");
-}
-
-void DeviceController::addToStateInformation(char* info, char* sep) {
+void DeviceController::addToStateInformation(char* info, char* sep = ",") {
   if (state_information_buffer[0] == 0) {
     strncpy(state_information_buffer, info, sizeof(state_information_buffer));
   } else {

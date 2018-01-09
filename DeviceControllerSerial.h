@@ -38,7 +38,6 @@ class DeviceControllerSerial : public DeviceController {
     int n_byte; // number of bytes received
     long last_read = millis(); // last read
     int serial_data_status = SERIAL_DATA_COMPLETE; // whether data has been received
-    char date_time_buffer[21]; // buffer for date time
 
   public:
 
@@ -90,8 +89,6 @@ void DeviceControllerSerial::init() {
   }
 }
 
-byte msg[] = {32, 32, 32, 43, 49, 46, 50, 51, 52, 32, 32, 71, 83, 13, 10}; // FIXME
-
 // loop function
 void DeviceControllerSerial::update() {
   DeviceController::update();
@@ -100,16 +97,14 @@ void DeviceControllerSerial::update() {
   if (serialIsActive()) {
 
     // check serial communication
-    //while (Serial1.available()) { // FIXME
-    if (waiting_for_response && n_byte < 15) { // FIXME
+    while (Serial1.available()) {
 
       // read byte
-      //byte b = Serial1.read(); // FIXME
-      byte b = msg[n_byte]; // FIXME
+      byte b = Serial1.read();
       last_read = millis();
 
       // skip byte if not waiting for response
-      //if (!waiting_for_response) continue; // FIXME
+      if (!waiting_for_response) continue;
 
       // first byte
       n_byte++;

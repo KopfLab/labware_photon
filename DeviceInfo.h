@@ -76,18 +76,7 @@ static void getInfoValue(char* target, int size, char* value, char* pattern = PA
 
 /**** DATA INFO FUNCTIONS ****/
 
-static void getDataDoubleText(char* key, double value, char* units, int n, char* target, int size, char* pattern, int decimals = 3, bool include_key = true) {
-  char value_pattern[5];
-  snprintf(value_pattern, sizeof(value_pattern), "%%.%df", decimals);
-  char value_text[15];
-  snprintf(value_text, sizeof(value_text), value_pattern, value);
-  if (include_key)
-    getInfoKeyValueUnitsNumber(target, size, key, value_text, units, n, pattern);
-  else
-    getInfoValueUnitsNumber(target, size, value_text, units, n, pattern);
-}
-
-static void getDataDoubleTextWithTimeOffset(char* key, double value, char* units, int n, int time_offset, char* target, int size, char* pattern, int decimals = 3) {
+static void getDataDoubleText(char* key, double value, char* units, int n, int time_offset, char* target, int size, char* pattern, int decimals) {
   char value_pattern[5];
   snprintf(value_pattern, sizeof(value_pattern), "%%.%df", decimals);
   char value_text[15];
@@ -95,6 +84,18 @@ static void getDataDoubleTextWithTimeOffset(char* key, double value, char* units
   getInfoKeyValueUnitsNumberTimeOffset(target, size, key, value_text, units, n, time_offset, pattern);
 }
 
+static void getDataDoubleText(char* key, double value, char* units, int n, char* target, int size, char* pattern, int decimals) {
+  getDataDoubleText(key, value, units, n, -1, target, size, pattern, decimals);
+}
+
+static void getDataDoubleText(char* key, double value, char* units, char* target, int size, char* pattern, int decimals) {
+  getDataDoubleText(key, value, units, -1, target, size, pattern, decimals);
+}
+
+static void getDataNullText(char* key, char* target, int size, char* pattern) {
+  char value_text[] = "null";
+  getInfoKeyValue(target, size, key, value_text, pattern);
+}
 /**** STATE INFO FUNCTIONS ****/
 
 // helper function to assemble char/string state text

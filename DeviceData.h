@@ -19,14 +19,18 @@ struct DeviceData {
 
   // output parameters
   int digits; // how many digits?
-  char data_log[100]; // full data log text
+  char json[100]; // full data log text
 
   DeviceData() {
     variable[0] = 0;
     units[0] = 0;
-    digits = 3;
+    digits = 0;
     resetValue();
   };
+
+  DeviceData(char* var) : DeviceData() { setVariable(var); }
+  DeviceData(int d) : DeviceData() { digits = d; }
+  DeviceData(char* var, int d) : DeviceData(var) { digits = d; }
 
   // data
   void resetValue();
@@ -44,9 +48,7 @@ struct DeviceData {
 
   // logging
   void assembleLog(bool include_time_offset); // assemble log (with our without time offset, in seconds)
-  bool publishLog(); // send log to cloud
-  virtual void finalize(bool publish); // finalize command (publish = whether to publish log)
-
+  void assembleInfo(); // assemble data info
 };
 
 /** DATA **/
@@ -128,24 +130,23 @@ bool DeviceData::isUnitsIdentical(char* comparison) {
 /***** LOGGING *****/
 
 void DeviceData::assembleLog(bool include_time_offset = true) {
-  (include_time_offset) ?
-    getDataDoubleTextWithTimeOffset(variable, value, units, n, data_time - millis(), data_log, sizeof(data_log), PATTERN_KVUNT_JSON, digits) :
-    getDataDoubleText(variable, value, units, n, data_log, sizeof(data_log), PATTERN_KVUNT_JSON, digits);
-  Serial.println("INFO: data log = " + String(data_log));
-}
-
-bool DeviceData::publishLog() {
-  Serial.print("INFO: publishing data log to event '" + String(DATA_LOG_WEBHOOK) + "'... ");
-  if(Particle.publish(DATA_LOG_WEBHOOK, data_log, PRIVATE, WITH_ACK)) {
-    Serial.println("successful.");
-    return(true);
+  if (n > 0) {
+    // have data
+    (include_time_offset) ?
+      getDataDoubleText(variable, value, units, n, data_time - millis(), json, sizeof(json), PATTERN_KVUNT_JSON, digits) :
+      getDataDoubleText(variable, value, units, n, json, sizeof(json), PATTERN_KVUN_JSON, digits);
   } else {
-    Serial.println("failed!");
-    return(false);
+    // no data
+    getDataNullText(variable, json, sizeof(json), PATTERN_KV_JSON);
   }
 }
 
-void DeviceData::finalize(bool publish) {
-  assembleLog();
-  if (publish) publishLog();
+void DeviceData::assembleInfo() {
+  if (newest_value_valid) {
+    // valid data
+    getDataDoubleText(variable, value, units, -1, json, sizeof(json), PATTERN_KVU_JSON, digits);
+  } else {
+    // no valid data
+    getDataNullText(variable, json, sizeof(json), PATTERN_KV_JSON);
+  }
 }
