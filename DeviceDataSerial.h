@@ -19,12 +19,12 @@ struct DeviceDataSerial : public DeviceData  {
   void appendToVariableBuffer (byte b);
   void setVariableBuffer (char* var);
   void appendToValueBuffer (byte b);
-  void setValueBuffer(char* val);
+  void saveNewestValueBuffer(char* val);
   void appendToUnitsBuffer (byte b);
   void setUnitsBuffer(char* u);
   void storeVariable(); // store variable buffer in variable
   void storeReceivedDataTime(long dt); // store the received data time
-  void storeValue(); // convert value buffer to double (need to call setValue to actually set or average it)
+  void storeValue(); // convert value buffer to double (need to call saveNewestValue to actually set or average it)
   void storeUnits(); // store untis buffer in units
   bool compareVariable(); // check if current variable buffer is identical to variable
   bool compareUnits(); // check if current units buffer is identical to units
@@ -55,7 +55,7 @@ void DeviceDataSerial::appendToValueBuffer(byte b) {
   value_charcounter++;
 }
 
-void DeviceDataSerial::setValueBuffer(char* val) {
+void DeviceDataSerial::saveNewestValueBuffer(char* val) {
   strncpy(value_buffer, val, sizeof(value_buffer) - 1);
   value_buffer[sizeof(value_buffer)-1] = 0;
 }
