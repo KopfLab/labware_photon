@@ -2,9 +2,14 @@
 #include <vector>
 #include "device/DeviceState.h"
 #include "device/DeviceInfo.h"
+#include "device/DeviceCommands.h"
+#include "device/DeviceData.h"
 
 // controller class
+#define STATE_INFO_VARIABLE   "device_state" // name of the particle exposed state variable
 #define STATE_INFO_MAX_CHAR   600 // how long is the state information maximally
+#define DATA_INFO_VARIABLE    "device_data" // name of the particle exposed data variable
+#define DATA_INFO_MAX_CHAR    600 // how long is the data information maximally
 class DeviceController {
 
   private:
@@ -21,6 +26,7 @@ class DeviceController {
     bool name_handler_succeeded = false;
     bool startup_logged = false;
     char state_information_buffer[STATE_INFO_MAX_CHAR-2];
+    char data_information_buffer[DATA_INFO_MAX_CHAR];
 
   protected:
 
@@ -33,9 +39,7 @@ class DeviceController {
 
     // command
     DeviceCommand command;
-
-    // data
-    std::vector<DeviceData> data;
+    //FIXME std::vector<DeviceData> data;
 
     // constructor
     DeviceController();
@@ -52,6 +56,12 @@ class DeviceController {
     char name[20];
     void captureName(const char *topic, const char *data);
     void setNameCallback(void (*cb)()); // assign a callback function
+
+    // data information
+    char data_information[DATA_INFO_MAX_CHAR];
+    virtual void updateDataInformation();
+    virtual void assembleDataInformation();
+    void setDataCallback(void (*cb)()); // assign a callback function
 
     // state information
     char state_information[STATE_INFO_MAX_CHAR];
@@ -71,9 +81,6 @@ class DeviceController {
     bool changeDataLogging(bool on);
     bool changeTimezone(int tz);
 
-    // data
-    void setDataCallback(void (*cb)()); // assign a callback function
-
     // particle command parsing functions
     void setCommandCallback(void (*cb)()); // assign a callback function
     int receiveCommand (String command); // receive cloud command
@@ -89,12 +96,6 @@ class DeviceController {
 void DeviceController::init() {
   // define pins
   pinMode(reset_pin, INPUT_PULLDOWN);
-
-  // register particle functions
-  Serial.println("INFO: registering device cloud variables");
-  Particle.subscribe("spark/", &DeviceController::captureName, this);
-  Particle.function(CMD_ROOT, &DeviceController::receiveCommand, this);
-  Particle.variable(STATE_VARIABLE, state_information);
 
   //  check for reset
   if(digitalRead(reset_pin) == HIGH) {
@@ -117,6 +118,14 @@ void DeviceController::init() {
 
   // state information
   updateStateInformation();
+  updateDataInformation();
+
+  // register particle functions
+  Serial.println("INFO: registering device cloud variables");
+  Particle.subscribe("spark/", &DeviceController::captureName, this);
+  Particle.function(CMD_ROOT, &DeviceController::receiveCommand, this);
+  Particle.variable(STATE_INFO_VARIABLE, state_information);
+  Particle.variable(DATA_INFO_VARIABLE, data_information);
 }
 
 void DeviceController::update() {
@@ -156,10 +165,25 @@ void DeviceController::setNameCallback(void (*cb)()) {
   name_callback = cb;
 }
 
+/* DATA INFORMATION */
+
+void DeviceController::updateDataInformation() {
+  Serial.print("INFO: updating data information: ");
+  snprintf(data_information, sizeof(data_information), "{data:[%s]}", data_information_buffer);
+  if (data_callback) data_callback();
+}
+
+void DeviceController::assembleDataInformation() {
+
+}
+
+void DeviceController::setDataCallback(void (*cb)()) {
+  data_callback = cb;
+}
+
 /* STATE INFORMATION */
 
 void DeviceController::updateStateInformation() {
-
   Serial.print("INFO: updating state information: ");
   state_information_buffer[0] = 0; // reset buffer
   assembleStateInformation();
@@ -247,12 +271,6 @@ bool DeviceController::changeTimezone (int tz) {
     Serial.println("INFO: timezone unchanged (" + String(getDS()->timezone) + ")");
   }
   return(changed);
-}
-
-/* DATA */
-
-void DeviceController::setDataCallback(void (*cb)()) {
-  data_callback = cb;
 }
 
 /* COMMAND PARSING FUNCTIONS */

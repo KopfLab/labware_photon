@@ -13,7 +13,6 @@
 // scale state
 #define STATE_VERSION    4 // update whenver structure changes
 #define STATE_ADDRESS    0 // EEPROM storage location
-#define STATE_VARIABLE   "device_state" // name of the particle exposed state variable
 
 struct DeviceState {
   const int version = STATE_VERSION;

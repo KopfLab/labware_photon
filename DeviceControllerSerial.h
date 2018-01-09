@@ -14,7 +14,7 @@ class DeviceControllerSerial : public DeviceController {
 
   private:
 
-    // serial communication
+    // serial communication config
     const long serial_baud_rate;
     const long serial_config;
     const int request_wait; // how long to wait after a request is finished to issue the next? [in ms]
@@ -22,6 +22,16 @@ class DeviceControllerSerial : public DeviceController {
     char request_command[10];
 
   protected:
+
+    // serial communications buffers
+    char data_buffer[500];
+    int data_charcounter;
+    char variable_buffer[25];
+    int variable_charcounter;
+    char value_buffer[25];
+    int value_charcounter;
+    char units_buffer[20];
+    int units_charcounter;
 
     // serial communications info
     bool waiting_for_response = false; // waiting for response
@@ -44,12 +54,23 @@ class DeviceControllerSerial : public DeviceController {
     virtual void init(); // to be run during setup()
     virtual void update(); // to be run during loop()
 
-    // serial processiong (overwrite in derivec classes)
+
+    // serial processing (overwrite virtuals in derived classes)
     virtual bool serialIsActive() { return(true); } // returns whether the serial is active
     virtual bool serialIsManual() { return(false); } // whether the serial port is in manual mode (i.e. should be listening always or make request)
     virtual void startSerialData(); // start processing serial message
     virtual int processSerialData(byte b); // process a byte coming from the serial stream, return a SERIAL_DATA_ return code
     virtual void completeSerialData(); // serial message completely received
+
+    // interact with serial buffer
+    void resetSerialBuffers(); // reset all buffers
+    void appendToSerialDataBuffer (byte b); // append to total serial data buffer
+    void appendToSerialVariableBuffer (byte b);
+    void setSerialVariableBuffer (char* var);
+    void appendToSerialValueBuffer (byte b);
+    void setSerialValueBuffer(char* val);
+    void appendToSerialUnitsBuffer (byte b);
+    void setSerialUnitsBuffer(char* u);
 
 };
 
@@ -69,6 +90,8 @@ void DeviceControllerSerial::init() {
   }
 }
 
+byte msg[] = {32, 32, 32, 43, 49, 46, 50, 51, 52, 32, 32, 71, 83, 13, 10}; // FIXME
+
 // loop function
 void DeviceControllerSerial::update() {
   DeviceController::update();
@@ -77,14 +100,16 @@ void DeviceControllerSerial::update() {
   if (serialIsActive()) {
 
     // check serial communication
-    while (Serial1.available()) {
+    //while (Serial1.available()) { // FIXME
+    if (waiting_for_response && n_byte < 15) { // FIXME
 
       // read byte
-      byte b = Serial1.read();
+      //byte b = Serial1.read(); // FIXME
+      byte b = msg[n_byte]; // FIXME
       last_read = millis();
 
       // skip byte if not waiting for response
-      if (!waiting_for_response) continue;
+      //if (!waiting_for_response) continue; // FIXME
 
       // first byte
       n_byte++;
@@ -154,17 +179,66 @@ void DeviceControllerSerial::update() {
   }
 }
 
+/** SERIAL PROCESSING (virtual functions) **/
 
 void DeviceControllerSerial::startSerialData() {
-
+  resetSerialBuffers();
 }
 
 int DeviceControllerSerial::processSerialData(byte b) {
+  if (b >= 32 && b <= 126) appendToSerialDataBuffer(b); // all data
   return(SERIAL_DATA_WAITING);
 }
 
 void DeviceControllerSerial::completeSerialData() {
+  updateDataInformation();
+}
 
-  // data callback
-  if (data_callback) data_callback();
+/** SERIAL DATA - INTERACT WITH BUFFER **/
+
+void DeviceControllerSerial::resetSerialBuffers() {
+  int i;
+  for (i=0; i < sizeof(data_buffer); i++) data_buffer[i] = 0;
+  for (i=0; i < sizeof(variable_buffer); i++) variable_buffer[i] = 0;
+  for (i=0; i < sizeof(value_buffer); i++) value_buffer[i] = 0;
+  for (i=0; i < sizeof(units_buffer); i++) units_buffer[i] = 0;
+  data_charcounter = 0;
+  variable_charcounter = 0;
+  value_charcounter = 0;
+  units_charcounter = 0;
+}
+
+void DeviceControllerSerial::appendToSerialDataBuffer(byte b) {
+  data_buffer[data_charcounter] = (char) b;
+  data_charcounter++;
+}
+
+void DeviceControllerSerial::appendToSerialVariableBuffer(byte b) {
+  variable_buffer[variable_charcounter] = (char) b;
+  variable_charcounter++;
+}
+
+void DeviceControllerSerial::setSerialVariableBuffer(char* var) {
+  strncpy(variable_buffer, var, sizeof(variable_buffer) - 1);
+  variable_buffer[sizeof(variable_buffer)-1] = 0;
+}
+
+void DeviceControllerSerial::appendToSerialValueBuffer(byte b) {
+  value_buffer[value_charcounter] = (char) b;
+  value_charcounter++;
+}
+
+void DeviceControllerSerial::setSerialValueBuffer(char* val) {
+  strncpy(value_buffer, val, sizeof(value_buffer) - 1);
+  value_buffer[sizeof(value_buffer)-1] = 0;
+}
+
+void DeviceControllerSerial::appendToSerialUnitsBuffer(byte b) {
+  units_buffer[units_charcounter] = (char) b;
+  units_charcounter++;
+}
+
+void DeviceControllerSerial::setSerialUnitsBuffer(char* u) {
+  strncpy(units_buffer, u, sizeof(units_buffer) - 1);
+  units_buffer[sizeof(units_buffer)-1] = 0;
 }
