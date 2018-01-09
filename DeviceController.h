@@ -1,4 +1,5 @@
 #pragma once
+#include <vector>
 #include "device/DeviceState.h"
 #include "device/DeviceInfo.h"
 
@@ -32,6 +33,9 @@ class DeviceController {
 
     // command
     DeviceCommand command;
+
+    // data
+    std::vector<DeviceData> data;
 
     // constructor
     DeviceController();
