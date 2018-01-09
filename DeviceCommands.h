@@ -43,8 +43,6 @@
 // timezone
 #define CMD_TIMEZONE        "tz"
 
-
-
 struct DeviceCommand {
 
     // command message
@@ -56,11 +54,9 @@ struct DeviceCommand {
     char notes[CMD_MAX_CHAR];
 
     // command outcome
-    char device[20];
     char type[20]; // command type
     char msg[50]; // log message
     char data[50]; // data text
-    char cmd_log[STATE_LOG_MAX_CHAR]; // full log text (max size limited by Particle.publish())
     int ret_val; // return value
 
     // constructors
@@ -90,9 +86,8 @@ struct DeviceCommand {
     void errorCommand();
     void errorValue();
 
-    // logging
-    void setLogMsg(char* log_msg); // set a log message
-    void assembleLog(); // assemble log
+    // set a log message
+    void setLogMsg(char* log_msg);
 
     // other speciality commands
     void makeStartupLog();
@@ -123,7 +118,6 @@ void DeviceCommand::reset() {
   strcpy(type, CMD_LOG_TYPE_UNDEFINED);
   msg[0] = 0;
   data[0] = 0;
-  cmd_log[0] = 0;
   ret_val = CMD_RET_UNDEFINED;
 }
 
@@ -238,20 +232,7 @@ void DeviceCommand::errorValue() {
   error(CMD_RET_ERR_VAL, CMD_RET_ERR_VAL_TEXT);
 }
 
-/* logging */
-
 void DeviceCommand::setLogMsg(char* log_msg) {
   strncpy(msg, log_msg, sizeof(msg) - 1);
   msg[sizeof(msg)-1] = 0;
-}
-
-void DeviceCommand::assembleLog() {
-  if (data[0] == 0) {
-    // add empty data entry
-    strcpy(data, "{}");
-  }
-  snprintf(cmd_log, sizeof(cmd_log),
-     "{\"name\":\"%s\",\"type\":\"%s\",\"data\":[%s],\"msg\":\"%s\",\"notes\":\"%s\"}",
-     device, type, data, msg, notes);
-  Serial.println("INFO: log = " + String(cmd_log));
 }

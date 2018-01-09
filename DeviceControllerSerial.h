@@ -47,12 +47,15 @@ class DeviceControllerSerial : public DeviceController {
       DeviceController(reset_pin), serial_baud_rate(baud_rate), serial_config(serial_config), request_wait(request_wait), error_wait(error_wait) {
         strncpy(request_command, request_cmd, sizeof(request_command) - 1);
         request_command[sizeof(request_command)-1] = 0;
+        resetSerialBuffers();
       }
 
     // setup and loop methods
     virtual void init(); // to be run during setup()
     virtual void update(); // to be run during loop()
 
+    // data updates
+    virtual void postDataInformation();
 
     // serial processing (overwrite virtuals in derived classes)
     virtual bool serialIsActive() { return(true); } // returns whether the serial is active
@@ -172,6 +175,13 @@ void DeviceControllerSerial::update() {
       n_byte = 0;
     }
   }
+}
+
+/** DATA UPDATES **/
+
+void DeviceControllerSerial::postDataInformation() {
+  snprintf(data_information, sizeof(data_information), "{dt:\"%s\",serial:\"%s\",data:[%s]}",
+      date_time_buffer, data_buffer, data_information_buffer);
 }
 
 /** SERIAL PROCESSING (virtual functions) **/
