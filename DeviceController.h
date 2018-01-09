@@ -28,10 +28,10 @@ class DeviceController {
     void (*command_callback)();
     void (*data_callback)();
 
+  public:
+
     // command
     DeviceCommand command;
-
-  public:
 
     // constructor
     DeviceController();
@@ -71,7 +71,6 @@ class DeviceController {
     void setDataCallback(void (*cb)()); // assign a callback function
 
     // particle command parsing functions
-    DeviceCommand* getCommand(); // get pointer to the command object
     void setCommandCallback(void (*cb)()); // assign a callback function
     int receiveCommand (String command); // receive cloud command
     virtual void parseCommand () = 0; // parse a cloud command
@@ -253,10 +252,6 @@ void DeviceController::setDataCallback(void (*cb)()) {
 }
 
 /* COMMAND PARSING FUNCTIONS */
-
-DeviceCommand* DeviceController::getCommand() {
-  return(&command);
-}
 
 void DeviceController::setCommandCallback(void (*cb)()) {
   command_callback = cb;
