@@ -6,10 +6,6 @@
 #include "device/DeviceData.h"
 
 // controller class
-#define STATE_INFO_VARIABLE   "device_state" // name of the particle exposed state variable
-#define STATE_INFO_MAX_CHAR   600 // how long is the state information maximally
-#define DATA_INFO_VARIABLE    "device_data" // name of the particle exposed data variable
-#define DATA_INFO_MAX_CHAR    600 // how long is the data information maximally
 class DeviceController {
 
   private:
@@ -27,6 +23,9 @@ class DeviceController {
     bool startup_logged = false;
     char state_information_buffer[STATE_INFO_MAX_CHAR-2];
     char data_information_buffer[DATA_INFO_MAX_CHAR];
+
+    // data log
+    char data_log[DATA_LOG_MAX_CHAR];
 
   protected:
 
@@ -59,13 +58,11 @@ class DeviceController {
 
     // data information
     char data_information[DATA_INFO_MAX_CHAR];
-    virtual void updateDataInformation();
     virtual void assembleDataInformation();
     void setDataCallback(void (*cb)()); // assign a callback function
 
     // state information
     char state_information[STATE_INFO_MAX_CHAR];
-    void updateStateInformation();
     virtual void assembleStateInformation();
     void addToStateInformation(char* info);
     void addToStateInformation(char* info, char* sep);
@@ -89,6 +86,14 @@ class DeviceController {
     bool parseStateLogging();
     bool parseDataLogging();
     bool parseTimezone();
+
+    // particle variables
+    virtual void updateDataInformation();
+    void updateStateInformation();
+
+    // particle webhook publishing
+    bool publishDataLog();
+    bool publishStateLog();
 };
 
 /* SETUP & LOOP */
@@ -142,7 +147,8 @@ void DeviceController::update() {
       Serial.println("INFO: start-up completed... logging...");
       DeviceCommand startup;
       startup.makeStartupLog();
-      startup.finalize(true);
+      startup.assembleLog();
+      publishStateLog();
     } else {
       Serial.println("INFO: start-up completed (not logged).");
     }
@@ -344,7 +350,13 @@ int DeviceController::receiveCommand(String command_string) {
   command.load(command_string);
   command.extractVariable();
   parseCommand();
-  command.finalize(getDS()->state_logging | overwrite_state_log);
+  if (!command.isTypeDefined()) command.errorCommand();
+
+  // assemble and publish log
+  command.assembleLog();
+  if (getDS()->state_logging | overwrite_state_log) {
+    publishStateLog();
+  }
   overwrite_state_log = false;
 
   // state information
@@ -357,4 +369,28 @@ int DeviceController::receiveCommand(String command_string) {
 
   // return value
   return(command.ret_val);
+}
+
+/***** WEBHOOK CALLS *******/
+
+bool DeviceController::publishDataLog() {
+  Serial.print("INFO: publishing log to event '" + String(DATA_LOG_WEBHOOK) + "'... ");
+  if(Particle.publish(DATA_LOG_WEBHOOK, data_log, PRIVATE, WITH_ACK)) {
+    Serial.println("successful.");
+    return(true);
+  } else {
+    Serial.println("failed!");
+    return(false);
+  }
+}
+
+bool DeviceController::publishStateLog() {
+  Serial.print("INFO: publishing log to event '" + String(STATE_LOG_WEBHOOK) + "'... ");
+  if(Particle.publish(STATE_LOG_WEBHOOK, command.cmd_log, PRIVATE, WITH_ACK)) {
+    Serial.println("successful.");
+    return(true);
+  } else {
+    Serial.println("failed!");
+    return(false);
+  }
 }

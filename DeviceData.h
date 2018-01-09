@@ -1,8 +1,5 @@
 #pragma once
 
-// particle log webhook
-#define DATA_LOG_WEBHOOK  "device_data_log"  // name of the webhoook name
-
 // device data for spark cloud
 struct DeviceData {
 

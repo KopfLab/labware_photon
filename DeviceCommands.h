@@ -3,9 +3,6 @@
 #pragma once
 #include "device/DeviceInfo.h"
 
-// particle log webhook
-#define STATE_LOG_WEBHOOK  "device_state_log"  // name of the webhoook name
-
 // return codes:
 //  -  0 : success without warning
 //  - >0 : success with warnings
@@ -29,9 +26,6 @@
 #define CMD_LOG_TYPE_STATE_CHANGED    "state changed"
 #define CMD_LOG_TYPE_STATE_UNCHANGED  "state unchanged"
 
-// commands
-#define CMD_ROOT            "device" // command root
-
 // control
 #define CMD_LOCK            "lock" // device "lock on/off [notes]" : locks/unlocks the device
   #define CMD_LOCK_ON         "on"
@@ -49,9 +43,8 @@
 // timezone
 #define CMD_TIMEZONE        "tz"
 
-// command from spark cloud
-#define CMD_MAX_CHAR 63         // spark.functions are limited to 63 char long call
-#define STATE_LOG_MAX_CHAR 255  // spark.publish is limited to 255 chars of data
+
+
 struct DeviceCommand {
 
     // command message
@@ -97,11 +90,9 @@ struct DeviceCommand {
     void errorCommand();
     void errorValue();
 
-    // logging and finalizing command
+    // logging
     void setLogMsg(char* log_msg); // set a log message
     void assembleLog(); // assemble log
-    bool publishLog(); // send log to cloud
-    void finalize(bool publish); // finalize command (publish = whether to publish log)
 
     // other speciality commands
     void makeStartupLog();
@@ -247,7 +238,7 @@ void DeviceCommand::errorValue() {
   error(CMD_RET_ERR_VAL, CMD_RET_ERR_VAL_TEXT);
 }
 
-/****** LOGGING & FINALIZING *******/
+/* logging */
 
 void DeviceCommand::setLogMsg(char* log_msg) {
   strncpy(msg, log_msg, sizeof(msg) - 1);
@@ -263,21 +254,4 @@ void DeviceCommand::assembleLog() {
      "{\"name\":\"%s\",\"type\":\"%s\",\"data\":[%s],\"msg\":\"%s\",\"notes\":\"%s\"}",
      device, type, data, msg, notes);
   Serial.println("INFO: log = " + String(cmd_log));
-}
-
-bool DeviceCommand::publishLog() {
-  Serial.print("INFO: publishing log to event '" + String(STATE_LOG_WEBHOOK) + "'... ");
-  if(Particle.publish(STATE_LOG_WEBHOOK, cmd_log, PRIVATE, WITH_ACK)) {
-    Serial.println("successful.");
-    return(true);
-  } else {
-    Serial.println("failed!");
-    return(false);
-  }
-}
-
-void DeviceCommand::finalize(bool publish) {
-  if (!isTypeDefined()) errorCommand();
-  assembleLog();
-  if (publish) publishLog();
 }
