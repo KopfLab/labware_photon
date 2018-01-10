@@ -187,6 +187,8 @@ void DeviceControllerSerial::postDataInformation() {
 /** SERIAL PROCESSING (virtual functions) **/
 
 void DeviceControllerSerial::startSerialData() {
+  long start_time = millis();
+  for (int i=0; i<data.size(); i++) data[i].setNewestDataTime(start_time);
   resetSerialBuffers();
 }
 
@@ -197,6 +199,15 @@ int DeviceControllerSerial::processSerialData(byte b) {
 
 void DeviceControllerSerial::completeSerialData() {
   updateDataInformation();
+  if (serialIsManual()) {
+    // log manual entry always right away
+    if (getDS()->data_logging) {
+      assembleDataLog();
+      publishDataLog();
+    }
+    // reset after each manual entry
+    for (int i=0; i<data.size(); i++) data[i].resetValue();
+  }
 }
 
 /** SERIAL DATA - INTERACT WITH BUFFER **/

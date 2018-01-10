@@ -55,11 +55,9 @@ struct DeviceData {
 
 void DeviceData::resetValue() {
   value = 0;
-  newest_value = 0;
-  newest_value_valid = false;
   data_time = 0;
-  newest_data_time = 0;
   n = 0;
+  newest_value_valid = false;
 }
 
 void DeviceData::setVariable(char* var) {

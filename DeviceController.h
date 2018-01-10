@@ -15,7 +15,7 @@ class DeviceController {
     bool reset = false;
 
     // state log exceptions
-    bool overwrite_state_log = false;
+    bool override_state_log = false;
 
     // device info
     bool name_handler_registered = false;
@@ -32,17 +32,21 @@ class DeviceController {
     // buffer for date time
     char date_time_buffer[21];
 
-    // buffer for information variables
+    // buffer and information variables
+    char state_information[STATE_INFO_MAX_CHAR];
     char state_information_buffer[STATE_INFO_MAX_CHAR-50];
+    char data_information[DATA_INFO_MAX_CHAR];
     char data_information_buffer[DATA_INFO_MAX_CHAR-50];
 
     // buffers for log events
     char state_log[STATE_LOG_MAX_CHAR];
     char data_log[DATA_LOG_MAX_CHAR];
+    char data_log_buffer[DATA_LOG_MAX_CHAR-10];
 
   public:
 
-    // command
+    // public variables
+    char name[20];
     DeviceCommand command;
     std::vector<DeviceData> data;
 
@@ -58,20 +62,18 @@ class DeviceController {
     bool wasReset() { reset; }; // whether controller was started in reset mode
 
     // device name
-    char name[20];
     void captureName(const char *topic, const char *data);
     void setNameCallback(void (*cb)()); // assign a callback function
 
     // data information
-    char data_information[DATA_INFO_MAX_CHAR];
+    virtual bool isTimeForDataReset() { return(false); } // whether it's time for a data reset and log (if logging is on)
     virtual void assembleDataInformation();
-    void addToDataInformation(char* info, char* sep);
+    void addToDataInformation(char* info);
     void setDataCallback(void (*cb)()); // assign a callback function
 
     // state information
-    char state_information[STATE_INFO_MAX_CHAR];
     virtual void assembleStateInformation();
-    void addToStateInformation(char* info, char* sep);
+    void addToStateInformation(char* info);
 
     // state control & persistence functions (implement in derived classes)
     virtual DeviceState* getDS() = 0; // fetch the device state pointer
@@ -101,6 +103,8 @@ class DeviceController {
 
     // particle webhook publishing
     virtual void assembleDataLog();
+    virtual void assembleDataLog(bool gobal_time_offset);
+    void addToDataLog(char* info);
     virtual bool publishDataLog();
     virtual void assembleStateLog();
     virtual bool publishStateLog();
@@ -131,7 +135,7 @@ void DeviceController::init() {
   time_t time = Time.now();
   Serial.println(Time.format(time, "INFO: startup time: %Y-%m-%d %H:%M:%S"));
 
-  // state information
+  // state and data information
   updateStateInformation();
   updateDataInformation();
 
@@ -148,7 +152,7 @@ void DeviceController::update() {
   // name capture
   if (!name_handler_registered && Particle.connected()){
     name_handler_registered = Particle.publish("spark/device/name");
-    Serial.println("INFO: name handler registered");
+    if (name_handler_registered) Serial.println("INFO: name handler registered");
   }
 
   // startup log
@@ -162,6 +166,18 @@ void DeviceController::update() {
       Serial.println("INFO: start-up completed (not logged).");
     }
     startup_logged = true;
+  }
+
+  // data reset
+  if (isTimeForDataReset()) {
+    // publish data log before reset
+    if (getDS()->data_logging) {
+        assembleDataLog();
+        publishDataLog();
+    }
+    // resetting data
+    Serial.println(Time.format(Time.now(), "INFO: resetting data at %Y-%m-%d %H:%M:%S"));
+    for (int i=0; i<data.size(); i++) data[i].resetValue();
   }
 }
 
@@ -177,76 +193,6 @@ void DeviceController::captureName(const char *topic, const char *data) {
 
 void DeviceController::setNameCallback(void (*cb)()) {
   name_callback = cb;
-}
-
-/* DATA INFORMATION */
-
-void DeviceController::updateDataInformation() {
-  Serial.print("INFO: updating data information: ");
-  data_information_buffer[0] = 0; // reset buffer
-  assembleDataInformation();
-  postDataInformation();
-  Serial.println(data_information);
-  if (data_callback) data_callback();
-}
-
-void DeviceController::postDataInformation() {
-  Time.format(Time.now(), "%Y-%m-%d %H:%M:%S").toCharArray(date_time_buffer, sizeof(date_time_buffer));
-  snprintf(data_information, sizeof(data_information), "{dt:\"%s\",data:[%s]}",
-    date_time_buffer, data_information_buffer);
-}
-
-void DeviceController::addToDataInformation(char* info, char* sep = ",") {
-  if (data_information_buffer[0] == 0) {
-    strncpy(data_information_buffer, info, sizeof(data_information_buffer));
-  } else {
-    snprintf(data_information_buffer, sizeof(data_information_buffer),
-        "%s%s%s", data_information_buffer, sep, info);
-  }
-}
-
-void DeviceController::assembleDataInformation() {
-  for (int i=0; i<data.size(); i++) {
-    data[i].assembleInfo();
-    addToDataInformation(data[i].json);
-  }
-}
-
-void DeviceController::setDataCallback(void (*cb)()) {
-  data_callback = cb;
-}
-
-/* STATE INFORMATION */
-
-void DeviceController::updateStateInformation() {
-  Serial.print("INFO: updating state information: ");
-  state_information_buffer[0] = 0; // reset buffer
-  assembleStateInformation();
-  postStateInformation();
-  Serial.println(state_information);
-}
-
-void DeviceController::postStateInformation() {
-  Time.format(Time.now(), "%Y-%m-%d %H:%M:%S").toCharArray(date_time_buffer, sizeof(date_time_buffer));
-  snprintf(state_information, sizeof(state_information), "{dt:\"%s\",state:[%s]}",
-    date_time_buffer, state_information_buffer);
-}
-
-void DeviceController::addToStateInformation(char* info, char* sep = ",") {
-  if (state_information_buffer[0] == 0) {
-    strncpy(state_information_buffer, info, sizeof(state_information_buffer));
-  } else {
-    snprintf(state_information_buffer, sizeof(state_information_buffer),
-        "%s%s%s", state_information_buffer, sep, info);
-  }
-}
-
-void DeviceController::assembleStateInformation() {
-  char pair[60];
-  getStateTimezoneText(getDS()->timezone, pair, sizeof(pair)); addToStateInformation(pair);
-  getStateLockedText(getDS()->locked, pair, sizeof(pair)); addToStateInformation(pair);
-  getStateStateLoggingText(getDS()->state_logging, pair, sizeof(pair)); addToStateInformation(pair);
-  getStateDataLoggingText(getDS()->data_logging, pair, sizeof(pair)); addToStateInformation(pair);
 }
 
 /* DEVICE STATE CHANGE FUNCTIONS */
@@ -272,7 +218,7 @@ bool DeviceController::changeStateLogging (bool on) {
   if (changed) {
     getDS()->state_logging = on;
     on ? Serial.println("INFO: state logging turned on") : Serial.println("INFO: state logging turned off");
-    overwrite_state_log = true; // always log this event no matter what
+    override_state_log = true; // always log this event no matter what
     saveDS();
   } else {
     on ? Serial.println("INFO: state logging already on") : Serial.println("INFO: state logging already off");
@@ -384,11 +330,11 @@ int DeviceController::receiveCommand(String command_string) {
   if (!command.isTypeDefined()) command.errorCommand();
 
   // assemble and publish log
-  if (getDS()->state_logging | overwrite_state_log) {
+  if (getDS()->state_logging | override_state_log) {
     assembleStateLog();
     publishStateLog();
   }
-  overwrite_state_log = false;
+  override_state_log = false;
 
   // state information
   if (command.ret_val >= CMD_RET_SUCCESS && command.ret_val != CMD_RET_WARN_NO_CHANGE) {
@@ -402,14 +348,114 @@ int DeviceController::receiveCommand(String command_string) {
   return(command.ret_val);
 }
 
+
+/* DATA INFORMATION */
+
+void DeviceController::updateDataInformation() {
+  Serial.print("INFO: updating data information: ");
+  data_information_buffer[0] = 0; // reset buffer
+  assembleDataInformation();
+  postDataInformation();
+  Serial.println(data_information);
+  if (data_callback) data_callback();
+}
+
+void DeviceController::postDataInformation() {
+  Time.format(Time.now(), "%Y-%m-%d %H:%M:%S").toCharArray(date_time_buffer, sizeof(date_time_buffer));
+  snprintf(data_information, sizeof(data_information), "{dt:\"%s\",data:[%s]}",
+    date_time_buffer, data_information_buffer);
+}
+
+void DeviceController::addToDataInformation(char* info) {
+  if (data_information_buffer[0] == 0) {
+    strncpy(data_information_buffer, info, sizeof(data_information_buffer));
+  } else {
+    snprintf(data_information_buffer, sizeof(data_information_buffer),
+        "%s,%s", data_information_buffer, info);
+  }
+}
+
+void DeviceController::assembleDataInformation() {
+  for (int i=0; i<data.size(); i++) {
+    data[i].assembleInfo();
+    addToDataInformation(data[i].json);
+  }
+}
+
+void DeviceController::setDataCallback(void (*cb)()) {
+  data_callback = cb;
+}
+
+/* STATE INFORMATION */
+
+void DeviceController::updateStateInformation() {
+  Serial.print("INFO: updating state information: ");
+  state_information_buffer[0] = 0; // reset buffer
+  assembleStateInformation();
+  postStateInformation();
+  Serial.println(state_information);
+}
+
+void DeviceController::postStateInformation() {
+  Time.format(Time.now(), "%Y-%m-%d %H:%M:%S").toCharArray(date_time_buffer, sizeof(date_time_buffer));
+  snprintf(state_information, sizeof(state_information), "{dt:\"%s\",state:[%s]}",
+    date_time_buffer, state_information_buffer);
+}
+
+void DeviceController::addToStateInformation(char* info) {
+  if (state_information_buffer[0] == 0) {
+    strncpy(state_information_buffer, info, sizeof(state_information_buffer));
+  } else {
+    snprintf(state_information_buffer, sizeof(state_information_buffer),
+        "%s,%s", state_information_buffer, info);
+  }
+}
+
+void DeviceController::assembleStateInformation() {
+  char pair[60];
+  getStateTimezoneText(getDS()->timezone, pair, sizeof(pair)); addToStateInformation(pair);
+  getStateLockedText(getDS()->locked, pair, sizeof(pair)); addToStateInformation(pair);
+  getStateStateLoggingText(getDS()->state_logging, pair, sizeof(pair)); addToStateInformation(pair);
+  getStateDataLoggingText(getDS()->data_logging, pair, sizeof(pair)); addToStateInformation(pair);
+}
+
+
 /***** WEBHOOK CALLS *******/
 
-void DeviceController::assembleDataLog() {
+void DeviceController::assembleDataLog() { assembleDataLog(true); }
 
+void DeviceController::assembleDataLog(bool global_time_offset) {
+  data_log[0] = 0;
+  data_log_buffer[0] = 0;
+  bool include_time_offset = !global_time_offset;
+  for (int i=0; i<data.size(); i++) {
+    data[i].assembleLog(include_time_offset);
+    addToDataLog(data[i].json);
+  }
+
+  // global time
+  long global_time = data[0].data_time - millis();
+
+  if (global_time_offset) {
+    snprintf(data_log, sizeof(data_log), "{\"to\":%d,\"data\":[%s]}", global_time, data_log_buffer);
+  } else {
+    snprintf(data_log, sizeof(data_log), "{\"data\":[%s]}", data_log_buffer);
+  }
+  // FIXME: implement size checks!! --> malformatted JSON will crash the webhook
+}
+
+void DeviceController::addToDataLog(char* info) {
+  if (data_log_buffer[0] == 0) {
+    strncpy(data_log_buffer, info, sizeof(data_log_buffer));
+  } else {
+    snprintf(data_log_buffer, sizeof(data_log_buffer),
+        "%s,%s", data_log_buffer, info);
+  }
 }
 
 bool DeviceController::publishDataLog() {
-  Serial.print("INFO: publishing log " + String(data_log) + " to event '" + String(DATA_LOG_WEBHOOK) + "'... ");
+  if (!getDS()->data_logging) Serial.println("WARNING: publishing data log despite data logging turned off");
+  Serial.print("INFO: publishing data log " + String(data_log) + " to event '" + String(DATA_LOG_WEBHOOK) + "'... ");
   if(Particle.publish(DATA_LOG_WEBHOOK, data_log, PRIVATE, WITH_ACK)) {
     Serial.println("successful.");
     return(true);
@@ -420,17 +466,16 @@ bool DeviceController::publishDataLog() {
 }
 
 void DeviceController::assembleStateLog() {
-  if (command.data[0] == 0) {
-    // add empty data entry
-    strcpy(command.data, "{}");
-  }
+  state_log[0] = 0;
+  if (command.data[0] == 0) strcpy(command.data, "{}"); // empty data entry
   snprintf(state_log, sizeof(state_log),
      "{\"type\":\"%s\",\"data\":[%s],\"msg\":\"%s\",\"notes\":\"%s\"}",
      command.type, command.data, command.msg, command.notes);
+  // FIXME: implement size checks!! --> malformatted JSON will crash the webhook
 }
 
 bool DeviceController::publishStateLog() {
-  Serial.print("INFO: publishing log " + String(state_log) + " to event '" + String(STATE_LOG_WEBHOOK) + "'... ");
+  Serial.print("INFO: publishing state log " + String(state_log) + " to event '" + String(STATE_LOG_WEBHOOK) + "'... ");
   if(Particle.publish(STATE_LOG_WEBHOOK, state_log, PRIVATE, WITH_ACK)) {
     Serial.println("successful.");
     return(true);
