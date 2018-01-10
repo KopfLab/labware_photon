@@ -1,9 +1,6 @@
 #pragma once
 #include "device/DeviceController.h"
 
-// serial communication constants
-#define SCALE_DATA_REQUEST  "#" // data request command
-
 // serial data status code
 #define SERIAL_DATA_WAITING   0 // waiting for more data
 #define SERIAL_DATA_COMPLETE  1 // all data received
@@ -36,7 +33,7 @@ class DeviceControllerSerial : public DeviceController {
     // serial communications info
     bool waiting_for_response = false; // waiting for response
     int n_byte; // number of bytes received
-    long last_read = millis(); // last read
+    unsigned long last_read; // last read
     int serial_data_status = SERIAL_DATA_COMPLETE; // whether data has been received
 
   public:
@@ -90,6 +87,7 @@ void DeviceControllerSerial::init() {
   while (Serial1.available()) {
     Serial1.read();
   }
+  last_read = millis();
 }
 
 // loop function
@@ -144,7 +142,7 @@ void DeviceControllerSerial::update() {
     // data request
     bool request_data = false;
 
-    if (serial_data_status == SERIAL_DATA_ERROR && millis() - last_read > error_wait) {
+    if (serial_data_status == SERIAL_DATA_ERROR && (millis() - last_read) > error_wait) {
       // request data becaus of error timeout
       Serial.print("INFO: error reset timeout reached, re-requesting data");
       request_data = true;
@@ -152,7 +150,7 @@ void DeviceControllerSerial::update() {
       // request data because in manual mode and not expecting response
       Serial.print("INFO: listening to manual data transmissions");
       request_data = true;
-    } else if (!serialIsManual() && millis() - last_read > request_wait) {
+    } else if (!serialIsManual() && (millis() - last_read) > request_wait) {
       // not in manual mode and waited the request_wait time since last activity
       (serial_data_status == SERIAL_DATA_COMPLETE) ?
         Serial.print("INFO: issuing new request for data") :
@@ -166,7 +164,7 @@ void DeviceControllerSerial::update() {
       Time.format(Time.now(), "%Y-%m-%d %H:%M:%S").toCharArray(date_time_buffer, sizeof(date_time_buffer));
       Serial.print(" at ");
       Serial.println(date_time_buffer);
-      if (!serialIsManual()) Serial1.println(SCALE_DATA_REQUEST);
+      if (!serialIsManual()) Serial1.println(request_command);
 
       // request parameters
       last_read = millis();
@@ -187,7 +185,7 @@ void DeviceControllerSerial::postDataInformation() {
 /** SERIAL PROCESSING (virtual functions) **/
 
 void DeviceControllerSerial::startSerialData() {
-  long start_time = millis();
+  unsigned long start_time = millis();
   for (int i=0; i<data.size(); i++) data[i].setNewestDataTime(start_time);
   resetSerialBuffers();
 }

@@ -434,14 +434,17 @@ void DeviceController::assembleDataLog(bool global_time_offset) {
   }
 
   // global time
-  long global_time = data[0].data_time - millis();
-
+  unsigned long global_time = millis() - data[0].data_time;
+  int buffer_size;
   if (global_time_offset) {
-    snprintf(data_log, sizeof(data_log), "{\"to\":%d,\"data\":[%s]}", global_time, data_log_buffer);
+    buffer_size = snprintf(data_log, sizeof(data_log), "{\"to\":%ul,\"data\":[%s]}", global_time, data_log_buffer);
   } else {
-    snprintf(data_log, sizeof(data_log), "{\"data\":[%s]}", data_log_buffer);
+    buffer_size = snprintf(data_log, sizeof(data_log), "{\"data\":[%s]}", data_log_buffer);
   }
-  // FIXME: implement size checks!! --> malformatted JSON will crash the webhook
+  if (buffer_size < 0 || buffer_size >= sizeof(data_log)) {
+    Serial.println("ERROR: data log buffer not large enough for state log");
+    // FIXME: implement better size checks!! --> malformatted JSON will crash the webhook
+  }
 }
 
 void DeviceController::addToDataLog(char* info) {
@@ -468,10 +471,13 @@ bool DeviceController::publishDataLog() {
 void DeviceController::assembleStateLog() {
   state_log[0] = 0;
   if (command.data[0] == 0) strcpy(command.data, "{}"); // empty data entry
-  snprintf(state_log, sizeof(state_log),
+  int buffer_size = snprintf(state_log, sizeof(state_log),
      "{\"type\":\"%s\",\"data\":[%s],\"msg\":\"%s\",\"notes\":\"%s\"}",
      command.type, command.data, command.msg, command.notes);
-  // FIXME: implement size checks!! --> malformatted JSON will crash the webhook
+  if (buffer_size < 0 || buffer_size >= sizeof(state_log)) {
+    Serial.println("ERROR: state log buffer not large enough for state log");
+    // FIXME: implement better size checks!! --> malformatted JSON will crash the webhook
+  }
 }
 
 bool DeviceController::publishStateLog() {

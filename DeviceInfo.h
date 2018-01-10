@@ -27,7 +27,7 @@
 // NOTE: consider implementing better error catching for overlong key/value pairs
 
 // formatting patterns
-#define PATTERN_KVUNT_JSON        "{\"k\":\"%s\",\"v\":%s,\"u\":\"%s\",\"n\":%d,\"to\":%d}"
+#define PATTERN_KVUNT_JSON        "{\"k\":\"%s\",\"v\":%s,\"u\":\"%s\",\"n\":%ul,\"to\":%d}"
 
 #define PATTERN_KVUN_SIMPLE      "%s: %s%s (%d)"
 #define PATTERN_KVUN_JSON        "{\"k\":\"%s\",\"v\":%s,\"u\":\"%s\",\"n\":%d}"
@@ -46,7 +46,7 @@
 
 /**** GENERAL UTILITY FUNCTIONS ****/
 
-static void getInfoKeyValueUnitsNumberTimeOffset(char* target, int size, char* key, char* value, char* units, int n, long time_offset, char* pattern) {
+static void getInfoKeyValueUnitsNumberTimeOffset(char* target, int size, char* key, char* value, char* units, int n, unsigned long time_offset, char* pattern) {
   snprintf(target, size, pattern, key, value, units, n, time_offset);
 }
 
@@ -76,7 +76,7 @@ static void getInfoValue(char* target, int size, char* value, char* pattern = PA
 
 /**** DATA INFO FUNCTIONS ****/
 
-static void getDataDoubleText(char* key, double value, char* units, int n, int time_offset, char* target, int size, char* pattern, int decimals) {
+static void getDataDoubleText(char* key, double value, char* units, int n, unsigned long time_offset, char* target, int size, char* pattern, int decimals) {
   char value_pattern[5];
   snprintf(value_pattern, sizeof(value_pattern), "%%.%df", decimals);
   char value_text[15];
