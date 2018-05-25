@@ -10,7 +10,7 @@
 #define STATE_INFO_VARIABLE   "device_state" // name of the particle exposed state variable
 #define STATE_INFO_MAX_CHAR   600 // how long is the state information maximally
 
-#define STATE_LOG_WEBHOOK     "device_state_log"  // name of the webhoook to device state log
+#define STATE_LOG_WEBHOOK     "device_state_log"  // name of the webhook to device state log
 #define STATE_LOG_MAX_CHAR    255  // spark.publish is limited to 255 chars of data
 
 #define DATA_INFO_VARIABLE    "device_data" // name of the particle exposed data variable
@@ -27,7 +27,7 @@
 // NOTE: consider implementing better error catching for overlong key/value pairs
 
 // formatting patterns
-#define PATTERN_KVUNT_JSON        "{\"k\":\"%s\",\"v\":%s,\"u\":\"%s\",\"n\":%ul,\"to\":%d}"
+#define PATTERN_KVUNT_JSON        "{\"k\":\"%s\",\"v\":%s,\"u\":\"%s\",\"n\":%lu,\"to\":%d}"
 
 #define PATTERN_KVUN_SIMPLE      "%s: %s%s (%d)"
 #define PATTERN_KVUN_JSON        "{\"k\":\"%s\",\"v\":%s,\"u\":\"%s\",\"n\":%d}"

@@ -67,6 +67,7 @@ class DeviceController {
 
     // data information
     virtual bool isTimeForDataReset() { return(false); } // whether it's time for a data reset and log (if logging is on)
+    void resetData(); // reset all data fields
     virtual void assembleDataInformation();
     void addToDataInformation(char* info);
     void setDataCallback(void (*cb)()); // assign a callback function
@@ -135,10 +136,6 @@ void DeviceController::init() {
   time_t time = Time.now();
   Serial.println(Time.format(time, "INFO: startup time: %Y-%m-%d %H:%M:%S"));
 
-  // state and data information
-  updateStateInformation();
-  updateDataInformation();
-
   // register particle functions
   Serial.println("INFO: registering device cloud variables");
   Particle.subscribe("spark/", &DeviceController::captureName, this);
@@ -155,8 +152,13 @@ void DeviceController::update() {
     if (name_handler_registered) Serial.println("INFO: name handler registered");
   }
 
-  // startup log
+  // startup complete
   if (!startup_logged && name_handler_succeeded) {
+
+    // state and data information
+    updateStateInformation();
+    updateDataInformation();
+
     if (getDS()->state_logging) {
       Serial.println("INFO: start-up completed.");
       command.makeStartupLog();
@@ -176,8 +178,7 @@ void DeviceController::update() {
         publishDataLog();
     }
     // resetting data
-    Serial.println(Time.format(Time.now(), "INFO: resetting data at %Y-%m-%d %H:%M:%S"));
-    for (int i=0; i<data.size(); i++) data[i].resetValue();
+    resetData();
   }
 }
 
@@ -187,7 +188,7 @@ void DeviceController::captureName(const char *topic, const char *data) {
   // store name and also assign it to device information
   strncpy ( name, data, sizeof(name) );
   name_handler_succeeded = true;
-  Serial.println("INFO: device name " + String(name));
+  Serial.println("INFO: device name '" + String(name) + "'");
   if (name_callback) name_callback();
 }
 
@@ -237,6 +238,10 @@ bool DeviceController::changeDataLogging (bool on) {
   } else {
     on ? Serial.println("INFO: data logging already on") : Serial.println("INFO: data logging already off");
   }
+
+  // make sure data is reset
+  if (changed && on) resetData();
+
   return(changed);
 }
 
@@ -351,6 +356,11 @@ int DeviceController::receiveCommand(String command_string) {
 
 /* DATA INFORMATION */
 
+void DeviceController::resetData() {
+  Serial.println(Time.format(Time.now(), "INFO: resetting data at %Y-%m-%d %H:%M:%S"));
+  for (int i=0; i<data.size(); i++) data[i].resetValue();
+}
+
 void DeviceController::updateDataInformation() {
   Serial.print("INFO: updating data information: ");
   data_information_buffer[0] = 0; // reset buffer
@@ -361,9 +371,13 @@ void DeviceController::updateDataInformation() {
 }
 
 void DeviceController::postDataInformation() {
-  Time.format(Time.now(), "%Y-%m-%d %H:%M:%S").toCharArray(date_time_buffer, sizeof(date_time_buffer));
-  snprintf(data_information, sizeof(data_information), "{dt:\"%s\",data:[%s]}",
-    date_time_buffer, data_information_buffer);
+  if (Particle.connected()) {
+    Time.format(Time.now(), "%Y-%m-%d %H:%M:%S").toCharArray(date_time_buffer, sizeof(date_time_buffer));
+    snprintf(data_information, sizeof(data_information), "{dt:\"%s\",data:[%s]}",
+      date_time_buffer, data_information_buffer);
+  } else {
+    Serial.println("ERROR: particle not (yet) connected.");
+  }
 }
 
 void DeviceController::addToDataInformation(char* info) {
@@ -397,9 +411,13 @@ void DeviceController::updateStateInformation() {
 }
 
 void DeviceController::postStateInformation() {
-  Time.format(Time.now(), "%Y-%m-%d %H:%M:%S").toCharArray(date_time_buffer, sizeof(date_time_buffer));
-  snprintf(state_information, sizeof(state_information), "{dt:\"%s\",state:[%s]}",
-    date_time_buffer, state_information_buffer);
+  if (Particle.connected()) {
+    Time.format(Time.now(), "%Y-%m-%d %H:%M:%S").toCharArray(date_time_buffer, sizeof(date_time_buffer));
+    snprintf(state_information, sizeof(state_information), "{dt:\"%s\",state:[%s]}",
+      date_time_buffer, state_information_buffer);
+  } else {
+    Serial.println("ERROR: particle not (yet) connected.");
+  }
 }
 
 void DeviceController::addToStateInformation(char* info) {
@@ -437,7 +455,7 @@ void DeviceController::assembleDataLog(bool global_time_offset) {
   unsigned long global_time = millis() - data[0].data_time;
   int buffer_size;
   if (global_time_offset) {
-    buffer_size = snprintf(data_log, sizeof(data_log), "{\"to\":%ul,\"data\":[%s]}", global_time, data_log_buffer);
+    buffer_size = snprintf(data_log, sizeof(data_log), "{\"to\":%lu,\"data\":[%s]}", global_time, data_log_buffer);
   } else {
     buffer_size = snprintf(data_log, sizeof(data_log), "{\"data\":[%s]}", data_log_buffer);
   }
@@ -459,7 +477,7 @@ void DeviceController::addToDataLog(char* info) {
 bool DeviceController::publishDataLog() {
   if (!getDS()->data_logging) Serial.println("WARNING: publishing data log despite data logging turned off");
   Serial.print("INFO: publishing data log " + String(data_log) + " to event '" + String(DATA_LOG_WEBHOOK) + "'... ");
-  if(Particle.publish(DATA_LOG_WEBHOOK, data_log, PRIVATE, WITH_ACK)) {
+  if(Particle.connected() && Particle.publish(DATA_LOG_WEBHOOK, data_log, PRIVATE, WITH_ACK)) {
     Serial.println("successful.");
     return(true);
   } else {
@@ -482,7 +500,7 @@ void DeviceController::assembleStateLog() {
 
 bool DeviceController::publishStateLog() {
   Serial.print("INFO: publishing state log " + String(state_log) + " to event '" + String(STATE_LOG_WEBHOOK) + "'... ");
-  if(Particle.publish(STATE_LOG_WEBHOOK, state_log, PRIVATE, WITH_ACK)) {
+  if(Particle.connected() && Particle.publish(STATE_LOG_WEBHOOK, state_log, PRIVATE, WITH_ACK)) {
     Serial.println("successful.");
     return(true);
   } else {

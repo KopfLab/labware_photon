@@ -111,7 +111,7 @@ void DeviceData::saveNewestValue(bool average) {
       n = 1;
       Serial.print("INFO: single value saved for '");
     }
-    Serial.println(String(variable) + "': " + String(value) + " (n=" + String(n) + "; time offset=" + String(data_time) + "ms)");
+    Serial.println(String(variable) + "': " + String(value) + " (n=" + String(n) + "; data time=" + String(data_time) + "ms)");
   } else {
     Serial.println("WARNING: newest value not valid and therefore not saved");
   }
