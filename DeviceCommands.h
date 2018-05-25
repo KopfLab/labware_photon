@@ -39,10 +39,6 @@
   #define CMD_DATA_LOG_ON     "on"
   #define CMD_DATA_LOG_OFF    "off"
 
-
-// timezone
-#define CMD_TIMEZONE        "tz"
-
 struct DeviceCommand {
 
     // command message

@@ -30,7 +30,7 @@ class DeviceController {
     void (*data_callback)();
 
     // buffer for date time
-    char date_time_buffer[21];
+    char date_time_buffer[25];
 
     // buffer and information variables
     char state_information[STATE_INFO_MAX_CHAR];
@@ -85,7 +85,6 @@ class DeviceController {
     bool changeLocked(bool on);
     bool changeStateLogging(bool on);
     bool changeDataLogging(bool on);
-    bool changeTimezone(int tz);
 
     // particle command parsing functions
     void setCommandCallback(void (*cb)()); // assign a callback function
@@ -94,7 +93,6 @@ class DeviceController {
     bool parseLocked();
     bool parseStateLogging();
     bool parseDataLogging();
-    bool parseTimezone();
 
     // particle variables
     virtual void updateDataInformation();
@@ -132,9 +130,7 @@ void DeviceController::init() {
   }
 
   // startup time info
-  Time.zone(getDS()->timezone);
-  time_t time = Time.now();
-  Serial.println(Time.format(time, "INFO: startup time: %Y-%m-%d %H:%M:%S"));
+  Serial.println(Time.format(Time.now(), "INFO: startup time: %Y-%m-%d %H:%M:%S %Z"));
 
   // register particle functions
   Serial.println("INFO: registering device cloud variables");
@@ -245,22 +241,6 @@ bool DeviceController::changeDataLogging (bool on) {
   return(changed);
 }
 
-// time zone
-bool DeviceController::changeTimezone (int tz) {
-  bool changed = tz != getDS()->timezone;
-  if (changed) {
-    getDS()->timezone = tz;
-    Serial.print("INFO: timezone changed to " + String(getDS()->timezone));
-    Time.zone(getDS()->timezone);
-    time_t time = Time.now();
-    Serial.println(Time.format(time, ", time: %Y-%m-%d %H:%M:%S"));
-    saveDS();
-  } else {
-    Serial.println("INFO: timezone unchanged (" + String(getDS()->timezone) + ")");
-  }
-  return(changed);
-}
-
 /* COMMAND PARSING FUNCTIONS */
 
 void DeviceController::setCommandCallback(void (*cb)()) {
@@ -313,17 +293,6 @@ bool DeviceController::parseDataLogging() {
   return(command.isTypeDefined());
 }
 
-bool DeviceController::parseTimezone() {
-  if (command.parseVariable(CMD_TIMEZONE)) {
-    // timezone
-    command.extractValue();
-    int tz = atoi(command.value);
-    (tz >= -12 && tz <= 14) ? command.success(changeTimezone(tz)) : command.errorValue();
-    getStateTimezoneText(getDS()->timezone, command.data, sizeof(command.data));
-  }
-  return(command.isTypeDefined());
-}
-
 /****** WEB COMMAND PROCESSING *******/
 
 int DeviceController::receiveCommand(String command_string) {
@@ -357,7 +326,7 @@ int DeviceController::receiveCommand(String command_string) {
 /* DATA INFORMATION */
 
 void DeviceController::resetData() {
-  Serial.println(Time.format(Time.now(), "INFO: resetting data at %Y-%m-%d %H:%M:%S"));
+  Serial.println(Time.format(Time.now(), "INFO: resetting data at %Y-%m-%d %H:%M:%S %Z"));
   for (int i=0; i<data.size(); i++) data[i].resetValue();
 }
 
@@ -372,7 +341,7 @@ void DeviceController::updateDataInformation() {
 
 void DeviceController::postDataInformation() {
   if (Particle.connected()) {
-    Time.format(Time.now(), "%Y-%m-%d %H:%M:%S").toCharArray(date_time_buffer, sizeof(date_time_buffer));
+    Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
     snprintf(data_information, sizeof(data_information), "{dt:\"%s\",data:[%s]}",
       date_time_buffer, data_information_buffer);
   } else {
@@ -412,7 +381,7 @@ void DeviceController::updateStateInformation() {
 
 void DeviceController::postStateInformation() {
   if (Particle.connected()) {
-    Time.format(Time.now(), "%Y-%m-%d %H:%M:%S").toCharArray(date_time_buffer, sizeof(date_time_buffer));
+    Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
     snprintf(state_information, sizeof(state_information), "{dt:\"%s\",state:[%s]}",
       date_time_buffer, state_information_buffer);
   } else {
@@ -431,7 +400,6 @@ void DeviceController::addToStateInformation(char* info) {
 
 void DeviceController::assembleStateInformation() {
   char pair[60];
-  getStateTimezoneText(getDS()->timezone, pair, sizeof(pair)); addToStateInformation(pair);
   getStateLockedText(getDS()->locked, pair, sizeof(pair)); addToStateInformation(pair);
   getStateStateLoggingText(getDS()->state_logging, pair, sizeof(pair)); addToStateInformation(pair);
   getStateDataLoggingText(getDS()->data_logging, pair, sizeof(pair)); addToStateInformation(pair);

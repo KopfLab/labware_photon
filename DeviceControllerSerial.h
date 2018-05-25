@@ -122,7 +122,7 @@ void DeviceControllerSerial::update() {
       } else if (serial_data_status == SERIAL_DATA_COMPLETE) {
         // message completely received
         Serial.print("INFO: data reading complete at ");
-        Time.format(Time.now(), "%Y-%m-%d %H:%M:%S").toCharArray(date_time_buffer, sizeof(date_time_buffer));
+        Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
         Serial.println(date_time_buffer);
         completeSerialData();
         waiting_for_response = false;
@@ -161,7 +161,7 @@ void DeviceControllerSerial::update() {
     // (re)-request information
     if (request_data){
       // datetime info
-      Time.format(Time.now(), "%Y-%m-%d %H:%M:%S").toCharArray(date_time_buffer, sizeof(date_time_buffer));
+      Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
       Serial.print(" at ");
       Serial.println(date_time_buffer);
       if (!serialIsManual()) Serial1.println(request_command);
