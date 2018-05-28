@@ -4,6 +4,7 @@
 #include "device/DeviceInfo.h"
 #include "device/DeviceCommands.h"
 #include "device/DeviceData.h"
+#include "device/DeviceDisplay.h"
 
 // controller class
 class DeviceController {
