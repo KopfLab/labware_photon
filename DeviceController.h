@@ -6,6 +6,9 @@
 #include "device/DeviceData.h"
 #include "device/DeviceDisplay.h"
 
+// debugging codes
+#define CLOUD_DEBUG_NOSEND // enable to avoid cloud messages from getting sent
+
 // controller class
 class DeviceController {
 
@@ -25,8 +28,9 @@ class DeviceController {
 
   protected:
 
-    // lcd pointer
+    // lcd pointer and buffer
     DeviceDisplay* lcd = 0;
+    char lcd_buffer[21];
 
     // call backs
     void (*name_callback)() = 0;
@@ -99,6 +103,10 @@ class DeviceController {
     bool parseStateLogging();
     bool parseDataLogging();
 
+    // command info to LCD display
+    virtual void assembleDisplayCommandInformation();
+    virtual void showDisplayCommandInformation();
+
     // particle variables
     virtual void updateDataInformation();
     virtual void postDataInformation();
@@ -110,6 +118,7 @@ class DeviceController {
     virtual void assembleDataLog(bool gobal_time_offset);
     void addToDataLog(char* info);
     virtual bool publishDataLog();
+    virtual void assembleStartupLog();
     virtual void assembleStateLog();
     virtual bool publishStateLog();
 };
@@ -123,14 +132,14 @@ void DeviceController::init() {
   // lcd
   if (lcd) {
     lcd->init();
-    lcd->print_line(1, "Starting up...");
+    lcd->printLine(1, "Starting up...");
   }
 
   //  check for reset
   if(digitalRead(reset_pin) == HIGH) {
     reset = true;
     Serial.println("INFO: reset request detected");
-    if (lcd) lcd->print_line_temp(1, "Resetting...");
+    if (lcd) lcd->printLineTemp(1, "Resetting...");
   }
 
   // initialize / restore state
@@ -172,8 +181,7 @@ void DeviceController::update() {
 
     if (getDS()->state_logging) {
       Serial.println("INFO: start-up completed.");
-      command.makeStartupLog();
-      assembleStateLog();
+      assembleStartupLog();
       publishStateLog();
     } else {
       Serial.println("INFO: start-up completed (not logged).");
@@ -200,7 +208,7 @@ void DeviceController::captureName(const char *topic, const char *data) {
   strncpy ( name, data, sizeof(name) );
   name_handler_succeeded = true;
   Serial.println("INFO: device name '" + String(name) + "'");
-  if (lcd) lcd->print_line(1, "ID: " + String(name));
+  if (lcd) lcd->printLine(1, "ID: " + String(name));
   if (name_callback) name_callback();
 }
 
@@ -319,6 +327,10 @@ int DeviceController::receiveCommand(String command_string) {
   parseCommand();
   if (!command.isTypeDefined()) command.errorCommand();
 
+  // lcd info
+  assembleDisplayCommandInformation();
+  showDisplayCommandInformation();
+
   // assemble and publish log
   if (getDS()->state_logging | override_state_log) {
     assembleStateLog();
@@ -338,6 +350,19 @@ int DeviceController::receiveCommand(String command_string) {
   return(command.ret_val);
 }
 
+/* COMMAND DISPLAY INFORMATION */
+
+void DeviceController::assembleDisplayCommandInformation() {
+  if (command.ret_val == CMD_RET_ERR_LOCKED)
+    // make user aware of locked status since this may be a confusing error
+    snprintf(lcd_buffer, sizeof(lcd_buffer), "%s (LOCKED): %s", command.type_short, command.command);
+  else
+    snprintf(lcd_buffer, sizeof(lcd_buffer), "%s: %s", command.type_short, command.command);
+}
+
+void DeviceController::showDisplayCommandInformation() {
+  if (lcd) lcd->printLineTemp(1, lcd_buffer);
+}
 
 /* DATA INFORMATION */
 
@@ -461,13 +486,22 @@ void DeviceController::addToDataLog(char* info) {
 bool DeviceController::publishDataLog() {
   if (!getDS()->data_logging) Serial.println("WARNING: publishing data log despite data logging turned off");
   Serial.print("INFO: publishing data log " + String(data_log) + " to event '" + String(DATA_LOG_WEBHOOK) + "'... ");
-  if(Particle.connected() && Particle.publish(DATA_LOG_WEBHOOK, data_log, PRIVATE, WITH_ACK)) {
-    Serial.println("successful.");
-    return(true);
-  } else {
-    Serial.println("failed!");
-    return(false);
-  }
+
+  #ifdef CLOUD_DEBUG_NOSEND
+    Serial.println("NOT sent because in CLOUD_DEBUG_NOSEND mode.");
+  #else
+    if(Particle.connected() && Particle.publish(DATA_LOG_WEBHOOK, data_log, PRIVATE, WITH_ACK)) {
+      Serial.println("successful.");
+      return(true);
+    } else {
+      Serial.println("failed!");
+      return(false);
+    }
+  #endif
+}
+
+void DeviceController::assembleStartupLog() {
+  snprintf(state_log, sizeof(state_log), "{\"type\":\"startup\",\"data\":[{\"k\":\"startup\",\"v\":\"complete\"}],\"msg\":\"\",\"notes\":\"\"}");
 }
 
 void DeviceController::assembleStateLog() {
@@ -484,11 +518,15 @@ void DeviceController::assembleStateLog() {
 
 bool DeviceController::publishStateLog() {
   Serial.print("INFO: publishing state log " + String(state_log) + " to event '" + String(STATE_LOG_WEBHOOK) + "'... ");
-  if(Particle.connected() && Particle.publish(STATE_LOG_WEBHOOK, state_log, PRIVATE, WITH_ACK)) {
-    Serial.println("successful.");
-    return(true);
-  } else {
-    Serial.println("failed!");
-    return(false);
-  }
+  #ifdef CLOUD_DEBUG_NOSEND
+    Serial.println("NOT sent because in CLOUD_DEBUG_NOSEND mode.");
+  #else
+    if(Particle.connected() && Particle.publish(STATE_LOG_WEBHOOK, state_log, PRIVATE, WITH_ACK)) {
+      Serial.println("successful.");
+      return(true);
+    } else {
+      Serial.println("failed!");
+      return(false);
+    }
+  #endif
 }

@@ -1,5 +1,3 @@
-// NOTE: consider extracting the log part from the command and keep as a separate class
-// would make it easier to use for logging start-up and other extra-ordinatory events
 #pragma once
 #include "device/DeviceInfo.h"
 
@@ -17,14 +15,19 @@
 #define CMD_RET_ERR_CMD_TEXT          "invalid command"
 #define CMD_RET_ERR_VAL               -4 // invalid value
 #define CMD_RET_ERR_VAL_TEXT          "invalid value"
+
 #define CMD_RET_WARN_NO_CHANGE         1 // state unchaged because it was already the same
 #define CMD_RET_WARN_NO_CHANGE_TEXT    "state already as requested"
 
 // command log types
-#define CMD_LOG_TYPE_UNDEFINED        "undefined"
-#define CMD_LOG_TYPE_ERROR            "error"
-#define CMD_LOG_TYPE_STATE_CHANGED    "state changed"
-#define CMD_LOG_TYPE_STATE_UNCHANGED  "state unchanged"
+#define CMD_LOG_TYPE_UNDEFINED              "undefined"
+#define CMD_LOG_TYPE_UNDEFINED_SHORT        "UDEF"
+#define CMD_LOG_TYPE_ERROR                  "error"
+#define CMD_LOG_TYPE_ERROR_SHORT            "ERR"
+#define CMD_LOG_TYPE_STATE_CHANGED          "state changed"
+#define CMD_LOG_TYPE_STATE_CHANGED_SHORT    "SC"
+#define CMD_LOG_TYPE_STATE_UNCHANGED        "state unchanged"
+#define CMD_LOG_TYPE_STATE_UNCHANGED_SHORT  "SU"
 
 // control
 #define CMD_LOCK            "lock" // device "lock on/off [notes]" : locks/unlocks the device
@@ -51,6 +54,7 @@ struct DeviceCommand {
 
     // command outcome
     char type[20]; // command type
+    char type_short[10]; // short version of the command type (for lcd)
     char msg[50]; // log message
     char data[50]; // data text
     int ret_val; // return value
@@ -85,16 +89,7 @@ struct DeviceCommand {
     // set a log message
     void setLogMsg(char* log_msg);
 
-    // other speciality commands
-    void makeStartupLog();
 };
-
-void DeviceCommand::makeStartupLog() {
-  reset();
-  strcpy(type, "startup");
-  getInfoKeyValue(data, sizeof(data), "startup", "complete", PATTERN_KV_JSON_QUOTED);
-  ret_val = CMD_RET_SUCCESS;
-}
 
 /****** COMMAND PARSING *******/
 
@@ -112,6 +107,7 @@ void DeviceCommand::reset() {
   notes[0] = 0;
 
   strcpy(type, CMD_LOG_TYPE_UNDEFINED);
+  strcpy(type_short, CMD_LOG_TYPE_UNDEFINED_SHORT);
   msg[0] = 0;
   data[0] = 0;
   ret_val = CMD_RET_UNDEFINED;
@@ -189,9 +185,11 @@ void DeviceCommand::success(bool state_changed, bool capture_notes) {
   if (state_changed) {
     ret_val = CMD_RET_SUCCESS;
     strcpy(type, CMD_LOG_TYPE_STATE_CHANGED);
+    strcpy(type_short, CMD_LOG_TYPE_STATE_CHANGED_SHORT);
   } else {
     warning(CMD_RET_WARN_NO_CHANGE, CMD_RET_WARN_NO_CHANGE_TEXT);
     strcpy(type, CMD_LOG_TYPE_STATE_UNCHANGED);
+    strcpy(type_short, CMD_LOG_TYPE_STATE_UNCHANGED_SHORT);
   }
   if (capture_notes) {
     assignNotes();
@@ -209,6 +207,7 @@ void DeviceCommand::error(int code, char* text) {
   ret_val = code;
   setLogMsg(text);
   strncpy(type, CMD_LOG_TYPE_ERROR, sizeof(type) - 1);
+  strcpy(type_short, CMD_LOG_TYPE_ERROR_SHORT);
   strcpy(notes, command); // store entire command in notes
 }
 

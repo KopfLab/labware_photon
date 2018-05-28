@@ -36,9 +36,9 @@ private:
 	unsigned long temp_text_show_start = 0;	    // when the last temp text was started (changes reset the start time for all temp text!)
 
 	// keep track of position / navigation
-	void move_to_pos(uint8_t line, uint8_t col);
-	uint16_t get_pos();
-	uint16_t get_pos(uint8_t line, uint8_t col);
+	void moveToPos(uint8_t line, uint8_t col);
+	uint16_t getPos();
+	uint16_t getPos(uint8_t line, uint8_t col);
 
 public:
 
@@ -55,37 +55,37 @@ public:
 	void init ();
 
 	// set temporary text show time (in seconds)
-	void set_temp_text_show_time(uint8_t show_time);
+	void setTempTextShowTime(uint8_t show_time);
 
 	// clears the line (overwrites spaces)
-	void clear_line (uint8_t line, uint8_t start = 1, uint8_t end = LCD_LINE_END);
+	void clearLine (uint8_t line, uint8_t start = 1, uint8_t end = LCD_LINE_END);
 
 	// move to a specific line (e.g. before adding individual text with print)
-	void go_to_line (uint8_t line);
+	void goToLine (uint8_t line);
 
 	// print normal text (temp text that is still visible is only overwritten with new temp text)
 	void print (const char c[], bool temp = false);
 
 	// print a whole line (shortens text if too long, pads with spaces if too short)
-	void print_line (uint8_t line, const char text[], uint8_t start, uint8_t end, uint8_t align, bool temp);
+	void printLine (uint8_t line, const char text[], uint8_t start, uint8_t end, uint8_t align, bool temp);
 
-	// simpler version of print_line with useful defaults (left aligned, start at first character, print whole line)
-	void print_line(uint8_t line, const char text[], uint8_t length = LCD_LINE_LENGTH, uint8_t start = 1L);
+	// simpler version of printLine with useful defaults (left aligned, start at first character, print whole line)
+	void printLine(uint8_t line, const char text[], uint8_t length = LCD_LINE_LENGTH, uint8_t start = 1L);
 
-	// same as the simpler version of print_line but right aligned
-	void print_line_right(uint8_t line, const char text[], uint8_t length = LCD_LINE_LENGTH, uint8_t end = LCD_LINE_END);
+	// same as the simpler version of printLine but right aligned
+	void printLineRight(uint8_t line, const char text[], uint8_t length = LCD_LINE_LENGTH, uint8_t end = LCD_LINE_END);
 
-	// same as the simpler version of print_line but only temporary text
-	void print_line_temp(uint8_t line, const char text[], uint8_t length = LCD_LINE_LENGTH, uint8_t start = 1L);
+	// same as the simpler version of printLine but only temporary text
+	void printLineTemp(uint8_t line, const char text[], uint8_t length = LCD_LINE_LENGTH, uint8_t start = 1L);
 
-	// same as the simpler version of print_line_right but only tempoary text
-	void print_line_temp_right(uint8_t line, const char text[], uint8_t length = LCD_LINE_LENGTH, uint8_t end = LCD_LINE_END);
+	// same as the simpler version of printLineRight but only tempoary text
+	void printLineTempRight(uint8_t line, const char text[], uint8_t length = LCD_LINE_LENGTH, uint8_t end = LCD_LINE_END);
 
 	// clear all temporary text
-	void clear_temp_text();
+	void clearTempText();
 
 	// clear whole screen (temp text will stay until timer is up)
-	void clear_screen(uint8_t start_line = 1L);
+	void clearScreen(uint8_t start_line = 1L);
 
 	// call in loop to keep temporary text up to date
 	void update();
@@ -102,15 +102,15 @@ void DeviceDisplay::init() {
 	}
 	buffer[cols*lines] = 0;
 	memory[cols*lines] = 0;
-	move_to_pos(1, 1);
+	moveToPos(1, 1);
 }
 
-void DeviceDisplay::set_temp_text_show_time(uint8_t show_time) {
+void DeviceDisplay::setTempTextShowTime(uint8_t show_time) {
 	temp_text_show_time = show_time * 1000L;
 	Serial.printf("Info: setting LCD temporary text timer to %d seconds (%d ms)\n", show_time, temp_text_show_time);
 }
 
-void DeviceDisplay::move_to_pos(uint8_t line, uint8_t col) {
+void DeviceDisplay::moveToPos(uint8_t line, uint8_t col) {
 	if (line_now != line || col_now != col) {
 		line = (col > cols) ? line + 1 : line; // jump to next line if cols overflow
 		col = (col > cols) ? col - cols : col; // jump to next line if cols overflow
@@ -121,18 +121,18 @@ void DeviceDisplay::move_to_pos(uint8_t line, uint8_t col) {
 	}
 }
 
-uint16_t DeviceDisplay::get_pos(uint8_t line, uint8_t col) {
+uint16_t DeviceDisplay::getPos(uint8_t line, uint8_t col) {
 	return((line - 1) * cols + col - 1);
 }
-uint16_t DeviceDisplay::get_pos() {
-	return(get_pos(line_now, col_now));
+uint16_t DeviceDisplay::getPos() {
+	return(getPos(line_now, col_now));
 }
 
-void DeviceDisplay::go_to_line(uint8_t line) {
+void DeviceDisplay::goToLine(uint8_t line) {
 	if (line > lines) {
 		Serial.printf("ERROR: requested move to line %d. Display only has %d lines.\n", line, lines);
 	} else {
-		move_to_pos(line, 1);
+		moveToPos(line, 1);
 	}
 }
 
@@ -143,7 +143,7 @@ void DeviceDisplay::print(const char c[], bool temp) {
 
 	// position information
 	uint8_t col_init = col_now;
-	uint16_t pos_now = get_pos();
+	uint16_t pos_now = getPos();
 
 	// update actual LCD text (but only parts that are necessary, to avoid slow i2c communication)
 	char update[length + 1];
@@ -160,7 +160,7 @@ void DeviceDisplay::print(const char c[], bool temp) {
 			#endif
 
 			// update lcd
-			move_to_pos(line_now, col_init + needs_update);
+			moveToPos(line_now, col_init + needs_update);
 			LiquidCrystal_I2C::print(update);
 
 			// store new text in buffer
@@ -174,7 +174,7 @@ void DeviceDisplay::print(const char c[], bool temp) {
 	}
 
 	// update final position
-	move_to_pos(line_now, col_init + length);
+	moveToPos(line_now, col_init + length);
 
 
 	// update memory information
@@ -198,7 +198,7 @@ void DeviceDisplay::print(const char c[], bool temp) {
 	#endif
 }
 
-void DeviceDisplay::print_line (uint8_t line, const char text[], uint8_t start, uint8_t end, uint8_t align, bool temp) {
+void DeviceDisplay::printLine (uint8_t line, const char text[], uint8_t start, uint8_t end, uint8_t align, bool temp) {
 
 	// safety check
 	if (line > lines) {
@@ -207,7 +207,7 @@ void DeviceDisplay::print_line (uint8_t line, const char text[], uint8_t start, 
 	}
 
 	// move to correct position
-	move_to_pos(line, start);
+	moveToPos(line, start);
 
 	// ensure legitemate start and end points
 	end = (end == LCD_LINE_END || end > cols) ? cols : end;
@@ -250,38 +250,38 @@ void DeviceDisplay::print_line (uint8_t line, const char text[], uint8_t start, 
 	print(full_text, temp);
 }
 
-void DeviceDisplay::print_line(uint8_t line, const char text[], uint8_t length, uint8_t start) {
-	print_line(line, text, start, start + (length == LCD_LINE_LENGTH ? cols : length) - 1, LCD_ALIGN_LEFT, false);
+void DeviceDisplay::printLine(uint8_t line, const char text[], uint8_t length, uint8_t start) {
+	printLine(line, text, start, start + (length == LCD_LINE_LENGTH ? cols : length) - 1, LCD_ALIGN_LEFT, false);
 }
 
-void DeviceDisplay::print_line_right(uint8_t line, const char text[], uint8_t length, uint8_t end) {
+void DeviceDisplay::printLineRight(uint8_t line, const char text[], uint8_t length, uint8_t end) {
 	end = (end == LCD_LINE_END || end > cols) ? cols : end;
 	uint8_t start = length == LCD_LINE_LENGTH ? 1 : (length <= end ? end - length + 1 : 1);
-	print_line(line, text, start, end, LCD_ALIGN_RIGHT, false);
+	printLine(line, text, start, end, LCD_ALIGN_RIGHT, false);
 }
 
-void DeviceDisplay::print_line_temp(uint8_t line, const char text[], uint8_t length, uint8_t start) {
-	print_line(line, text, start, start + (length == LCD_LINE_LENGTH ? cols : length) - 1, LCD_ALIGN_LEFT, true);
+void DeviceDisplay::printLineTemp(uint8_t line, const char text[], uint8_t length, uint8_t start) {
+	printLine(line, text, start, start + (length == LCD_LINE_LENGTH ? cols : length) - 1, LCD_ALIGN_LEFT, true);
 }
 
-void DeviceDisplay::print_line_temp_right(uint8_t line, const char text[], uint8_t length, uint8_t end) {
+void DeviceDisplay::printLineTempRight(uint8_t line, const char text[], uint8_t length, uint8_t end) {
 	end = (end == LCD_LINE_END || end > cols) ? cols : end;
 	uint8_t start = length == LCD_LINE_LENGTH ? 1 : (length <= end ? end - length + 1 : 1);
-	print_line(line, text, start, end, LCD_ALIGN_RIGHT, true);
+	printLine(line, text, start, end, LCD_ALIGN_RIGHT, true);
 }
 
 
-void DeviceDisplay::clear_line(uint8_t line, uint8_t start, uint8_t end) {
-	print_line(line, "", start, end);
+void DeviceDisplay::clearLine(uint8_t line, uint8_t start, uint8_t end) {
+	printLine(line, "", start, end);
 }
 
-void DeviceDisplay::clear_screen(uint8_t start_line) {
+void DeviceDisplay::clearScreen(uint8_t start_line) {
 	for (uint8_t i = start_line; i <= lines; i++) {
-		clear_line(i);
+		clearLine(i);
 	}
 }
 
-void DeviceDisplay::clear_temp_text () {
+void DeviceDisplay::clearTempText () {
 
 	// buffers
 	char revert[cols];
@@ -292,7 +292,7 @@ void DeviceDisplay::clear_temp_text () {
 		Serial.printf("Info @ %Lu: clearing temp messages...\n", millis());
 		for (uint8_t line = 1; line <= lines; line++) {
 			for (uint8_t col = 1; col <= cols; col++) {
-				pos = get_pos(line, col);
+				pos = getPos(line, col);
 				if (col == 1) Serial.printf("[%2d]", pos + 1);
 				Serial.printf("%s", (temp_pos[pos]) ? "T" : "F");
 				if (col == cols) Serial.printf("[%2d]\n", pos + 1);
@@ -303,7 +303,7 @@ void DeviceDisplay::clear_temp_text () {
 	// find temp text on each row
 	for (uint8_t line = 1; line <= lines; line++) {
 		for (uint8_t col = 1; col <= cols + 1; col++) {
-			pos = get_pos(line, col);
+			pos = getPos(line, col);
 			if (needs_revert > -1 && (col > cols || !temp_pos[pos])) {
 				// either at end of a temp section or end of the line with temp text to revert
 				strncpy(revert, memory + needs_revert, pos - needs_revert);
@@ -316,7 +316,7 @@ void DeviceDisplay::clear_temp_text () {
 
 				// reset affected temp text
 				for (i = needs_revert; i < pos; i++) temp_pos[i] = false;
-				move_to_pos(line, col - (pos - needs_revert));
+				moveToPos(line, col - (pos - needs_revert));
 				print(revert, false);
 				needs_revert = -1;
 			} else if ( needs_revert == -1 && col <= cols && temp_pos[pos]) {
@@ -332,7 +332,7 @@ void DeviceDisplay::clear_temp_text () {
 
 void DeviceDisplay::update() {
 	if (temp_text && (millis() - temp_text_show_start) > temp_text_show_time) {
-		clear_temp_text();
+		clearTempText();
 	}
 }
 
