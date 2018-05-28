@@ -25,10 +25,13 @@ class DeviceController {
 
   protected:
 
+    // lcd pointer
+    DeviceDisplay* lcd = 0;
+
     // call backs
-    void (*name_callback)();
-    void (*command_callback)();
-    void (*data_callback)();
+    void (*name_callback)() = 0;
+    void (*command_callback)() = 0;
+    void (*data_callback)() = 0;
 
     // buffer for date time
     char date_time_buffer[25];
@@ -54,6 +57,7 @@ class DeviceController {
     // constructor
     DeviceController();
     DeviceController (int reset_pin) : reset_pin(reset_pin) {}
+    DeviceController (int reset_pin, DeviceDisplay* lcd) : reset_pin(reset_pin), lcd(lcd) {}
 
     // setup and loop methods
     virtual void init(); // to be run during setup()
@@ -116,10 +120,17 @@ void DeviceController::init() {
   // define pins
   pinMode(reset_pin, INPUT_PULLDOWN);
 
+  // lcd
+  if (lcd) {
+    lcd->init();
+    lcd->print_line(1, "Starting up...");
+  }
+
   //  check for reset
   if(digitalRead(reset_pin) == HIGH) {
     reset = true;
     Serial.println("INFO: reset request detected");
+    if (lcd) lcd->print_line_temp(1, "Resetting...");
   }
 
   // initialize / restore state
@@ -142,6 +153,9 @@ void DeviceController::init() {
 }
 
 void DeviceController::update() {
+
+  // lcd update
+  if (lcd) lcd->update();
 
   // name capture
   if (!name_handler_registered && Particle.connected()){
@@ -186,6 +200,7 @@ void DeviceController::captureName(const char *topic, const char *data) {
   strncpy ( name, data, sizeof(name) );
   name_handler_succeeded = true;
   Serial.println("INFO: device name '" + String(name) + "'");
+  if (lcd) lcd->print_line(1, "ID: " + String(name));
   if (name_callback) name_callback();
 }
 

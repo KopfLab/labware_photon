@@ -18,6 +18,9 @@ class DeviceControllerSerial : public DeviceController {
     const int error_wait; // how long to wait after an error to re-issue request? [in ms]
     char request_command[10];
 
+    // parameter construction
+    void construct(const char* req_cmd);
+
   protected:
 
     // serial communications buffers
@@ -40,12 +43,14 @@ class DeviceControllerSerial : public DeviceController {
 
     // constructor
     DeviceControllerSerial();
+
+    // without LCD
     DeviceControllerSerial (int reset_pin, const long baud_rate, const long serial_config, const char* request_cmd, const int request_wait, const int error_wait) :
-      DeviceController(reset_pin), serial_baud_rate(baud_rate), serial_config(serial_config), request_wait(request_wait), error_wait(error_wait) {
-        strncpy(request_command, request_cmd, sizeof(request_command) - 1);
-        request_command[sizeof(request_command)-1] = 0;
-        resetSerialBuffers();
-      }
+      DeviceController(reset_pin), serial_baud_rate(baud_rate), serial_config(serial_config), request_wait(request_wait), error_wait(error_wait) { construct(request_cmd); }
+
+    // with LCD
+    DeviceControllerSerial (int reset_pin, DeviceDisplay* lcd, const long baud_rate, const long serial_config, const char* request_cmd, const int request_wait, const int error_wait) :
+      DeviceController(reset_pin, lcd), serial_baud_rate(baud_rate), serial_config(serial_config), request_wait(request_wait), error_wait(error_wait) { construct(request_cmd); }
 
     // setup and loop methods
     virtual void init(); // to be run during setup()
@@ -72,6 +77,14 @@ class DeviceControllerSerial : public DeviceController {
     void setSerialUnitsBuffer(char* u);
 
 };
+
+/**** CONSTRUCTION ****/
+
+void DeviceControllerSerial::construct(const char* req_cmd) {
+  strncpy(request_command, req_cmd, sizeof(request_command) - 1);
+  request_command[sizeof(request_command)-1] = 0;
+  resetSerialBuffers();
+}
 
 /**** SETUP & LOOP ****/
 
