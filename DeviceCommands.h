@@ -25,9 +25,9 @@
 #define CMD_LOG_TYPE_ERROR                  "error"
 #define CMD_LOG_TYPE_ERROR_SHORT            "ERR"
 #define CMD_LOG_TYPE_STATE_CHANGED          "state changed"
-#define CMD_LOG_TYPE_STATE_CHANGED_SHORT    "SC"
+#define CMD_LOG_TYPE_STATE_CHANGED_SHORT    "OK"
 #define CMD_LOG_TYPE_STATE_UNCHANGED        "state unchanged"
-#define CMD_LOG_TYPE_STATE_UNCHANGED_SHORT  "SU"
+#define CMD_LOG_TYPE_STATE_UNCHANGED_SHORT  "SAME"
 
 // control
 #define CMD_LOCK            "lock" // device "lock on/off [notes]" : locks/unlocks the device
