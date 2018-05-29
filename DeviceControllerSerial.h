@@ -191,7 +191,8 @@ void DeviceControllerSerial::update() {
 /** DATA UPDATES **/
 
 void DeviceControllerSerial::postDataInformation() {
-  snprintf(data_information, sizeof(data_information), "{dt:\"%s\",serial:\"%s\",data:[%s]}",
+  // dt = datetime, r = raw serial, d = parsed data
+  snprintf(data_information, sizeof(data_information), "{dt:\"%s\",r:\"%s\",d:[%s]}",
       date_time_buffer, data_buffer, data_information_buffer);
 }
 

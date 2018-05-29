@@ -6,8 +6,8 @@
 #include "device/DeviceData.h"
 #include "device/DeviceDisplay.h"
 
-// debugging codes
-#define CLOUD_DEBUG_NOSEND // enable to avoid cloud messages from getting sent
+// debugging codes (define in main script to enable)
+// - CLOUD_DEBUG_NOSEND // enable to avoid cloud messages from getting sent
 
 // controller class
 class DeviceController {
@@ -54,7 +54,7 @@ class DeviceController {
   public:
 
     // public variables
-    char name[20];
+    char name[20] = "";
     DeviceCommand command;
     std::vector<DeviceData> data;
 
@@ -383,7 +383,8 @@ void DeviceController::updateDataInformation() {
 void DeviceController::postDataInformation() {
   if (Particle.connected()) {
     Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
-    snprintf(data_information, sizeof(data_information), "{dt:\"%s\",data:[%s]}",
+    // dt = datetime, d = structured data
+    snprintf(data_information, sizeof(data_information), "{dt:\"%s\",d:[%s]}",
       date_time_buffer, data_information_buffer);
   } else {
     Serial.println("ERROR: particle not (yet) connected.");
@@ -423,7 +424,8 @@ void DeviceController::updateStateInformation() {
 void DeviceController::postStateInformation() {
   if (Particle.connected()) {
     Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
-    snprintf(state_information, sizeof(state_information), "{dt:\"%s\",state:[%s]}",
+    // dt = datetime, s = state information
+    snprintf(state_information, sizeof(state_information), "{dt:\"%s\",s:[%s]}",
       date_time_buffer, state_information_buffer);
   } else {
     Serial.println("ERROR: particle not (yet) connected.");
@@ -464,9 +466,10 @@ void DeviceController::assembleDataLog(bool global_time_offset) {
   unsigned long global_time = millis() - data[0].data_time;
   int buffer_size;
   if (global_time_offset) {
-    buffer_size = snprintf(data_log, sizeof(data_log), "{\"to\":%lu,\"data\":[%s]}", global_time, data_log_buffer);
+    // id = device name, to = time offset (global), d = structured data
+    buffer_size = snprintf(data_log, sizeof(data_log), "{\"id\":\"%s\",\"to\":%lu,\"d\":[%s]}", name, global_time, data_log_buffer);
   } else {
-    buffer_size = snprintf(data_log, sizeof(data_log), "{\"data\":[%s]}", data_log_buffer);
+    buffer_size = snprintf(data_log, sizeof(data_log), "{\"id\":\"%s\",\"d\":[%s]}", name, data_log_buffer);
   }
   if (buffer_size < 0 || buffer_size >= sizeof(data_log)) {
     Serial.println("ERROR: data log buffer not large enough for state log");
@@ -501,18 +504,20 @@ bool DeviceController::publishDataLog() {
 }
 
 void DeviceController::assembleStartupLog() {
-  snprintf(state_log, sizeof(state_log), "{\"type\":\"startup\",\"data\":[{\"k\":\"startup\",\"v\":\"complete\"}],\"msg\":\"\",\"notes\":\"\"}");
+  // id = device name, t = state log type, s = state change, m = message, n = notes
+  snprintf(state_log, sizeof(state_log), "{\"id\":\"%s\",\"t\":\"startup\",\"s\":[{\"k\":\"startup\",\"v\":\"complete\"}],\"m\":\"\",\"n\":\"\"}", name);
 }
 
 void DeviceController::assembleStateLog() {
   state_log[0] = 0;
   if (command.data[0] == 0) strcpy(command.data, "{}"); // empty data entry
+  // id = device name, t = state log type, s = state change, m = message, n = notes
   int buffer_size = snprintf(state_log, sizeof(state_log),
-     "{\"type\":\"%s\",\"data\":[%s],\"msg\":\"%s\",\"notes\":\"%s\"}",
-     command.type, command.data, command.msg, command.notes);
+     "{\"id\":\"%s\",\"t\":\"%s\",\"s\":[%s],\"m\":\"%s\",\"n\":\"%s\"}",
+     name, command.type, command.data, command.msg, command.notes);
   if (buffer_size < 0 || buffer_size >= sizeof(state_log)) {
     Serial.println("ERROR: state log buffer not large enough for state log");
-    // FIXME: implement better size checks!! --> malformatted JSON will crash the webhook
+    // FIXME: implement better size checks!!, i.e. split up call --> malformatted JSON will crash the webhook
   }
 }
 
