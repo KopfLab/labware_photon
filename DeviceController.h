@@ -355,7 +355,7 @@ int DeviceController::receiveCommand(String command_string) {
 void DeviceController::assembleDisplayCommandInformation() {
   if (command.ret_val == CMD_RET_ERR_LOCKED)
     // make user aware of locked status since this may be a confusing error
-    snprintf(lcd_buffer, sizeof(lcd_buffer), "%s (LOCKED): %s", command.type_short, command.command);
+    snprintf(lcd_buffer, sizeof(lcd_buffer), "LOCK%s: %s", command.type_short, command.command);
   else
     snprintf(lcd_buffer, sizeof(lcd_buffer), "%s: %s", command.type_short, command.command);
 }
