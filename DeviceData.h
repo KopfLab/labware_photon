@@ -101,7 +101,7 @@ void DeviceData::saveNewestValue(bool average) {
       n++; // unlikely to overflow with regular reset
 
       #ifdef DATA_DEBUG_ON
-        Serial.print("INFO: new average value saved for '");
+        Serial.print("INFO: new average value saved for ");
       #endif
     } else {
       // safety check
@@ -113,11 +113,12 @@ void DeviceData::saveNewestValue(bool average) {
       data_time = newest_data_time;
       n = 1;
       #ifdef DATA_DEBUG_ON
-        Serial.print("INFO: single value saved for '");
+        Serial.print("INFO: single value saved for ");
       #endif
     }
     #ifdef DATA_DEBUG_ON
-      Serial.printf("%s: %s (n=%d; data time = %Lu ms)\n", variable, value, n, data_time);
+      getDataDoubleText(variable, value, units, -1, json, sizeof(json), PATTERN_KVU_SIMPLE, digits);
+      Serial.printf("%s (n=%d; data time = %Lu ms)\n", json, n, data_time);
     #endif
   } else {
     Serial.println("WARNING: newest value not valid and therefore not saved");
