@@ -633,6 +633,9 @@ void DeviceController::assembleStateLog() {
 bool DeviceController::publishStateLog() {
   #ifdef CLOUD_DEBUG_ON
     Serial.print("INFO: publishing state log " + String(state_log) + " to event '" + String(STATE_LOG_WEBHOOK) + "'... ");
+    #ifdef CLOUD_DEBUG_NOSEND
+      Serial.println();
+    #endif
   #endif
 
   #ifdef CLOUD_DEBUG_NOSEND
