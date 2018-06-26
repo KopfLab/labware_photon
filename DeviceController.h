@@ -145,7 +145,11 @@ void DeviceController::init() {
   // lcd
   if (lcd) {
     lcd->init();
-    lcd->printLine(1, "Starting up...");
+    #ifdef DEVICE_VERSION
+      lcd->printLine(1, "Starting up (" + String(DEVICE_VERSION) + ")...");
+    #else
+      lcd->printLine(1, "Starting up...");
+    #endif
   }
 
   //  check for reset
