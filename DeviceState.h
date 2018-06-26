@@ -11,7 +11,7 @@
 #include "device/DeviceInfo.h"
 
 // scale state
-#define STATE_VERSION    6 // update whenver structure changes
+#define STATE_VERSION    7 // update whenver structure changes
 #define STATE_ADDRESS    0 // EEPROM storage location
 
 struct DeviceState {

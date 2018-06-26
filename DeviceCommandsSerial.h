@@ -6,6 +6,7 @@
 #define CMD_TIME_SEC    "s"  // seconds
 #define CMD_TIME_MIN    "m"  // minutes
 #define CMD_TIME_HR     "h"  // hours
+#define CMD_TIME_DAY    "d"  // days
 
 // read rate
 #define CMD_DATA_READ_PERIOD          "read-period" // device read-period number unit [notes] : timing between each data read, may not be smaller than device defined minimum and may not be smaller than log period (if a time)
