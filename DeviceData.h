@@ -18,7 +18,7 @@ struct DeviceData {
   int n; // how many values / times have been averaged
 
   // output parameters
-  int digits; // how many digits?
+  int digits; // what should the digits be? (negative = decimals, positive = integers)
   char json[100]; // full data log text
 
   DeviceData() {
@@ -36,7 +36,7 @@ struct DeviceData {
   void resetValue();
   void setVariable(char* var);
   void setNewestValue(double val);
-  void setNewestValue(char* val);
+  void setNewestValue(char* val, bool infer_decimals = true);
   void setNewestValueInvalid();
   void saveNewestValue(bool average); // set value based on current newest_value (calculate average if true)
   void setNewestDataTime(unsigned long dt);
@@ -70,8 +70,10 @@ void DeviceData::setNewestValue(double val) {
   newest_value_valid = true;
 }
 
-void DeviceData::setNewestValue(char* val) {
+void DeviceData::setNewestValue(char* val, bool infer_decimals) {
   setNewestValue(atof(val));
+  if (infer_decimals)
+    digits = -find_number_of_decimals(val);
 }
 
 
