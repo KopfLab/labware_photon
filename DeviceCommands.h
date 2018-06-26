@@ -44,6 +44,10 @@
   #define CMD_DATA_LOG_ON     "on"
   #define CMD_DATA_LOG_OFF    "off"
 
+// data reset
+#define CMD_RESET      "reset" // device "reset" : reset the data
+  #define CMD_RESET_DATA  "data" // device "reset data"
+
 struct DeviceCommand {
 
     // command message

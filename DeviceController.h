@@ -110,6 +110,7 @@ class DeviceController {
     bool parseLocked();
     bool parseStateLogging();
     bool parseDataLogging();
+    bool parseReset();
 
     // command info to LCD display
     virtual void assembleDisplayCommandInformation();
@@ -350,6 +351,18 @@ bool DeviceController::parseDataLogging() {
       command.success(changeDataLogging(false));
     }
     getStateDataLoggingText(getDS()->data_logging, command.data, sizeof(command.data));
+  }
+  return(command.isTypeDefined());
+}
+
+bool DeviceController::parseReset() {
+  if (command.parseVariable(CMD_RESET)) {
+    command.extractValue();
+    if (command.parseValue(CMD_RESET_DATA)) {
+      resetData();
+      command.success(true);
+      getStateStringText(CMD_RESET, CMD_RESET_DATA, command.data, sizeof(command.data), PATTERN_KV_JSON_QUOTED, false);
+    }
   }
   return(command.isTypeDefined());
 }

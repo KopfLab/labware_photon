@@ -36,6 +36,7 @@ Some common state variables are displayed in short notation in the upper right c
   - `data-log off` to turn web logging of data off
   - `lock on` to safely lock the device (i.e. no commands will be accepted until `lock off` is called) - letter `L` in state overview
   - `lock off` to unlock the device if it is locked
+  - `reset data` to reset the data stored in the device
 
 #### Additional `DeviceControllerDataLogger` commands:
 
