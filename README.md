@@ -26,24 +26,26 @@ The state of the device can be requested by calling `particle get <deviceID> dev
 
 All calls are issued from the terminal and have the format `particle call <deviceID> device "<cmd>"` where `<deviceID>` is the name of the photon you want to issue a command to and `<cmd>` is the command (and should always be in quotes) - e.g. `particle call my-logger device "data-log on"`. If the command was successfully received and executed, `0` is returned, if the command was received but caused an error, a negative number (e.g. `-1` for generic error, `-2` for device is locked, `-3` for unknown command, etc.) is the return value. Positive return values mean executed with warning (e.g. `1` to note that the command did not change anything). The command's exact wording and all the return codes are defined in `DeviceCommands.h` and `DeviceCommandsLogger.h`. Issuing commands also requires being logged in (`particle login`) to have access to the photons.
 
+Some common state variables are displayed in short notation in the upper right corner of the LCD screen (same line as the device name) - called **state overview**. It is noted in the following command lists where this is the case.
+
 #### `DeviceController` commands (`<cmd>` options):
 
-  - `state-log on` to turn web logging of state changes on
-  - `state-log off` to turn web logging of state changes off
-  - `data-log on` to turn web logging of data on
+  - `state-log on` to turn web logging of state changes on (letter `S` shown in the state overview)
+  - `state-log off` to turn web logging of state changes off (no letter `S` in state overview)
+  - `data-log on` to turn web logging of data on (letter `D` in state overview)
   - `data-log off` to turn web logging of data off
-  - `lock on` to safely lock the device (i.e. no commands will be accepted until `lock off` is called)
+  - `lock on` to safely lock the device (i.e. no commands will be accepted until `lock off` is called) - letter `L` in state overview
   - `lock off` to unlock the device if it is locked
 
 #### Additional `DeviceControllerDataLogger` commands:
 
-  - `read-period <options>` to specify how frequently data should be read, `<options>`:
-    - `manual` don't read data unless externally triggered in some way (device specific)
-    - `200 ms` read data every 200 (or any other number) milli seconds
-    - `5 s` read data every 5 (or any other number) seconds
-  - `log-period <options>` to specify how frequently read data should be logged, `<options>`:
-    - `3 x` log after every 3rd (or any other number) successful data read, works with `manual` or time based `read-period`, set to `1 x` in combination with `manual` to log every externally triggered data event immediately
-    - `2 s` log every 2 seconds (or any other number), must exceed the `read-period`
+  - `read-period <options>` to specify how frequently data should be read (letter `R` in state overview), `<options>`:
+    - `manual` don't read data unless externally triggered in some way (device specific) - `RM` in state overview
+    - `200 ms` read data every 200 (or any other number) milli seconds (`R200ms` in state overview)
+    - `5 s` read data every 5 (or any other number) seconds (`R5s` in state overview)
+  - `log-period <options>` to specify how frequently read data should be logged (letter `D` in state overview), `<options>`:
+    - `3 x` log after every 3rd (or any other number) successful data read (`D3x` in state overview), works with `manual` or time based `read-period`, set to `1 x` in combination with `manual` to log every externally triggered data event immediately
+    - `2 s` log every 2 seconds (or any other number), must exceed the `read-period` (`D2s` in state overview)
     - `8 m` log every 8 minutes (or any other number)
     - `1 h` log every hour (or any other number)
 
