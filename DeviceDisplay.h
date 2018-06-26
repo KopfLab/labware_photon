@@ -107,7 +107,7 @@ void DeviceDisplay::init() {
 
 void DeviceDisplay::setTempTextShowTime(uint8_t show_time) {
 	temp_text_show_time = show_time * 1000L;
-	Serial.printf("Info: setting LCD temporary text timer to %d seconds (%d ms)\n", show_time, temp_text_show_time);
+	Serial.printf("INFO: setting LCD temporary text timer to %d seconds (%d ms)\n", show_time, temp_text_show_time);
 }
 
 void DeviceDisplay::moveToPos(uint8_t line, uint8_t col) {
@@ -239,10 +239,10 @@ void DeviceDisplay::printLine (uint8_t line, const char text[], uint8_t start, u
 
 	#ifdef LCD_DEBUG_ON
 		if (align == LCD_ALIGN_LEFT)
-			Serial.printf("Info @ %Lu: printing%s '%s' LEFT on line %u (%u to %u)\n",
+			Serial.printf("INFO @ %Lu: printing%s '%s' LEFT on line %u (%u to %u)\n",
 				millis(), (temp ? " TEMPORARY" : ""), full_text, line, start, end);
 		else if (align == LCD_ALIGN_RIGHT)
-			Serial.printf("Info @ %Lu: printing%s '%s' RIGHT on line %u (%u to %u)\n",
+			Serial.printf("INFO @ %Lu: printing%s '%s' RIGHT on line %u (%u to %u)\n",
 				millis(), (temp ? " TEMPORARY" : ""), full_text, line, start, end);
 	#endif
 
@@ -289,7 +289,7 @@ void DeviceDisplay::clearTempText () {
 	uint16_t pos, i;
 
 	#ifdef LCD_DEBUG_ON
-		Serial.printf("Info @ %Lu: clearing temp messages...\n", millis());
+		Serial.printf("INFO @ %Lu: clearing temp messages...\n", millis());
 		for (uint8_t line = 1; line <= lines; line++) {
 			for (uint8_t col = 1; col <= cols; col++) {
 				pos = getPos(line, col);

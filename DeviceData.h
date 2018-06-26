@@ -99,7 +99,10 @@ void DeviceData::saveNewestValue(bool average) {
 
       // increment n
       n++; // unlikely to overflow with regular reset
-      Serial.print("INFO: new average value saved for '");
+
+      #ifdef DATA_DEBUG_ON
+        Serial.print("INFO: new average value saved for '");
+      #endif
     } else {
       // safety check
       if (newest_data_time < data_time)
@@ -109,9 +112,13 @@ void DeviceData::saveNewestValue(bool average) {
       value = newest_value;
       data_time = newest_data_time;
       n = 1;
-      Serial.print("INFO: single value saved for '");
+      #ifdef DATA_DEBUG_ON
+        Serial.print("INFO: single value saved for '");
+      #endif
     }
-    Serial.println(String(variable) + "': " + String(value) + " (n=" + String(n) + "; data time=" + String(data_time) + "ms)");
+    #ifdef DATA_DEBUG_ON
+      Serial.printf("%s: %s (n=%d; data time = %Lu ms)\n", variable, value, n, data_time);
+    #endif
   } else {
     Serial.println("WARNING: newest value not valid and therefore not saved");
   }

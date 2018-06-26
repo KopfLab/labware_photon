@@ -1,3 +1,11 @@
+// debugging codes (define in main script to enable)
+// - CLOUD_DEBUG_ON     // use to enable info messages about cloud variables
+// - CLOUD_DEBUG_NOSEND // use to avoid cloud messages from getting sent
+// - STATE_DEBUG_ON     // use to enable info messages about state changes
+// - DATA_DEBUG_ON      // use to enable info messages about data changes
+// - SERIAL_DEBUG_ON    // use to enable info messages about serial data
+// - LCD_DEBUG_ON       // see DeviceDisplay.h
+
 #pragma once
 #include <vector>
 #include "device/DeviceState.h"
@@ -5,9 +13,6 @@
 #include "device/DeviceCommands.h"
 #include "device/DeviceData.h"
 #include "device/DeviceDisplay.h"
-
-// debugging codes (define in main script to enable)
-// - CLOUD_DEBUG_NOSEND // enable to avoid cloud messages from getting sent
 
 // controller class
 class DeviceController {
@@ -51,6 +56,9 @@ class DeviceController {
     char data_log[DATA_LOG_MAX_CHAR];
     char data_log_buffer[DATA_LOG_MAX_CHAR-10];
 
+    // data logging (if used in derived class)
+    unsigned long last_data_log;
+
   public:
 
     // public variables
@@ -75,7 +83,7 @@ class DeviceController {
     void setNameCallback(void (*cb)()); // assign a callback function
 
     // data information
-    virtual bool isTimeForDataReset() { return(false); } // whether it's time for a data reset and log (if logging is on)
+    virtual bool isTimeForDataLogAndReset() { return(false); } // whether it's time for a data reset and log (if logging is on)
     void resetData(); // reset all data fields
     virtual void assembleDataInformation();
     void addToDataInformation(char* info);
@@ -98,7 +106,7 @@ class DeviceController {
     // particle command parsing functions
     void setCommandCallback(void (*cb)()); // assign a callback function
     int receiveCommand (String command); // receive cloud command
-    virtual void parseCommand () = 0; // parse a cloud command
+    virtual void parseCommand (); // parse a cloud command
     bool parseLocked();
     bool parseStateLogging();
     bool parseDataLogging();
@@ -106,6 +114,10 @@ class DeviceController {
     // command info to LCD display
     virtual void assembleDisplayCommandInformation();
     virtual void showDisplayCommandInformation();
+
+    // state info to LCD display
+    virtual void assembleDisplayStateInformation();
+    virtual void showDisplayStateInformation();
 
     // particle variables
     virtual void updateDataInformation();
@@ -159,6 +171,9 @@ void DeviceController::init() {
   Particle.function(CMD_ROOT, &DeviceController::receiveCommand, this);
   Particle.variable(STATE_INFO_VARIABLE, state_information);
   Particle.variable(DATA_INFO_VARIABLE, data_information);
+
+  // data log
+  last_data_log = 0;
 }
 
 void DeviceController::update() {
@@ -190,12 +205,17 @@ void DeviceController::update() {
   }
 
   // data reset
-  if (isTimeForDataReset()) {
+  if (isTimeForDataLogAndReset()) {
+
+    // make note for last data log
+    last_data_log = millis();
+
     // publish data log before reset
     if (getDS()->data_logging) {
         assembleDataLog();
         publishDataLog();
     }
+
     // resetting data
     resetData();
   }
@@ -208,7 +228,7 @@ void DeviceController::captureName(const char *topic, const char *data) {
   strncpy ( name, data, sizeof(name) );
   name_handler_succeeded = true;
   Serial.println("INFO: device name '" + String(name) + "'");
-  if (lcd) lcd->printLine(1, "ID: " + String(name));
+  if (lcd) lcd->printLine(1, name);
   if (name_callback) name_callback();
 }
 
@@ -224,11 +244,17 @@ bool DeviceController::changeLocked(bool on) {
 
   if (changed) {
     getDS()->locked = on;
-    on ? Serial.println("INFO: locking device") : Serial.println("INFO: unlocking device");
-    saveDS();
-  } else {
-    on ? Serial.println("INFO: device already locked") : Serial.println("INFO: device already unlocked");
   }
+
+  #ifdef STATE_DEBUG_ON
+    if (changed)
+      on ? Serial.println("INFO: locking device") : Serial.println("INFO: unlocking device");
+    else
+      on ? Serial.println("INFO: device already locked") : Serial.println("INFO: device already unlocked");
+  #endif
+
+  if (changed) saveDS();
+
   return(changed);
 }
 
@@ -238,12 +264,18 @@ bool DeviceController::changeStateLogging (bool on) {
 
   if (changed) {
     getDS()->state_logging = on;
-    on ? Serial.println("INFO: state logging turned on") : Serial.println("INFO: state logging turned off");
     override_state_log = true; // always log this event no matter what
-    saveDS();
-  } else {
-    on ? Serial.println("INFO: state logging already on") : Serial.println("INFO: state logging already off");
   }
+
+  #ifdef STATE_DEBUG_ON
+    if (changed)
+      on ? Serial.println("INFO: state logging turned on") : Serial.println("INFO: state logging turned off");
+    else
+      on ? Serial.println("INFO: state logging already on") : Serial.println("INFO: state logging already off");
+  #endif
+
+  if (changed) saveDS();
+
   return(changed);
 }
 
@@ -253,11 +285,16 @@ bool DeviceController::changeDataLogging (bool on) {
 
   if (changed) {
     getDS()->data_logging = on;
-    on ? Serial.println("INFO: data logging turned on") : Serial.println("INFO: data logging turned off");
-    saveDS();
-  } else {
-    on ? Serial.println("INFO: data logging already on") : Serial.println("INFO: data logging already off");
   }
+
+  #ifdef STATE_DEBUG_ON
+    if (changed)
+      on ? Serial.println("INFO: data logging turned on") : Serial.println("INFO: data logging turned off");
+    else
+      on ? Serial.println("INFO: data logging already on") : Serial.println("INFO: data logging already off");
+  #endif
+
+  if (changed) saveDS();
 
   // make sure data is reset
   if (changed && on) resetData();
@@ -350,6 +387,19 @@ int DeviceController::receiveCommand(String command_string) {
   return(command.ret_val);
 }
 
+void DeviceController::parseCommand() {
+
+  // decision tree
+  if (parseLocked()) {
+    // locked is getting parsed
+  } else if (parseStateLogging()) {
+    // state logging getting parsed
+  } else if (parseDataLogging()) {
+    // data logging getting parsed
+  }
+
+}
+
 /* COMMAND DISPLAY INFORMATION */
 
 void DeviceController::assembleDisplayCommandInformation() {
@@ -364,19 +414,51 @@ void DeviceController::showDisplayCommandInformation() {
   if (lcd) lcd->printLineTemp(1, lcd_buffer);
 }
 
+/* STATE DISPLAY INFORMATION */
+
+void DeviceController::assembleDisplayStateInformation() {
+  uint i = 0;
+  if (getDS()->locked) {
+    lcd_buffer[i] = 'L';
+    i++;
+  }
+  if (getDS()->state_logging) {
+    lcd_buffer[i] = 'S';
+    i++;
+  }
+  if (getDS()->data_logging) {
+    lcd_buffer[i] = 'D';
+    i++;
+  }
+  lcd_buffer[i] = 0;
+}
+
+void DeviceController::showDisplayStateInformation() {
+  if (lcd) {
+    lcd->printLine(1, name);
+    lcd->printLineRight(1, lcd_buffer, strlen(lcd_buffer) + 1);
+  }
+}
+
 /* DATA INFORMATION */
 
 void DeviceController::resetData() {
-  Serial.println(Time.format(Time.now(), "INFO: resetting data at %Y-%m-%d %H:%M:%S %Z"));
+  #ifdef DATA_DEBUG_ON
+    Serial.println(Time.format(Time.now(), "INFO: resetting data at %Y-%m-%d %H:%M:%S %Z"));
+  #endif
   for (int i=0; i<data.size(); i++) data[i].resetValue();
 }
 
 void DeviceController::updateDataInformation() {
-  Serial.print("INFO: updating data information: ");
+  #ifdef CLOUD_DEBUG_ON
+    Serial.print("INFO: updating data information: ");
+  #endif
   data_information_buffer[0] = 0; // reset buffer
   assembleDataInformation();
   postDataInformation();
-  Serial.println(data_information);
+  #ifdef CLOUD_DEBUG_ON
+    Serial.println(data_information);
+  #endif
   if (data_callback) data_callback();
 }
 
@@ -414,11 +496,18 @@ void DeviceController::setDataCallback(void (*cb)()) {
 /* STATE INFORMATION */
 
 void DeviceController::updateStateInformation() {
-  Serial.print("INFO: updating state information: ");
+  #ifdef CLOUD_DEBUG_ON
+    Serial.print("INFO: updating state information: ");
+  #endif
+  lcd_buffer[0] = 0; // reset buffer
+  assembleDisplayStateInformation();
+  showDisplayStateInformation();
   state_information_buffer[0] = 0; // reset buffer
   assembleStateInformation();
   postStateInformation();
-  Serial.println(state_information);
+  #ifdef CLOUD_DEBUG_ON
+    Serial.println(state_information);
+  #endif
 }
 
 void DeviceController::postStateInformation() {
@@ -487,19 +576,26 @@ void DeviceController::addToDataLog(char* info) {
 }
 
 bool DeviceController::publishDataLog() {
-  if (!getDS()->data_logging) Serial.println("WARNING: publishing data log despite data logging turned off");
-  Serial.print("INFO: publishing data log " + String(data_log) + " to event '" + String(DATA_LOG_WEBHOOK) + "'... ");
+
+  #ifdef CLOUD_DEBUG_ON
+    if (!getDS()->data_logging) Serial.println("WARNING: publishing data log despite data logging turned off");
+    Serial.print("INFO: publishing data log " + String(data_log) + " to event '" + String(DATA_LOG_WEBHOOK) + "'... ");
+    #ifdef CLOUD_DEBUG_NOSEND
+      Serial.println();
+    #endif
+  #endif
 
   #ifdef CLOUD_DEBUG_NOSEND
-    Serial.println("NOT sent because in CLOUD_DEBUG_NOSEND mode.");
+    Serial.println("WARNING: data log NOT sent because in CLOUD_DEBUG_NOSEND mode.");
   #else
-    if(Particle.connected() && Particle.publish(DATA_LOG_WEBHOOK, data_log, PRIVATE, WITH_ACK)) {
-      Serial.println("successful.");
-      return(true);
-    } else {
-      Serial.println("failed!");
-      return(false);
-    }
+    bool success = Particle.connected() && Particle.publish(DATA_LOG_WEBHOOK, data_log, PRIVATE, WITH_ACK);
+
+    #ifdef CLOUD_DEBUG_ON
+      if (success) Serial.println("successful.");
+      else Serial.println("failed!");
+    #endif
+
+    return(success);
   #endif
 }
 
@@ -522,16 +618,20 @@ void DeviceController::assembleStateLog() {
 }
 
 bool DeviceController::publishStateLog() {
-  Serial.print("INFO: publishing state log " + String(state_log) + " to event '" + String(STATE_LOG_WEBHOOK) + "'... ");
+  #ifdef CLOUD_DEBUG_ON
+    Serial.print("INFO: publishing state log " + String(state_log) + " to event '" + String(STATE_LOG_WEBHOOK) + "'... ");
+  #endif
+
   #ifdef CLOUD_DEBUG_NOSEND
-    Serial.println("NOT sent because in CLOUD_DEBUG_NOSEND mode.");
+    Serial.println("WARNING: state log NOT sent because in CLOUD_DEBUG_NOSEND mode.");
   #else
-    if(Particle.connected() && Particle.publish(STATE_LOG_WEBHOOK, state_log, PRIVATE, WITH_ACK)) {
-      Serial.println("successful.");
-      return(true);
-    } else {
-      Serial.println("failed!");
-      return(false);
-    }
+    bool success = Particle.connected() && Particle.publish(STATE_LOG_WEBHOOK, state_log, PRIVATE, WITH_ACK);
+
+    #ifdef CLOUD_DEBUG_ON
+      if (success) Serial.println("successful.");
+      else Serial.println("failed!");
+    #endif
+
+    return(success);
   #endif
 }

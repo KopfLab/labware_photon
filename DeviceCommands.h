@@ -15,6 +15,8 @@
 #define CMD_RET_ERR_CMD_TEXT          "invalid command"
 #define CMD_RET_ERR_VAL               -4 // invalid value
 #define CMD_RET_ERR_VAL_TEXT          "invalid value"
+#define CMD_RET_ERR_UNITS             -5 // invalid units
+#define CMD_RET_ERR_UNITS_TEXT        "invalid units"
 
 #define CMD_RET_WARN_NO_CHANGE         1 // state unchaged because it was already the same
 #define CMD_RET_WARN_NO_CHANGE_TEXT    "state already as requested"
@@ -74,6 +76,7 @@ struct DeviceCommand {
     // command parsing
     bool parseVariable(char* cmd);
     bool parseValue(char* cmd);
+    bool parseUnits(char* cmd);
 
     // command status
     bool isTypeDefined(); // whether the command type was found
@@ -85,6 +88,7 @@ struct DeviceCommand {
     void errorLocked();
     void errorCommand();
     void errorValue();
+    void errorUnits();
 
     // set a log message
     void setLogMsg(char* log_msg);
@@ -174,6 +178,15 @@ bool DeviceCommand::parseValue(char* cmd) {
   }
 }
 
+// check if units has the specific value
+bool DeviceCommand::parseUnits(char* cmd) {
+  if (strcmp(units, cmd) == 0) {
+    return(true);
+  } else {
+    return(false);
+  }
+}
+
 /****** COMMAND STATUS *******/
 
 bool DeviceCommand::isTypeDefined() {
@@ -225,6 +238,10 @@ void DeviceCommand::errorCommand() {
 
 void DeviceCommand::errorValue() {
   error(CMD_RET_ERR_VAL, CMD_RET_ERR_VAL_TEXT);
+}
+
+void DeviceCommand::errorUnits() {
+  error(CMD_RET_ERR_UNITS, CMD_RET_ERR_UNITS_TEXT);
 }
 
 void DeviceCommand::setLogMsg(char* log_msg) {
