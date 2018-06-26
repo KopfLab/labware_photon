@@ -215,6 +215,10 @@ void DeviceController::update() {
     if (getDS()->data_logging) {
         assembleDataLog();
         publishDataLog();
+    } else {
+      #ifdef CLOUD_DEBUG_ON
+        Serial.println("INFO: data log is turned off --> reset without logging");
+      #endif
     }
 
     // resetting data
@@ -409,6 +413,8 @@ void DeviceController::parseCommand() {
     // state logging getting parsed
   } else if (parseDataLogging()) {
     // data logging getting parsed
+  } else if (parseReset()) {
+    // reset getting parsed
   }
 
 }

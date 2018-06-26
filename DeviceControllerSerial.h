@@ -342,12 +342,12 @@ bool DeviceControllerSerial::parseDataLoggingPeriod() {
 void DeviceControllerSerial::assembleDisplayStateInformation() {
   DeviceController::assembleDisplayStateInformation();
   uint i = strlen(lcd_buffer);
+  
   // details on data logging
-  if (getDS()->data_logging) {
-    getStateDataLoggingPeriodText(getDSS()->data_logging_period, getDSS()->data_logging_type,
+  getStateDataLoggingPeriodText(getDSS()->data_logging_period, getDSS()->data_logging_type,
       lcd_buffer + i, sizeof(lcd_buffer) - i, true);
-    i = strlen(lcd_buffer);
-  }
+  i = strlen(lcd_buffer);
+
   // data reading period
   lcd_buffer[i] = 'R'; i++;
   if (serialIsManual()) {
