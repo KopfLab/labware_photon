@@ -18,25 +18,25 @@ struct DeviceData {
   int n; // how many values / times have been averaged
 
   // output parameters
-  int digits; // what should the digits be? (negative = decimals, positive = integers)
+  int decimals; // what should the decimals be? (positive = decimals, negative = integers)
   char json[100]; // full data log text
 
   DeviceData() {
     variable[0] = 0;
     units[0] = 0;
-    digits = 0;
+    decimals = 0;
     resetValue();
   };
 
   DeviceData(char* var) : DeviceData() { setVariable(var); }
-  DeviceData(int d) : DeviceData() { digits = d; }
-  DeviceData(char* var, int d) : DeviceData(var) { digits = d; }
+  DeviceData(int d) : DeviceData() { decimals = d; }
+  DeviceData(char* var, int d) : DeviceData(var) { decimals = d; }
 
   // data
   void resetValue();
   void setVariable(char* var);
   void setNewestValue(double val);
-  void setNewestValue(char* val, bool infer_decimals = true);
+  void setNewestValue(char* val, bool infer_decimals = false, int add_decimals = 1);
   void setNewestValueInvalid();
   void saveNewestValue(bool average); // set value based on current newest_value (calculate average if true)
   void setNewestDataTime(unsigned long dt);
@@ -70,10 +70,11 @@ void DeviceData::setNewestValue(double val) {
   newest_value_valid = true;
 }
 
-void DeviceData::setNewestValue(char* val, bool infer_decimals) {
+// @param add_decimals how many decimals to add tot he infered decimals (only matters if inferred)
+void DeviceData::setNewestValue(char* val, bool infer_decimals, int add_decimals) {
   setNewestValue(atof(val));
   if (infer_decimals)
-    digits = -find_number_of_decimals(val);
+    decimals = find_number_of_decimals(val) + add_decimals;
 }
 
 
@@ -119,7 +120,7 @@ void DeviceData::saveNewestValue(bool average) {
       #endif
     }
     #ifdef DATA_DEBUG_ON
-      getDataDoubleText(variable, value, units, -1, json, sizeof(json), PATTERN_KVU_SIMPLE, digits);
+      getDataDoubleText(variable, value, units, -1, json, sizeof(json), PATTERN_KVU_SIMPLE, decimals);
       Serial.printf("%s (n=%d; data time = %Lu ms)\n", json, n, data_time);
     #endif
   } else {
@@ -157,8 +158,8 @@ void DeviceData::assembleLog(bool include_time_offset = true) {
   if (n > 0) {
     // have data
     (include_time_offset) ?
-      getDataDoubleText(variable, value, units, n, millis() - data_time, json, sizeof(json), PATTERN_KVUNT_JSON, digits) :
-      getDataDoubleText(variable, value, units, n, json, sizeof(json), PATTERN_KVUN_JSON, digits);
+      getDataDoubleText(variable, value, units, n, millis() - data_time, json, sizeof(json), PATTERN_KVUNT_JSON, decimals) :
+      getDataDoubleText(variable, value, units, n, json, sizeof(json), PATTERN_KVUN_JSON, decimals);
   } else {
     // no data
     getDataNullText(variable, json, sizeof(json), PATTERN_KV_JSON);
@@ -168,7 +169,7 @@ void DeviceData::assembleLog(bool include_time_offset = true) {
 void DeviceData::assembleInfo() {
   if (newest_value_valid) {
     // valid data
-    getDataDoubleText(variable, newest_value, units, -1, json, sizeof(json), PATTERN_KVU_JSON, digits);
+    getDataDoubleText(variable, newest_value, units, -1, json, sizeof(json), PATTERN_KVU_JSON, decimals);
   } else {
     // no valid data
     getDataNullText(variable, json, sizeof(json), PATTERN_KV_JSON);

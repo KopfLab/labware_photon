@@ -77,60 +77,70 @@ static void getInfoValue(char* target, int size, char* value, char* pattern = PA
 
 /**** NUMERIC DATA FUNCTIONS ****/
 
-// extrat number of decimals from a textual number representation
+// extrat number of decimals behind the separator from a textual number representation
 int find_number_of_decimals (char* text, const char* sep = ".") {
     int decimals = strlen(text) - strcspn(text, sep) - 1;
     if (decimals < 0) decimals = 0;
     return(decimals);
 }
 
-// the following functions are designed to make it easy to print to the significant digits of the error
-// note that in these functions pos digits rounds to integers, neg. digits rounds to decimals
-int find_first_digit (double value) {
-    if (value == 0.0) return (-10); // what to do with this rare case? round to 10 digits
-    else return(floor(log10(fabs(value)))); // could do this faster than with the log with a while if this is a problem
+// find first decimals
+// @return positive = decimals, negative = integers
+// @note these functions are not currenly used
+int find_first_decimals (double number) {
+    if (number == 0.0) return (10); // what to do with this rare case? round to 10 decimals
+    else return(-floor(log10(fabs(number)))); // could do this faster than with the log with a while if this is a problem
 }
 
-int find_rounding_digits (double value, double error, uint which = 1, bool decimals_only = false) {
-    int error_digit = find_first_digit (error) - which + 1;
-    int value_digit = find_first_digit (value) - which + 1;
-    if (error_digit > value_digit) error_digit = value_digit;
-    if (decimals_only && error_digit > 0) error_digit = 0;
-    return(error_digit);
+// find deicmal for the specific number and significant digits
+// @param signif = number of significant digits, 1 by default
+// @param decimals_only = always round integers to 1
+// @param limit = highest number of decimals that should be used
+int find_signif_decimals (double number, uint signif = 1, bool decimals_only = false, int limit = 10) {
+    int decimals = find_first_decimals (number) + signif - 1;
+    if (decimals_only && decimals > 0) decimals = 0;
+    if (decimals > limit) decimals = limit;
+    return(decimals);
 }
 
-double round_to_digits(double value, int digits) {
-    double factor = pow(10.0, -digits);
-    return(round(value * factor) / factor);
+// round a number to the specified decimals
+double round_to_decimals (double number, int decimals) {
+    double factor = pow(10.0, decimals);
+    return(round(number * factor) / factor);
 }
 
-void print_to_digits(char* target, int size, double value, int digits) {
+// print a number to the specified decimals
+void print_to_decimals (char* target, int size, double number, int decimals) {
 
     // round
-    double rounded_value = round_to_digits(value, digits);
+    double rounded_number = round_to_decimals(number, decimals);
 
     // print
-    digits = (digits > 0) ? 0 : -digits;
-    char value_pattern[6];
-    snprintf(value_pattern, sizeof(value_pattern), "%%.%df", digits);
-    snprintf(target, size, value_pattern, rounded_value);
+    if (decimals < 0) decimals = 0;
+    char number_pattern[6];
+    snprintf(number_pattern, sizeof(number_pattern), "%%.%df", decimals);
+    snprintf(target, size, number_pattern, rounded_number);
 }
 
+// print a number to the specific significan digits
+void print_to_signif (char* target, int size, double number, int signif) {
+    print_to_decimals(target, size, number, find_signif_decimals(number, signif));
+}
 
 /**** DATA INFO FUNCTIONS ****/
 
-static void getDataDoubleText(char* key, double value, char* units, int n, unsigned long time_offset, char* target, int size, char* pattern, int digits) {
+static void getDataDoubleText(char* key, double value, char* units, int n, unsigned long time_offset, char* target, int size, char* pattern, int decimals) {
   char value_text[20];
-  print_to_digits(value_text, sizeof(value_text), value, digits);
+  print_to_decimals(value_text, sizeof(value_text), value, decimals);
   getInfoKeyValueUnitsNumberTimeOffset(target, size, key, value_text, units, n, time_offset, pattern);
 }
 
-static void getDataDoubleText(char* key, double value, char* units, int n, char* target, int size, char* pattern, int digits) {
-  getDataDoubleText(key, value, units, n, -1, target, size, pattern, digits);
+static void getDataDoubleText(char* key, double value, char* units, int n, char* target, int size, char* pattern, int decimals) {
+  getDataDoubleText(key, value, units, n, -1, target, size, pattern, decimals);
 }
 
-static void getDataDoubleText(char* key, double value, char* units, char* target, int size, char* pattern, int digits) {
-  getDataDoubleText(key, value, units, -1, target, size, pattern, digits);
+static void getDataDoubleText(char* key, double value, char* units, char* target, int size, char* pattern, int decimals) {
+  getDataDoubleText(key, value, units, -1, target, size, pattern, decimals);
 }
 
 static void getDataNullText(char* key, char* target, int size, char* pattern) {
