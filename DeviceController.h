@@ -83,8 +83,9 @@ class DeviceController {
     void setNameCallback(void (*cb)()); // assign a callback function
 
     // data information
-    virtual bool isTimeForDataLogAndReset() { return(false); } // whether it's time for a data reset and log (if logging is on)
-    void resetData(); // reset all data fields
+    virtual bool isTimeForDataLogAndClear() { return(false); } // whether it's time for a data reset and log (if logging is on)
+    virtual void clearData(bool all = false); // clear data fields
+    virtual void resetData(); // reset data completely
     virtual void assembleDataInformation();
     void addToDataInformation(char* info);
     void setDataCallback(void (*cb)()); // assign a callback function
@@ -127,6 +128,7 @@ class DeviceController {
     virtual void postStateInformation();
 
     // particle webhook publishing
+    virtual void logData();
     virtual void assembleDataLog();
     virtual void assembleDataLog(bool gobal_time_offset);
     void addToDataLog(char* info);
@@ -210,23 +212,12 @@ void DeviceController::update() {
   }
 
   // data reset
-  if (isTimeForDataLogAndReset()) {
+  if (isTimeForDataLogAndClear()) {
 
     // make note for last data log
     last_data_log = millis();
-
-    // publish data log before reset
-    if (getDS()->data_logging) {
-        assembleDataLog();
-        publishDataLog();
-    } else {
-      #ifdef CLOUD_DEBUG_ON
-        Serial.println("INFO: data log is turned off --> reset without logging");
-      #endif
-    }
-
-    // resetting data
-    resetData();
+    logData();
+    clearData(false);
   }
 }
 
@@ -465,11 +456,16 @@ void DeviceController::showDisplayStateInformation() {
 
 /* DATA INFORMATION */
 
-void DeviceController::resetData() {
+void DeviceController::clearData(bool all) {
   #ifdef DATA_DEBUG_ON
-    Serial.println(Time.format(Time.now(), "INFO: resetting data at %Y-%m-%d %H:%M:%S %Z"));
+    Serial.println(Time.format(Time.now(), "INFO: clearing data at %Y-%m-%d %H:%M:%S %Z"));
   #endif
-  for (int i=0; i<data.size(); i++) data[i].reset();
+  for (int i=0; i<data.size(); i++) data[i].clear(all);
+}
+
+void DeviceController::resetData() {
+  // overwrite for additional reset operations
+  clearData(true);
 }
 
 void DeviceController::updateDataInformation() {
@@ -561,7 +557,19 @@ void DeviceController::assembleStateInformation() {
 }
 
 
-/***** WEBHOOK CALLS *******/
+/***** DATA LOG & WEBHOOK CALLS *******/
+
+void DeviceController::logData() {
+  // publish data log
+  if (getDS()->data_logging) {
+      assembleDataLog();
+      publishDataLog();
+  } else {
+    #ifdef CLOUD_DEBUG_ON
+      Serial.println("INFO: data log is turned off --> continue without logging");
+    #endif
+  }
+}
 
 void DeviceController::assembleDataLog() { assembleDataLog(true); }
 
@@ -586,6 +594,7 @@ void DeviceController::assembleDataLog(bool global_time_offset) {
   }
   if (buffer_size < 0 || buffer_size >= sizeof(data_log)) {
     Serial.println("ERROR: data log buffer not large enough for state log");
+    if (lcd) lcd->printLineTemp(1, "ERR: datalog too big");
     // FIXME: implement better size checks!! --> malformatted JSON will crash the webhook
   }
 }
@@ -637,6 +646,7 @@ void DeviceController::assembleStateLog() {
      name, command.type, command.data, command.msg, command.notes);
   if (buffer_size < 0 || buffer_size >= sizeof(state_log)) {
     Serial.println("ERROR: state log buffer not large enough for state log");
+    if (lcd) lcd->printLineTemp(1, "ERR: statelog too big");
     // FIXME: implement better size checks!!, i.e. split up call --> malformatted JSON will crash the webhook
   }
 }

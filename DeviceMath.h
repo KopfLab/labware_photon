@@ -65,10 +65,10 @@ struct RunningStats {
     public:
 
         RunningStats() {
-          reset();
+          clear();
         }
 
-        void reset () {
+        void clear () {
             n = 0;
             mean = 0.0;
             M2 = 0.0;

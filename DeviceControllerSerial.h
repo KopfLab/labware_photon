@@ -69,7 +69,7 @@ class DeviceControllerSerial : public DeviceController {
 
     // data updates
     virtual int getNumberDataPoints();
-    virtual bool isTimeForDataLogAndReset();
+    virtual bool isTimeForDataLogAndClear();
     virtual void postDataInformation();
 
     // web processing
@@ -374,7 +374,7 @@ int DeviceControllerSerial::getNumberDataPoints() {
   return(data[0].getN());
 }
 
-bool DeviceControllerSerial::isTimeForDataLogAndReset() {
+bool DeviceControllerSerial::isTimeForDataLogAndClear() {
 
   if (!serialIsEnabled()) return(false);
 

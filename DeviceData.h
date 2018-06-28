@@ -17,6 +17,9 @@ struct DeviceData {
   RunningStats value;
   RunningStats data_time;
 
+  // clearing
+  bool auto_clear;
+
   // output parameters
   int decimals; // what should the decimals be? (positive = decimals, negative = integers)
   char json[100]; // full data log text
@@ -25,20 +28,23 @@ struct DeviceData {
     variable[0] = 0;
     units[0] = 0;
     decimals = 0;
-    reset();
+    auto_clear = true;
+    clear(true);
   };
 
   DeviceData(char* var) : DeviceData() { setVariable(var); }
-  DeviceData(int d) : DeviceData() { decimals = d; }
-  DeviceData(char* var, int d) : DeviceData(var) { decimals = d; }
+  DeviceData(int d) : DeviceData() { setDecimals(d); }
+  DeviceData(char* var, int d) : DeviceData(var) { setDecimals(d); }
+
+  // clearing
+  void clear(bool all = false);
+  void setAutoClear(bool clear);
 
   // data
-  void reset();
   int getN();
   double getValue();
   double getStdDev();
   unsigned long getDataTime();
-
   void setVariable(char* var);
   void setNewestValue(double val);
   void setNewestValue(char* val, bool infer_decimals = false, int add_decimals = 1);
@@ -46,6 +52,8 @@ struct DeviceData {
   void saveNewestValue(bool average); // set value based on current newest_value (calculate average if true)
   void setNewestDataTime(unsigned long dt);
   void setUnits(char* u);
+  void setDecimals(int d);
+  int getDecimals();
 
   // operations
   bool isVariableIdentical(char* comparison);
@@ -56,13 +64,21 @@ struct DeviceData {
   void assembleInfo(); // assemble data info
 };
 
-/** DATA **/
+/** CLEARING **/
 
-void DeviceData::reset() {
-  newest_value_valid = false;
-  value.reset();
-  data_time.reset();
+void DeviceData::clear(bool all) {
+  if (auto_clear || all) {
+    newest_value_valid = false;
+    value.clear();
+    data_time.clear();
+  }
 }
+
+void DeviceData::setAutoClear(bool clear) {
+  auto_clear = clear;
+}
+
+/** DATA **/
 
 int DeviceData::getN() {
   return value.n;
@@ -109,12 +125,12 @@ void DeviceData::setNewestDataTime(unsigned long dt) {
 void DeviceData::saveNewestValue(bool average) {
   if (newest_value_valid) {
 
-    // reset/overwrite values if not averaging or data time has overflowed (for safety)
+    // clear/overwrite values if not averaging or data time has overflowed (for safety)
     if (!average || newest_data_time < getDataTime()) {
       if (newest_data_time < getDataTime())
         Serial.println("WARNING: data time has overflowed --> restarting value to avoid incorrect data");
-      value.reset();
-      data_time.reset();
+      value.clear();
+      data_time.clear();
     }
 
     // add new values
@@ -144,6 +160,13 @@ void DeviceData::setUnits(char* u) {
   units[sizeof(units)-1] = 0;
 }
 
+void DeviceData::setDecimals(int d) {
+  decimals = d;
+}
+
+int DeviceData::getDecimals() {
+  return decimals;
+}
 
 /**** OPERATIONS ****/
 
