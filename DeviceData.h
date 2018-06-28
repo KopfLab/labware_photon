@@ -1,4 +1,5 @@
 #pragma once
+#include "device/DeviceMath.h"
 
 // device data for spark cloud
 struct DeviceData {
@@ -13,9 +14,8 @@ struct DeviceData {
   bool newest_value_valid; // whether the newest value is valid
 
   // saved data
-  unsigned long data_time; // the time the data was recorded (in ms)
-  double value; // the recorded value
-  int n; // how many values / times have been averaged
+  RunningStats value;
+  RunningStats data_time;
 
   // output parameters
   int decimals; // what should the decimals be? (positive = decimals, negative = integers)
@@ -25,7 +25,7 @@ struct DeviceData {
     variable[0] = 0;
     units[0] = 0;
     decimals = 0;
-    resetValue();
+    reset();
   };
 
   DeviceData(char* var) : DeviceData() { setVariable(var); }
@@ -33,7 +33,12 @@ struct DeviceData {
   DeviceData(char* var, int d) : DeviceData(var) { decimals = d; }
 
   // data
-  void resetValue();
+  void reset();
+  int getN();
+  double getValue();
+  double getStdDev();
+  unsigned long getDataTime();
+
   void setVariable(char* var);
   void setNewestValue(double val);
   void setNewestValue(char* val, bool infer_decimals = false, int add_decimals = 1);
@@ -53,11 +58,26 @@ struct DeviceData {
 
 /** DATA **/
 
-void DeviceData::resetValue() {
-  value = 0;
-  data_time = 0;
-  n = 0;
+void DeviceData::reset() {
   newest_value_valid = false;
+  value.reset();
+  data_time.reset();
+}
+
+int DeviceData::getN() {
+  return value.n;
+}
+
+double DeviceData::getValue() {
+  return value.mean;
+}
+
+double DeviceData::getStdDev() {
+  return value.getStdDev();
+}
+
+unsigned long DeviceData::getDataTime() {
+  return (unsigned long) round(data_time.mean);
 }
 
 void DeviceData::setVariable(char* var) {
@@ -88,40 +108,31 @@ void DeviceData::setNewestDataTime(unsigned long dt) {
 
 void DeviceData::saveNewestValue(bool average) {
   if (newest_value_valid) {
-    // average but only if data time has not overflowed! (safety check)
-    if (average && newest_data_time >= data_time)  {
-      // average value
-      double weight1 = n/(n+1.0);
-      double weight2 = 1.0/(n+1.0);
-      value = weight1*value + weight2*newest_value;
 
-      // average data time (data time averaging must be done with the type back and forth to avoid calculation errors)
-      double dt1 = round(weight1 * (double) data_time);
-      double dt2 = round(weight2 * (double) newest_data_time);
-      data_time = (unsigned long) dt1 + (unsigned long) dt2;
-
-      // increment n
-      n++; // unlikely to overflow with regular reset
-
-      #ifdef DATA_DEBUG_ON
-        Serial.print("INFO: new average value saved for ");
-      #endif
-    } else {
-      // safety check
-      if (newest_data_time < data_time)
+    // reset/overwrite values if not averaging or data time has overflowed (for safety)
+    if (!average || newest_data_time < getDataTime()) {
+      if (newest_data_time < getDataTime())
         Serial.println("WARNING: data time has overflowed --> restarting value to avoid incorrect data");
-
-      // single value
-      value = newest_value;
-      data_time = newest_data_time;
-      n = 1;
-      #ifdef DATA_DEBUG_ON
-        Serial.print("INFO: single value saved for ");
-      #endif
+      value.reset();
+      data_time.reset();
     }
+
+    // add new values
+    value.add(newest_value);
+    data_time.add(newest_data_time);
+
+    // debug
+    //Serial.printf("value add: %3.10f, datatime add: %lu\nvalue    : %3.10f, datatime    : %lu, stdev  : %.10f\n",
+    //  newest_value, newest_data_time, getValue(), getDataTime(), getStdDev());
+
     #ifdef DATA_DEBUG_ON
-      getDataDoubleText(variable, value, units, -1, json, sizeof(json), PATTERN_KVU_SIMPLE, decimals);
-      Serial.printf("%s (n=%d; data time = %Lu ms)\n", json, n, data_time);
+      (average) ?
+        Serial.print("INFO: new average value saved for ") :
+        Serial.print("INFO: single value saved for ");
+      (getN() > 1) ?
+        getDataDoubleWithSigmaText(variable, getValue(), getStdDev(), units, getN(), -1, json, sizeof(json), PATTERN_KVSUN_SIMPLE, decimals) :
+        getDataDoubleText(variable, getValue(), units, -1, json, sizeof(json), PATTERN_KVU_SIMPLE, decimals);
+      Serial.printf("%s (data time = %Lu ms)\n", json, getDataTime());
     #endif
   } else {
     Serial.println("WARNING: newest value not valid and therefore not saved");
@@ -155,11 +166,16 @@ bool DeviceData::isUnitsIdentical(char* comparison) {
 /***** LOGGING *****/
 
 void DeviceData::assembleLog(bool include_time_offset = true) {
-  if (n > 0) {
+  if (getN() > 1) {
     // have data
     (include_time_offset) ?
-      getDataDoubleText(variable, value, units, n, millis() - data_time, json, sizeof(json), PATTERN_KVUNT_JSON, decimals) :
-      getDataDoubleText(variable, value, units, n, json, sizeof(json), PATTERN_KVUN_JSON, decimals);
+      getDataDoubleWithSigmaText(variable, getValue(), getStdDev(), units, getN(), millis() - getDataTime(), json, sizeof(json), PATTERN_KVSUNT_JSON, decimals) :
+      getDataDoubleWithSigmaText(variable, getValue(), getStdDev(), units, getN(), json, sizeof(json), PATTERN_KVSUN_JSON, decimals);
+  } else if (getN() == 1) {
+    // have single data point (sigma is not meaningful)
+    (include_time_offset) ?
+      getDataDoubleText(variable, getValue(), units, getN(), millis() - getDataTime(), json, sizeof(json), PATTERN_KVUNT_JSON, decimals) :
+      getDataDoubleText(variable, getValue(), units, getN(), json, sizeof(json), PATTERN_KVUN_JSON, decimals);
   } else {
     // no data
     getDataNullText(variable, json, sizeof(json), PATTERN_KV_JSON);

@@ -1,6 +1,5 @@
 #pragma once
-
-#include <math.h>
+#include "device/DeviceMath.h"
 
 /**** general parameters and constants for device cloude interaction ****/
 
@@ -25,13 +24,16 @@
 
 // NOTE: size is always passed as safety precaution to not overallocate the target
 // sizeof(target) would not work because it's a pointer (always size 4)
-// NOTE: consider implementing better error catching for overlong key/value pairs
+// NOTE: consider implementing better sigma catching for overlong key/value pairs
 
 // formatting patterns
-#define PATTERN_KVUNT_JSON        "{\"k\":\"%s\",\"v\":%s,\"u\":\"%s\",\"n\":%lu,\"to\":%d}"
+#define PATTERN_KVSUNT_JSON       "{\"k\":\"%s\",\"v\":%s,\"s\":%s,\"u\":\"%s\",\"n\":%lu,\"to\":%d}"
+#define PATTERN_KVSUN_SIMPLE      "%s: %s+/-%s%s (%d)"
+#define PATTERN_KVSUN_JSON        "{\"k\":\"%s\",\"v\":%s,\"s\":%s,\"u\":\"%s\",\"n\":%d}"
 
-#define PATTERN_KVUN_SIMPLE      "%s: %s%s (%d)"
-#define PATTERN_KVUN_JSON        "{\"k\":\"%s\",\"v\":%s,\"u\":\"%s\",\"n\":%d}"
+#define PATTERN_KVUNT_JSON        "{\"k\":\"%s\",\"v\":%s,\"u\":\"%s\",\"n\":%lu,\"to\":%d}"
+#define PATTERN_KVUN_SIMPLE       "%s: %s%s (%d)"
+#define PATTERN_KVUN_JSON         "{\"k\":\"%s\",\"v\":%s,\"u\":\"%s\",\"n\":%d}"
 
 #define PATTERN_KVU_SIMPLE        "%s: %s%s"
 #define PATTERN_KVU_JSON          "{\"k\":\"%s\",\"v\":%s,\"u\":\"%s\"}"
@@ -46,6 +48,10 @@
 #define PATTERN_V_SIMPLE          "%s"
 
 /**** GENERAL UTILITY FUNCTIONS ****/
+
+static void getInfoKeyValueSigmaUnitsNumberTimeOffset(char* target, int size, char* key, char* value, char* sigma, char* units, int n, unsigned long time_offset, char* pattern) {
+  snprintf(target, size, pattern, key, value, sigma, units, n, time_offset);
+}
 
 static void getInfoKeyValueUnitsNumberTimeOffset(char* target, int size, char* key, char* value, char* units, int n, unsigned long time_offset, char* pattern) {
   snprintf(target, size, pattern, key, value, units, n, time_offset);
@@ -75,59 +81,23 @@ static void getInfoValue(char* target, int size, char* value, char* pattern = PA
   snprintf(target, size, pattern, value);
 }
 
-/**** NUMERIC DATA FUNCTIONS ****/
-
-// extrat number of decimals behind the separator from a textual number representation
-int find_number_of_decimals (char* text, const char* sep = ".") {
-    int decimals = strlen(text) - strcspn(text, sep) - 1;
-    if (decimals < 0) decimals = 0;
-    return(decimals);
-}
-
-// find first decimals
-// @return positive = decimals, negative = integers
-// @note these functions are not currenly used
-int find_first_decimals (double number) {
-    if (number == 0.0) return (10); // what to do with this rare case? round to 10 decimals
-    else return(-floor(log10(fabs(number)))); // could do this faster than with the log with a while if this is a problem
-}
-
-// find deicmal for the specific number and significant digits
-// @param signif = number of significant digits, 1 by default
-// @param decimals_only = always round integers to 1
-// @param limit = highest number of decimals that should be used
-int find_signif_decimals (double number, uint signif = 1, bool decimals_only = false, int limit = 10) {
-    int decimals = find_first_decimals (number) + signif - 1;
-    if (decimals_only && decimals > 0) decimals = 0;
-    if (decimals > limit) decimals = limit;
-    return(decimals);
-}
-
-// round a number to the specified decimals
-double round_to_decimals (double number, int decimals) {
-    double factor = pow(10.0, decimals);
-    return(round(number * factor) / factor);
-}
-
-// print a number to the specified decimals
-void print_to_decimals (char* target, int size, double number, int decimals) {
-
-    // round
-    double rounded_number = round_to_decimals(number, decimals);
-
-    // print
-    if (decimals < 0) decimals = 0;
-    char number_pattern[6];
-    snprintf(number_pattern, sizeof(number_pattern), "%%.%df", decimals);
-    snprintf(target, size, number_pattern, rounded_number);
-}
-
-// print a number to the specific significan digits
-void print_to_signif (char* target, int size, double number, int signif) {
-    print_to_decimals(target, size, number, find_signif_decimals(number, signif));
-}
-
 /**** DATA INFO FUNCTIONS ****/
+
+static void getDataDoubleWithSigmaText(char* key, double value, double sigma, char* units, int n, unsigned long time_offset, char* target, int size, char* pattern, int decimals) {
+  char value_text[20];
+  print_to_decimals(value_text, sizeof(value_text), value, decimals);
+  char sigma_text[20];
+  print_to_decimals(sigma_text, sizeof(sigma_text), sigma, decimals);
+  getInfoKeyValueSigmaUnitsNumberTimeOffset(target, size, key, value_text, sigma_text, units, n, time_offset, pattern);
+}
+
+static void getDataDoubleWithSigmaText(char* key, double value, double sigma, char* units, int n, char* target, int size, char* pattern, int decimals) {
+  getDataDoubleWithSigmaText(key, value, sigma, units, n, -1, target, size, pattern, decimals);
+}
+
+static void getDataDoubleWithSigmaText(char* key, double value, double sigma, char* units, char* target, int size, char* pattern, int decimals) {
+  getDataDoubleWithSigmaText(key, value, sigma, units, -1, target, size, pattern, decimals);
+}
 
 static void getDataDoubleText(char* key, double value, char* units, int n, unsigned long time_offset, char* target, int size, char* pattern, int decimals) {
   char value_text[20];

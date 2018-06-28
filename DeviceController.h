@@ -469,7 +469,7 @@ void DeviceController::resetData() {
   #ifdef DATA_DEBUG_ON
     Serial.println(Time.format(Time.now(), "INFO: resetting data at %Y-%m-%d %H:%M:%S %Z"));
   #endif
-  for (int i=0; i<data.size(); i++) data[i].resetValue();
+  for (int i=0; i<data.size(); i++) data[i].reset();
 }
 
 void DeviceController::updateDataInformation() {
@@ -478,7 +478,11 @@ void DeviceController::updateDataInformation() {
   #endif
   data_information_buffer[0] = 0; // reset buffer
   assembleDataInformation();
-  postDataInformation();
+  if (Particle.connected()) {
+    postDataInformation();
+  } else {
+    Serial.println("ERROR: particle not (yet) connected.");
+  }
   #ifdef CLOUD_DEBUG_ON
     Serial.println(data_information);
   #endif
@@ -486,14 +490,10 @@ void DeviceController::updateDataInformation() {
 }
 
 void DeviceController::postDataInformation() {
-  if (Particle.connected()) {
-    Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
-    // dt = datetime, d = structured data
-    snprintf(data_information, sizeof(data_information), "{dt:\"%s\",d:[%s]}",
-      date_time_buffer, data_information_buffer);
-  } else {
-    Serial.println("ERROR: particle not (yet) connected.");
-  }
+  Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
+  // dt = datetime, d = structured data
+  snprintf(data_information, sizeof(data_information), "{dt:\"%s\",d:[%s]}",
+    date_time_buffer, data_information_buffer);
 }
 
 void DeviceController::addToDataInformation(char* info) {
@@ -575,7 +575,8 @@ void DeviceController::assembleDataLog(bool global_time_offset) {
   }
 
   // global time
-  unsigned long global_time = millis() - data[0].data_time;
+  unsigned long global_time = millis() - (unsigned long) data[0].getDataTime();
+
   int buffer_size;
   if (global_time_offset) {
     // id = device name, to = time offset (global), d = structured data

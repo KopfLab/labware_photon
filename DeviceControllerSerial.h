@@ -16,7 +16,6 @@ class DeviceControllerSerial : public DeviceController {
     // serial communication config
     const long serial_baud_rate;
     const long serial_config;
-    const int request_wait; // how long to wait after a request is finished to issue the next? [in ms]
     const int error_wait; // how long to wait after an error to re-issue request? [in ms]
     char request_command[10];
 
@@ -38,7 +37,8 @@ class DeviceControllerSerial : public DeviceController {
     // serial communications info
     bool waiting_for_response = false; // waiting for response
     int n_byte; // number of bytes received
-    unsigned long last_read; // last read
+    unsigned long last_request; // last request (for request timing)
+    unsigned long last_byte; // last byte (last byte read - for error timeout)
     int serial_data_status = SERIAL_DATA_COMPLETE; // whether data has been received
 
   public:
@@ -47,12 +47,12 @@ class DeviceControllerSerial : public DeviceController {
     DeviceControllerSerial();
 
     // without LCD
-    DeviceControllerSerial (int reset_pin, const long baud_rate, const long serial_config, const char* request_cmd, const int request_wait, const int error_wait) :
-      DeviceController(reset_pin), serial_baud_rate(baud_rate), serial_config(serial_config), request_wait(request_wait), error_wait(error_wait) { construct(request_cmd); }
+    DeviceControllerSerial (int reset_pin, const long baud_rate, const long serial_config, const char* request_cmd, const int error_wait) :
+      DeviceController(reset_pin), serial_baud_rate(baud_rate), serial_config(serial_config), error_wait(error_wait) { construct(request_cmd); }
 
     // with LCD
-    DeviceControllerSerial (int reset_pin, DeviceDisplay* lcd, const long baud_rate, const long serial_config, const char* request_cmd, const int request_wait, const int error_wait) :
-      DeviceController(reset_pin, lcd), serial_baud_rate(baud_rate), serial_config(serial_config), request_wait(request_wait), error_wait(error_wait) { construct(request_cmd); }
+    DeviceControllerSerial (int reset_pin, DeviceDisplay* lcd, const long baud_rate, const long serial_config, const char* request_cmd, const int error_wait) :
+      DeviceController(reset_pin, lcd), serial_baud_rate(baud_rate), serial_config(serial_config), error_wait(error_wait) { construct(request_cmd); }
 
     // setup and loop methods
     virtual void init(); // to be run during setup()
@@ -116,7 +116,8 @@ void DeviceControllerSerial::init() {
   while (Serial1.available()) {
     Serial1.read();
   }
-  last_read = millis();
+  last_byte = millis();
+  last_request = millis();
 
   // unlike the base class data log is time based
   last_data_log = millis();
@@ -134,7 +135,7 @@ void DeviceControllerSerial::update() {
 
       // read byte
       byte b = Serial1.read();
-      last_read = millis();
+      last_byte = millis();
 
       // skip byte if not waiting for response
       if (!waiting_for_response) continue;
@@ -173,7 +174,7 @@ void DeviceControllerSerial::update() {
     // data request
     bool request_data = false;
 
-    if (serial_data_status == SERIAL_DATA_ERROR && (millis() - last_read) > error_wait) {
+    if (serial_data_status == SERIAL_DATA_ERROR && (millis() - last_byte) > error_wait) {
       // request data becaus of error timeout
       #ifdef SERIAL_DEBUG_ON
         Serial.print("INFO: error reset timeout reached, re-requesting data");
@@ -185,8 +186,8 @@ void DeviceControllerSerial::update() {
         Serial.print("INFO: listening to manual data transmissions");
       #endif
       request_data = true;
-    } else if (!serialIsManual() && (millis() - last_read) > request_wait) {
-      // not in manual mode and waited the request_wait time since last activity
+    } else if (!serialIsManual() && (millis() - last_request) > getDSS()->data_reading_period) {
+      // not in manual mode and waited the read period time since last activity
       #ifdef SERIAL_DEBUG_ON
         (serial_data_status == SERIAL_DATA_COMPLETE) ?
           Serial.print("INFO: issuing new request for data") :
@@ -205,7 +206,8 @@ void DeviceControllerSerial::update() {
       if (!serialIsManual()) Serial1.println(request_command);
 
       // request parameters
-      last_read = millis();
+      last_byte = millis();
+      last_request = millis();
       waiting_for_response = true;
       serial_data_status = SERIAL_DATA_WAITING;
       n_byte = 0;
@@ -259,11 +261,11 @@ bool DeviceControllerSerial::parseDataReadingPeriod() {
         }
         // assign read period
         if (!command.isTypeDefined()) {
-          // FIXME: check this out again - something is crashing!!
-          /*if (read_period < getDSS()->data_reading_period_min)
+          if (read_period < getDSS()->data_reading_period_min)
+            // make sure bigger than minimum
             command.error(CMD_RET_ERR_READ_LARGER_MIN, CMD_RET_ERR_READ_LARGER_MIN_TEXT);
-          else*/
-          if (getDSS()->data_logging_type == LOG_BY_TIME && getDSS()->data_logging_period * 1000 <= read_period)
+          else if (getDSS()->data_logging_type == LOG_BY_TIME && getDSS()->data_logging_period * 1000 <= read_period)
+            // make sure smaller than log period
             command.error(CMD_RET_ERR_LOG_SMALLER_READ, CMD_RET_ERR_LOG_SMALLER_READ_TEXT);
           else
             command.success(changeDataReadingPeriod(read_period));
@@ -342,7 +344,7 @@ bool DeviceControllerSerial::parseDataLoggingPeriod() {
 void DeviceControllerSerial::assembleDisplayStateInformation() {
   DeviceController::assembleDisplayStateInformation();
   uint i = strlen(lcd_buffer);
-  
+
   // details on data logging
   getStateDataLoggingPeriodText(getDSS()->data_logging_period, getDSS()->data_logging_type,
       lcd_buffer + i, sizeof(lcd_buffer) - i, true);
@@ -369,7 +371,7 @@ void DeviceControllerSerial::assembleStateInformation() {
 
 int DeviceControllerSerial::getNumberDataPoints() {
   // default is that the first data type is representative
-  return(data[0].n);
+  return(data[0].getN());
 }
 
 bool DeviceControllerSerial::isTimeForDataLogAndReset() {
@@ -404,6 +406,7 @@ bool DeviceControllerSerial::isTimeForDataLogAndReset() {
 /** DATA UPDATES **/
 
 void DeviceControllerSerial::postDataInformation() {
+  Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
   // dt = datetime, r = raw serial, d = parsed data
   snprintf(data_information, sizeof(data_information), "{dt:\"%s\",r:\"%s\",d:[%s]}",
       date_time_buffer, data_buffer, data_information_buffer);
