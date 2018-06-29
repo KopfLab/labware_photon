@@ -6,6 +6,7 @@ struct DeviceData {
 
   // data information
   char variable[25]; // the name of the data variable
+  int pos; // the position of the data (i.e. the index)
   char units[20]; // the units the data is recorded in
 
   // newest data
@@ -26,15 +27,17 @@ struct DeviceData {
 
   DeviceData() {
     variable[0] = 0;
+    pos = 0;
     units[0] = 0;
     decimals = 0;
     auto_clear = true;
     clear(true);
   };
 
-  DeviceData(char* var) : DeviceData() { setVariable(var); }
-  DeviceData(int d) : DeviceData() { setDecimals(d); }
-  DeviceData(char* var, int d) : DeviceData(var) { setDecimals(d); }
+  DeviceData(int pos) : DeviceData() { setPosition(pos); }
+  DeviceData(int pos, char* var) : DeviceData(pos) { setVariable(var); }
+  DeviceData(int pos, int d) : DeviceData(pos) { setDecimals(d); }
+  DeviceData(int pos, char* var, int d) : DeviceData(pos, var) { setDecimals(d); }
 
   // clearing
   void clear(bool all = false);
@@ -46,6 +49,7 @@ struct DeviceData {
   double getStdDev();
   unsigned long getDataTime();
   void setVariable(char* var);
+  void setPosition(int pos);
   void setNewestValue(double val);
   void setNewestValue(char* val, bool infer_decimals = false, int add_decimals = 1);
   void setNewestValueInvalid();
@@ -60,7 +64,7 @@ struct DeviceData {
   bool isUnitsIdentical(char* comparison);
 
   // logging
-  void assembleLog(bool include_time_offset); // assemble log (with our without time offset, in seconds)
+  void assembleLog(bool include_time_offset = true); // assemble log (with our without time offset, in seconds)
   void assembleInfo(); // assemble data info
 };
 
@@ -99,6 +103,10 @@ unsigned long DeviceData::getDataTime() {
 void DeviceData::setVariable(char* var) {
   strncpy(variable, var, sizeof(variable) - 1);
   variable[sizeof(variable)-1] = 0;
+}
+
+void DeviceData::setPosition(int p) {
+  pos = p;
 }
 
 void DeviceData::setNewestValue(double val) {
@@ -146,8 +154,8 @@ void DeviceData::saveNewestValue(bool average) {
         Serial.print("INFO: new average value saved for ") :
         Serial.print("INFO: single value saved for ");
       (getN() > 1) ?
-        getDataDoubleWithSigmaText(variable, getValue(), getStdDev(), units, getN(), -1, json, sizeof(json), PATTERN_KVSUN_SIMPLE, decimals) :
-        getDataDoubleText(variable, getValue(), units, -1, json, sizeof(json), PATTERN_KVU_SIMPLE, decimals);
+        getDataDoubleWithSigmaText(pos, variable, getValue(), getStdDev(), units, getN(), json, sizeof(json), PATTERN_PKVSUN_SIMPLE, decimals) :
+        getDataDoubleText(pos, variable, getValue(), units, json, sizeof(json), PATTERN_PKVU_SIMPLE, decimals);
       Serial.printf("%s (data time = %Lu ms)\n", json, getDataTime());
     #endif
   } else {
@@ -188,29 +196,29 @@ bool DeviceData::isUnitsIdentical(char* comparison) {
 
 /***** LOGGING *****/
 
-void DeviceData::assembleLog(bool include_time_offset = true) {
+void DeviceData::assembleLog(bool include_time_offset) {
   if (getN() > 1) {
     // have data
     (include_time_offset) ?
-      getDataDoubleWithSigmaText(variable, getValue(), getStdDev(), units, getN(), millis() - getDataTime(), json, sizeof(json), PATTERN_KVSUNT_JSON, decimals) :
-      getDataDoubleWithSigmaText(variable, getValue(), getStdDev(), units, getN(), json, sizeof(json), PATTERN_KVSUN_JSON, decimals);
+      getDataDoubleWithSigmaText(pos, variable, getValue(), getStdDev(), units, getN(), millis() - getDataTime(), json, sizeof(json), PATTERN_PKVSUNT_JSON, decimals) :
+      getDataDoubleWithSigmaText(pos, variable, getValue(), getStdDev(), units, getN(), json, sizeof(json), PATTERN_PKVSUN_JSON, decimals);
   } else if (getN() == 1) {
     // have single data point (sigma is not meaningful)
     (include_time_offset) ?
-      getDataDoubleText(variable, getValue(), units, getN(), millis() - getDataTime(), json, sizeof(json), PATTERN_KVUNT_JSON, decimals) :
-      getDataDoubleText(variable, getValue(), units, getN(), json, sizeof(json), PATTERN_KVUN_JSON, decimals);
+      getDataDoubleText(pos, variable, getValue(), units, getN(), millis() - getDataTime(), json, sizeof(json), PATTERN_PKVUNT_JSON, decimals) :
+      getDataDoubleText(pos, variable, getValue(), units, getN(), json, sizeof(json), PATTERN_PKVUN_JSON, decimals);
   } else {
     // no data
-    getDataNullText(variable, json, sizeof(json), PATTERN_KV_JSON);
+    getDataNullText(pos, variable, json, sizeof(json), PATTERN_PKV_JSON);
   }
 }
 
 void DeviceData::assembleInfo() {
   if (newest_value_valid) {
     // valid data
-    getDataDoubleText(variable, newest_value, units, -1, json, sizeof(json), PATTERN_KVU_JSON, decimals);
+    getDataDoubleText(pos, variable, newest_value, units, json, sizeof(json), PATTERN_PKVU_JSON, decimals);
   } else {
     // no valid data
-    getDataNullText(variable, json, sizeof(json), PATTERN_KV_JSON);
+    getDataNullText(pos, variable, json, sizeof(json), PATTERN_PKV_JSON);
   }
 }

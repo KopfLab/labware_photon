@@ -27,21 +27,38 @@
 // NOTE: consider implementing better sigma catching for overlong key/value pairs
 
 // formatting patterns
-#define PATTERN_KVSUNT_JSON       "{\"k\":\"%s\",\"v\":%s,\"s\":%s,\"u\":\"%s\",\"n\":%lu,\"to\":%d}"
-#define PATTERN_KVSUN_SIMPLE      "%s: %s+/-%s%s (%d)"
+#define PATTERN_PKVSUNT_JSON      "{\"p\":%d,\"k\":\"%s\",\"v\":%s,\"s\":%s,\"u\":\"%s\",\"n\":%d,\"to\":%lu}"
+#define PATTERN_PKVSUN_JSON       "{\"p\":%d,\"k\":\"%s\",\"v\":%s,\"s\":%s,\"u\":\"%s\",\"n\":%d}"
+#define PATTERN_PKVSUN_SIMPLE     "#%d %s: %s+/-%s%s (%d)"
+
+#define PATTERN_KVSUNT_JSON       "{\"k\":\"%s\",\"v\":%s,\"s\":%s,\"u\":\"%s\",\"n\":%d,\"to\":%lu}"
 #define PATTERN_KVSUN_JSON        "{\"k\":\"%s\",\"v\":%s,\"s\":%s,\"u\":\"%s\",\"n\":%d}"
+#define PATTERN_KVSUN_SIMPLE      "%s: %s+/-%s%s (%d)"
 
-#define PATTERN_KVUNT_JSON        "{\"k\":\"%s\",\"v\":%s,\"u\":\"%s\",\"n\":%lu,\"to\":%d}"
-#define PATTERN_KVUN_SIMPLE       "%s: %s%s (%d)"
+#define PATTERN_PKVUNT_JSON       "{\"p\":%d,\"k\":\"%s\",\"v\":%s,\"u\":\"%s\",\"n\":%d,\"to\":%lu}"
+#define PATTERN_PKVUN_JSON        "{\"p\":%d,\"k\":\"%s\",\"v\":%s,\"u\":\"%s\",\"n\":%d}"
+#define PATTERN_PKVUN_SIMPLE      "#%d %s: %s%s (%d)"
+
+#define PATTERN_KVUNT_JSON        "{\"k\":\"%s\",\"v\":%s,\"u\":\"%s\",\"n\":%d,\"to\":%lu}"
 #define PATTERN_KVUN_JSON         "{\"k\":\"%s\",\"v\":%s,\"u\":\"%s\",\"n\":%d}"
+#define PATTERN_KVUN_JSON_QUOTED  "{\"k\":\"%s\",\"v\":\"%s\",\"u\":\"%s\",\"n\":%d}"
+#define PATTERN_KVUN_SIMPLE       "%s: %s%s (%d)"
 
-#define PATTERN_KVU_SIMPLE        "%s: %s%s"
+#define PATTERN_PKVU_JSON         "{\"p\":%d,\"k\":\"%s\",\"v\":%s,\"u\":\"%s\"}"
+#define PATTERN_PKVU_JSON_QUOTED  "{\"p\":%d,\"k\":\"%s\",\"v\":\"%s\",\"u\":\"%s\"}"
+#define PATTERN_PKVU_SIMPLE       "#%d %s: %s%s"
+
 #define PATTERN_KVU_JSON          "{\"k\":\"%s\",\"v\":%s,\"u\":\"%s\"}"
 #define PATTERN_KVU_JSON_QUOTED   "{\"k\":\"%s\",\"v\":\"%s\",\"u\":\"%s\"}"
+#define PATTERN_KVU_SIMPLE        "%s: %s%s"
 
-#define PATTERN_KV_SIMPLE         "%s: %s"
+#define PATTERN_PKV_JSON          "{\"p\":%d,\"k\":\"%s\",\"v\":%s}"
+#define PATTERN_PKV_JSON_QUOTED   "{\"p\":%d,\"k\":\"%s\",\"v\":\"%s\"}"
+#define PATTERN_PKV_SIMPLE        "#%d %s: %s"
+
 #define PATTERN_KV_JSON           "{\"k\":\"%s\",\"v\":%s}"
 #define PATTERN_KV_JSON_QUOTED    "{\"k\":\"%s\",\"v\":\"%s\"}"
+#define PATTERN_KV_SIMPLE         "%s: %s"
 
 #define PATTERN_VUN_SIMPLE        "%s%s (%d)"
 #define PATTERN_VU_SIMPLE         "%s%s"
@@ -49,11 +66,19 @@
 
 /**** GENERAL UTILITY FUNCTIONS ****/
 
-static void getInfoKeyValueSigmaUnitsNumberTimeOffset(char* target, int size, char* key, char* value, char* sigma, char* units, int n, unsigned long time_offset, char* pattern) {
+static void getInfoPosKeyValueSigmaUnitsNumberTimeOffset(char* target, int size, int pos, char* key, char* value, char* sigma, char* units, int n, unsigned long time_offset, char* pattern = PATTERN_PKVSUNT_JSON) {
+  snprintf(target, size, pattern, pos, key, value, sigma, units, n, time_offset);
+}
+
+static void getInfoKeyValueSigmaUnitsNumberTimeOffset(char* target, int size, char* key, char* value, char* sigma, char* units, int n, unsigned long time_offset, char* pattern = PATTERN_PKVSUNT_JSON) {
   snprintf(target, size, pattern, key, value, sigma, units, n, time_offset);
 }
 
-static void getInfoKeyValueUnitsNumberTimeOffset(char* target, int size, char* key, char* value, char* units, int n, unsigned long time_offset, char* pattern) {
+static void getInfoPosKeyValueUnitsNumberTimeOffset(char* target, int size, int pos, char* key, char* value, char* units, int n, unsigned long time_offset, char* pattern = PATTERN_PKVUNT_JSON) {
+  snprintf(target, size, pattern, pos, key, value, units, n, time_offset);
+}
+
+static void getInfoKeyValueUnitsNumberTimeOffset(char* target, int size, char* key, char* value, char* units, int n, unsigned long time_offset, char* pattern = PATTERN_KVUNT_JSON) {
   snprintf(target, size, pattern, key, value, units, n, time_offset);
 }
 
@@ -65,8 +90,16 @@ static void getInfoValueUnitsNumber(char* target, int size, char* value, char* u
   snprintf(target, size, pattern, value, units, n);
 }
 
+static void getInfoPosKeyValueUnits(char* target, int size, int pos, char* key, char* value, char* units, char* pattern = PATTERN_PKVU_SIMPLE) {
+  snprintf(target, size, pattern, pos, key, value, units);
+}
+
 static void getInfoKeyValueUnits(char* target, int size, char* key, char* value, char* units, char* pattern = PATTERN_KVU_SIMPLE) {
   snprintf(target, size, pattern, key, value, units);
+}
+
+static void getInfoPosKeyValue(char* target, int size, int pos, char* key, char* value, char* pattern = PATTERN_PKV_SIMPLE) {
+  snprintf(target, size, pattern, pos, key, value);
 }
 
 static void getInfoKeyValue(char* target, int size, char* key, char* value, char* pattern = PATTERN_KV_SIMPLE) {
@@ -82,40 +115,60 @@ static void getInfoValue(char* target, int size, char* value, char* pattern = PA
 }
 
 /**** DATA INFO FUNCTIONS ****/
+// Note: whenever pos is negative, it is excluded from the printing
 
-static void getDataDoubleWithSigmaText(char* key, double value, double sigma, char* units, int n, unsigned long time_offset, char* target, int size, char* pattern, int decimals) {
+static void getDataDoubleWithSigmaText(int pos, char* key, double value, double sigma, char* units, int n, unsigned long time_offset, char* target, int size, char* pattern, int decimals) {
   char value_text[20];
   print_to_decimals(value_text, sizeof(value_text), value, decimals);
   char sigma_text[20];
   print_to_decimals(sigma_text, sizeof(sigma_text), sigma, decimals);
-  getInfoKeyValueSigmaUnitsNumberTimeOffset(target, size, key, value_text, sigma_text, units, n, time_offset, pattern);
+  (pos >= 0) ?
+    getInfoPosKeyValueSigmaUnitsNumberTimeOffset(target, size, pos, key, value_text, sigma_text, units, n, time_offset, pattern) :
+    getInfoKeyValueSigmaUnitsNumberTimeOffset(target, size, key, value_text, sigma_text, units, n, time_offset, pattern);
+
+}
+
+static void getDataDoubleWithSigmaText(int pos, char* key, double value, double sigma, char* units, int n, char* target, int size, char* pattern, int decimals) {
+  getDataDoubleWithSigmaText(pos, key, value, sigma, units, n, -1, target, size, pattern, decimals);
 }
 
 static void getDataDoubleWithSigmaText(char* key, double value, double sigma, char* units, int n, char* target, int size, char* pattern, int decimals) {
-  getDataDoubleWithSigmaText(key, value, sigma, units, n, -1, target, size, pattern, decimals);
+  getDataDoubleWithSigmaText(-1, key, value, sigma, units, n, -1, target, size, pattern, decimals);
 }
 
-static void getDataDoubleWithSigmaText(char* key, double value, double sigma, char* units, char* target, int size, char* pattern, int decimals) {
-  getDataDoubleWithSigmaText(key, value, sigma, units, -1, target, size, pattern, decimals);
-}
-
-static void getDataDoubleText(char* key, double value, char* units, int n, unsigned long time_offset, char* target, int size, char* pattern, int decimals) {
+static void getDataDoubleText(int pos, char* key, double value, char* units, int n, unsigned long time_offset, char* target, int size, char* pattern, int decimals) {
   char value_text[20];
   print_to_decimals(value_text, sizeof(value_text), value, decimals);
-  getInfoKeyValueUnitsNumberTimeOffset(target, size, key, value_text, units, n, time_offset, pattern);
+  (pos >= 0) ?
+    getInfoPosKeyValueUnitsNumberTimeOffset(target, size, pos, key, value_text, units, n, time_offset, pattern) :
+    getInfoKeyValueUnitsNumberTimeOffset(target, size, key, value_text, units, n, time_offset, pattern);
+}
+
+static void getDataDoubleText(int pos, char* key, double value, char* units, int n, char* target, int size, char* pattern, int decimals) {
+  getDataDoubleText(pos, key, value, units, n, -1, target, size, pattern, decimals);
+}
+
+static void getDataDoubleText(int pos, char* key, double value, char* units, char* target, int size, char* pattern, int decimals) {
+  getDataDoubleText(pos, key, value, units, -1, -1, target, size, pattern, decimals);
 }
 
 static void getDataDoubleText(char* key, double value, char* units, int n, char* target, int size, char* pattern, int decimals) {
-  getDataDoubleText(key, value, units, n, -1, target, size, pattern, decimals);
+  getDataDoubleText(-1, key, value, units, n, -1, target, size, pattern, decimals);
 }
 
 static void getDataDoubleText(char* key, double value, char* units, char* target, int size, char* pattern, int decimals) {
-  getDataDoubleText(key, value, units, -1, target, size, pattern, decimals);
+  getDataDoubleText(-1, key, value, units, -1, -1, target, size, pattern, decimals);
+}
+
+static void getDataNullText(int pos, char* key, char* target, int size, char* pattern) {
+  char value_text[] = "null";
+  (pos >= 0) ?
+    getInfoPosKeyValue(target, size, pos, key, value_text, pattern) :
+    getInfoKeyValue(target, size, key, value_text, pattern);
 }
 
 static void getDataNullText(char* key, char* target, int size, char* pattern) {
-  char value_text[] = "null";
-  getInfoKeyValue(target, size, key, value_text, pattern);
+  getDataNullText(-1, key, target, size, pattern);
 }
 /**** STATE INFO FUNCTIONS ****/
 
