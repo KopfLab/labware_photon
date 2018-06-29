@@ -6,7 +6,7 @@ struct DeviceData {
 
   // data information
   char variable[25]; // the name of the data variable
-  int pos; // the position of the data (i.e. the index)
+  int idx; // the index of the data
   char units[20]; // the units the data is recorded in
 
   // newest data
@@ -22,22 +22,22 @@ struct DeviceData {
   bool auto_clear;
 
   // output parameters
-  int decimals; // what should the decimals be? (positive = decimals, negative = integers)
+  int decimals; // what should the decimals be? (idxitive = decimals, negative = integers)
   char json[100]; // full data log text
 
   DeviceData() {
     variable[0] = 0;
-    pos = 0;
+    idx = 0;
     units[0] = 0;
     decimals = 0;
     auto_clear = true;
     clear(true);
   };
 
-  DeviceData(int pos) : DeviceData() { setPosition(pos); }
-  DeviceData(int pos, char* var) : DeviceData(pos) { setVariable(var); }
-  DeviceData(int pos, int d) : DeviceData(pos) { setDecimals(d); }
-  DeviceData(int pos, char* var, int d) : DeviceData(pos, var) { setDecimals(d); }
+  DeviceData(int idx) : DeviceData() { setidxition(idx); }
+  DeviceData(int idx, char* var) : DeviceData(idx) { setVariable(var); }
+  DeviceData(int idx, int d) : DeviceData(idx) { setDecimals(d); }
+  DeviceData(int idx, char* var, int d) : DeviceData(idx, var) { setDecimals(d); }
 
   // clearing
   void clear(bool all = false);
@@ -49,7 +49,7 @@ struct DeviceData {
   double getStdDev();
   unsigned long getDataTime();
   void setVariable(char* var);
-  void setPosition(int pos);
+  void setidxition(int idx);
   void setNewestValue(double val);
   void setNewestValue(char* val, bool infer_decimals = false, int add_decimals = 1);
   void setNewestValueInvalid();
@@ -105,8 +105,8 @@ void DeviceData::setVariable(char* var) {
   variable[sizeof(variable)-1] = 0;
 }
 
-void DeviceData::setPosition(int p) {
-  pos = p;
+void DeviceData::setidxition(int p) {
+  idx = p;
 }
 
 void DeviceData::setNewestValue(double val) {
@@ -154,8 +154,8 @@ void DeviceData::saveNewestValue(bool average) {
         Serial.print("INFO: new average value saved for ") :
         Serial.print("INFO: single value saved for ");
       (getN() > 1) ?
-        getDataDoubleWithSigmaText(pos, variable, getValue(), getStdDev(), units, getN(), json, sizeof(json), PATTERN_PKVSUN_SIMPLE, decimals) :
-        getDataDoubleText(pos, variable, getValue(), units, json, sizeof(json), PATTERN_PKVU_SIMPLE, decimals);
+        getDataDoubleWithSigmaText(idx, variable, getValue(), getStdDev(), units, getN(), json, sizeof(json), PATTERN_IKVSUN_SIMPLE, decimals) :
+        getDataDoubleText(idx, variable, getValue(), units, json, sizeof(json), PATTERN_IKVU_SIMPLE, decimals);
       Serial.printf("%s (data time = %Lu ms)\n", json, getDataTime());
     #endif
   } else {
@@ -200,25 +200,25 @@ void DeviceData::assembleLog(bool include_time_offset) {
   if (getN() > 1) {
     // have data
     (include_time_offset) ?
-      getDataDoubleWithSigmaText(pos, variable, getValue(), getStdDev(), units, getN(), millis() - getDataTime(), json, sizeof(json), PATTERN_PKVSUNT_JSON, decimals) :
-      getDataDoubleWithSigmaText(pos, variable, getValue(), getStdDev(), units, getN(), json, sizeof(json), PATTERN_PKVSUN_JSON, decimals);
+      getDataDoubleWithSigmaText(idx, variable, getValue(), getStdDev(), units, getN(), millis() - getDataTime(), json, sizeof(json), PATTERN_IKVSUNT_JSON, decimals) :
+      getDataDoubleWithSigmaText(idx, variable, getValue(), getStdDev(), units, getN(), json, sizeof(json), PATTERN_IKVSUN_JSON, decimals);
   } else if (getN() == 1) {
     // have single data point (sigma is not meaningful)
     (include_time_offset) ?
-      getDataDoubleText(pos, variable, getValue(), units, getN(), millis() - getDataTime(), json, sizeof(json), PATTERN_PKVUNT_JSON, decimals) :
-      getDataDoubleText(pos, variable, getValue(), units, getN(), json, sizeof(json), PATTERN_PKVUN_JSON, decimals);
+      getDataDoubleText(idx, variable, getValue(), units, getN(), millis() - getDataTime(), json, sizeof(json), PATTERN_IKVUNT_JSON, decimals) :
+      getDataDoubleText(idx, variable, getValue(), units, getN(), json, sizeof(json), PATTERN_IKVUN_JSON, decimals);
   } else {
     // no data
-    getDataNullText(pos, variable, json, sizeof(json), PATTERN_PKV_JSON);
+    getDataNullText(idx, variable, json, sizeof(json), PATTERN_IKV_JSON);
   }
 }
 
 void DeviceData::assembleInfo() {
   if (newest_value_valid) {
     // valid data
-    getDataDoubleText(pos, variable, newest_value, units, json, sizeof(json), PATTERN_PKVU_JSON, decimals);
+    getDataDoubleText(idx, variable, newest_value, units, json, sizeof(json), PATTERN_IKVU_JSON, decimals);
   } else {
     // no valid data
-    getDataNullText(pos, variable, json, sizeof(json), PATTERN_PKV_JSON);
+    getDataNullText(idx, variable, json, sizeof(json), PATTERN_IKV_JSON);
   }
 }
