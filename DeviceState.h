@@ -38,7 +38,11 @@ static void getStateLockedText(bool locked, char* target, int size, bool value_o
 
 // state logging
 static void getStateStateLoggingText(bool state_logging, char* target, int size, char* pattern, bool include_key = true) {
-  getStateBooleanText(CMD_STATE_LOG, state_logging, CMD_STATE_LOG_ON, CMD_STATE_LOG_OFF, target, size, pattern, include_key);
+  #ifdef WEBHOOKS_DEBUG_ON
+    getStateStringText(CMD_STATE_LOG, "debug", target, size, pattern, include_key);
+  #else
+    getStateBooleanText(CMD_STATE_LOG, state_logging, CMD_STATE_LOG_ON, CMD_STATE_LOG_OFF, target, size, pattern, include_key);
+  #endif
 }
 
 static void getStateStateLoggingText(bool state_logging, char* target, int size, bool value_only = false) {
@@ -48,7 +52,11 @@ static void getStateStateLoggingText(bool state_logging, char* target, int size,
 
 // data logging
 static void getStateDataLoggingText(bool data_logging, char* target, int size, char* pattern, bool include_key = true) {
-  getStateBooleanText(CMD_DATA_LOG, data_logging, CMD_DATA_LOG_ON, CMD_DATA_LOG_OFF, target, size, pattern, include_key);
+  #ifdef WEBHOOKS_DEBUG_ON
+    getStateStringText(CMD_DATA_LOG, "debug", target, size, pattern, include_key);
+  #else
+    getStateBooleanText(CMD_DATA_LOG, data_logging, CMD_DATA_LOG_ON, CMD_DATA_LOG_OFF, target, size, pattern, include_key);
+  #endif
 }
 
 static void getStateDataLoggingText(bool data_logging, char* target, int size, bool value_only = false) {

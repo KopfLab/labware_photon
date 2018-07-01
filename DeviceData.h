@@ -34,7 +34,7 @@ struct DeviceData {
     clear(true);
   };
 
-  DeviceData(int idx) : DeviceData() { setidxition(idx); }
+  DeviceData(int idx) : DeviceData() { setIndex(idx); }
   DeviceData(int idx, char* var) : DeviceData(idx) { setVariable(var); }
   DeviceData(int idx, int d) : DeviceData(idx) { setDecimals(d); }
   DeviceData(int idx, char* var, int d) : DeviceData(idx, var) { setDecimals(d); }
@@ -49,7 +49,7 @@ struct DeviceData {
   double getStdDev();
   unsigned long getDataTime();
   void setVariable(char* var);
-  void setidxition(int idx);
+  void setIndex(int idx);
   void setNewestValue(double val);
   void setNewestValue(char* val, bool infer_decimals = false, int add_decimals = 1);
   void setNewestValueInvalid();
@@ -105,8 +105,8 @@ void DeviceData::setVariable(char* var) {
   variable[sizeof(variable)-1] = 0;
 }
 
-void DeviceData::setidxition(int p) {
-  idx = p;
+void DeviceData::setIndex(int i) {
+  idx = i;
 }
 
 void DeviceData::setNewestValue(double val) {

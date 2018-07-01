@@ -1,6 +1,6 @@
 // debugging codes (define in main script to enable)
 // - CLOUD_DEBUG_ON     // use to enable info messages about cloud variables
-// - CLOUD_DEBUG_NOSEND // use to avoid cloud messages from getting sent
+// - WEBHOOKS_DEBUG_ON // use to avoid cloud messages from getting sent
 // - STATE_DEBUG_ON     // use to enable info messages about state changes
 // - DATA_DEBUG_ON      // use to enable info messages about data changes
 // - SERIAL_DEBUG_ON    // use to enable info messages about serial data
@@ -172,12 +172,27 @@ void DeviceController::init() {
   // startup time info
   Serial.println(Time.format(Time.now(), "INFO: startup time: %Y-%m-%d %H:%M:%S %Z"));
 
+  // state and log variables
+  strcpy(state_information, "{}");
+  state_information[2] = 0;
+  strcpy(data_information, "{}");
+  data_information[2] = 0;
+  strcpy(state_log, "{}");
+  state_log[2] = 0;
+  strcpy(data_log, "{}");
+  data_log[2] = 0;
+
   // register particle functions
   Serial.println("INFO: registering device cloud variables");
   Particle.subscribe("spark/", &DeviceController::captureName, this);
   Particle.function(CMD_ROOT, &DeviceController::receiveCommand, this);
   Particle.variable(STATE_INFO_VARIABLE, state_information);
   Particle.variable(DATA_INFO_VARIABLE, data_information);
+  #ifdef WEBHOOKS_DEBUG_ON
+    // report logs in variables instead of webhooks
+    Particle.variable(STATE_LOG_WEBHOOK, state_log);
+    Particle.variable(DATA_LOG_WEBHOOK, data_log);
+  #endif
 
   // data log
   last_data_log = 0;
@@ -381,6 +396,10 @@ int DeviceController::receiveCommand(String command_string) {
   showDisplayCommandInformation();
 
   // assemble and publish log
+  #ifdef WEBHOOKS_DEBUG_ON
+    Serial.println("INFO: webhook debugging is on --> always assemble state log and publish to variable");
+    override_state_log = true;
+  #endif
   if (getDS()->state_logging | override_state_log) {
     assembleStateLog();
     publishStateLog();
@@ -561,7 +580,12 @@ void DeviceController::assembleStateInformation() {
 
 void DeviceController::logData() {
   // publish data log
-  if (getDS()->data_logging) {
+  bool override_data_log = false;
+  #ifdef WEBHOOKS_DEBUG_ON
+    Serial.println("INFO: webhook debugging is on --> always assemble data log and publish to variable");
+    override_data_log = true; 
+  #endif
+  if (getDS()->data_logging | override_data_log) {
       assembleDataLog();
       publishDataLog();
   } else {
@@ -613,13 +637,13 @@ bool DeviceController::publishDataLog() {
   #ifdef CLOUD_DEBUG_ON
     if (!getDS()->data_logging) Serial.println("WARNING: publishing data log despite data logging turned off");
     Serial.print("INFO: publishing data log " + String(data_log) + " to event '" + String(DATA_LOG_WEBHOOK) + "'... ");
-    #ifdef CLOUD_DEBUG_NOSEND
+    #ifdef WEBHOOKS_DEBUG_ON
       Serial.println();
     #endif
   #endif
 
-  #ifdef CLOUD_DEBUG_NOSEND
-    Serial.println("WARNING: data log NOT sent because in CLOUD_DEBUG_NOSEND mode.");
+  #ifdef WEBHOOKS_DEBUG_ON
+    Serial.println("WARNING: data log NOT sent because in WEBHOOKS_DEBUG_ON mode.");
   #else
     bool success = Particle.connected() && Particle.publish(DATA_LOG_WEBHOOK, data_log, PRIVATE, WITH_ACK);
 
@@ -654,13 +678,13 @@ void DeviceController::assembleStateLog() {
 bool DeviceController::publishStateLog() {
   #ifdef CLOUD_DEBUG_ON
     Serial.print("INFO: publishing state log " + String(state_log) + " to event '" + String(STATE_LOG_WEBHOOK) + "'... ");
-    #ifdef CLOUD_DEBUG_NOSEND
+    #ifdef WEBHOOKS_DEBUG_ON
       Serial.println();
     #endif
   #endif
 
-  #ifdef CLOUD_DEBUG_NOSEND
-    Serial.println("WARNING: state log NOT sent because in CLOUD_DEBUG_NOSEND mode.");
+  #ifdef WEBHOOKS_DEBUG_ON
+    Serial.println("WARNING: state log NOT sent because in WEBHOOKS_DEBUG_ON mode.");
   #else
     bool success = Particle.connected() && Particle.publish(STATE_LOG_WEBHOOK, state_log, PRIVATE, WITH_ACK);
 

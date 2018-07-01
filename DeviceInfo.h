@@ -7,16 +7,16 @@
 #define CMD_ROOT              "device" // command root (i.e. registered particle call function)
 #define CMD_MAX_CHAR          63  // spark.functions are limited to 63 char long call
 
-#define STATE_INFO_VARIABLE   "device_state" // name of the particle exposed state variable
+#define STATE_INFO_VARIABLE   "state" // name of the particle exposed state variable
 #define STATE_INFO_MAX_CHAR   600 // how long is the state information maximally
 
-#define STATE_LOG_WEBHOOK     "device_state_log"  // name of the webhook to device state log
+#define STATE_LOG_WEBHOOK     "state_log"  // name of the webhook to device state log
 #define STATE_LOG_MAX_CHAR    255  // spark.publish is limited to 255 chars of data
 
-#define DATA_INFO_VARIABLE    "device_data" // name of the particle exposed data variable
+#define DATA_INFO_VARIABLE    "data" // name of the particle exposed data variable
 #define DATA_INFO_MAX_CHAR    600 // how long is the data information maximally
 
-#define DATA_LOG_WEBHOOK      "device_data_log"  // name of the webhook to device data log
+#define DATA_LOG_WEBHOOK      "data_log"  // name of the webhook to device data log
 #define DATA_LOG_MAX_CHAR     255  // spark.publish is limited to 255 chars of data
 
 
