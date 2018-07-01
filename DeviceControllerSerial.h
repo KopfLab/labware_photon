@@ -408,7 +408,7 @@ bool DeviceControllerSerial::isTimeForDataLogAndClear() {
 void DeviceControllerSerial::postDataInformation() {
   Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
   // dt = datetime, r = raw serial, d = parsed data
-  snprintf(data_information, sizeof(data_information), "{dt:\"%s\",r:\"%s\",d:[%s]}",
+  snprintf(data_information, sizeof(data_information), "{\"dt\":\"%s\",\"r\":\"%s\",\"d\":[%s]}",
       date_time_buffer, data_buffer, data_information_buffer);
 }
 
