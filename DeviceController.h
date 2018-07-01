@@ -488,7 +488,7 @@ void DeviceController::updateDataInformation() {
 void DeviceController::postDataInformation() {
   Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
   // dt = datetime, d = structured data
-  snprintf(data_information, sizeof(data_information), "{dt:\"%s\",d:[%s]}",
+  snprintf(data_information, sizeof(data_information), "{\"dt\":\"%s\",\"d\":[%s]}",
     date_time_buffer, data_information_buffer);
 }
 
@@ -533,7 +533,7 @@ void DeviceController::postStateInformation() {
   if (Particle.connected()) {
     Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
     // dt = datetime, s = state information
-    snprintf(state_information, sizeof(state_information), "{dt:\"%s\",s:[%s]}",
+    snprintf(state_information, sizeof(state_information), "{\"dt\":\"%s\",\"s\":[%s]}",
       date_time_buffer, state_information_buffer);
   } else {
     Serial.println("ERROR: particle not (yet) connected.");
