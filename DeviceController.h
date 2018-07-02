@@ -552,8 +552,14 @@ void DeviceController::postStateInformation() {
   if (Particle.connected()) {
     Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
     // dt = datetime, s = state information
-    snprintf(state_information, sizeof(state_information), "{\"dt\":\"%s\",\"s\":[%s]}",
-      date_time_buffer, state_information_buffer);
+    char version[30];
+    #ifdef DEVICE_VERSION
+      strncpy(version, DEVICE_VERSION, sizeof(version));
+    #else
+      strncpy(version, "?", sizeof(version));
+    #endif
+    snprintf(state_information, sizeof(state_information), "{\"dt\":\"%s\",\"version\":\"%s\",\"s\":[%s]}",
+      date_time_buffer, version, state_information_buffer);
   } else {
     Serial.println("ERROR: particle not (yet) connected.");
   }
