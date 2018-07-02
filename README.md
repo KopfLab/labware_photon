@@ -9,7 +9,7 @@ To include as a submodule in labware projects:
 
 - `cd` to the other labware project, there `git submodule add https://github.com/KopfLab/labware_photon device`
 - to update most easily, from project main directory (above submodule): `git submodule update --remote`
-- to check out the project elsewhere `git submodule update --init --recursive`
+- to check out the project elsewhere `git submodule update --init --recursive` and then in the folder `git checkout master`
 
 Then reference to the `labware_photon` classes via:
 
