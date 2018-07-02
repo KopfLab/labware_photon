@@ -17,14 +17,14 @@ class DeviceControllerSerial : public DeviceController {
     const long serial_baud_rate;
     const long serial_config;
     const int error_wait; // how long to wait after an error to re-issue request? [in ms]
-    char request_command[10];
 
     // parameter construction
     void construct(const char* req_cmd);
 
   protected:
 
-    // serial communications buffers
+    // serial communications
+    char request_command[10];
     char data_buffer[500];
     int data_charcounter;
     char variable_buffer[25];
@@ -83,6 +83,7 @@ class DeviceControllerSerial : public DeviceController {
     virtual void completeSerialData(); // serial message completely received
 
     // interact with serial buffer
+    virtual void sendRequestCommand();
     void resetSerialBuffers(); // reset all buffers
     void appendToSerialDataBuffer (byte b); // append to total serial data buffer
     void appendToSerialVariableBuffer (byte b);
@@ -203,7 +204,7 @@ void DeviceControllerSerial::update() {
         Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
         Serial.printf(" at %s\n", date_time_buffer);
       #endif
-      if (!serialIsManual()) Serial1.println(request_command);
+      if (!serialIsManual()) sendRequestCommand();
 
       // request parameters
       last_byte = millis();
@@ -429,6 +430,10 @@ void DeviceControllerSerial::parseCommand() {
 }
 
 /** SERIAL PROCESSING **/
+
+void DeviceControllerSerial::sendRequestCommand() {
+  Serial1.println(request_command);
+}
 
 void DeviceControllerSerial::startSerialData() {
   unsigned long start_time = millis();
