@@ -72,7 +72,7 @@ struct DeviceData {
 
 void DeviceData::clear(bool all) {
   if (auto_clear || all) {
-    newest_value_valid = false;
+    setNewestValueInvalid();
     value.clear();
     data_time.clear();
   }

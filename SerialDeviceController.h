@@ -138,8 +138,8 @@ void SerialDeviceController::update() {
       byte b = Serial1.read();
       last_byte = millis();
 
-      // skip byte if not waiting for response
-      if (!waiting_for_response) continue;
+      // skip byte if not waiting for response or already encountered an error
+      if (!waiting_for_response || serial_data_status == SERIAL_DATA_ERROR) continue;
 
       // first byte
       n_byte++;
@@ -165,6 +165,7 @@ void SerialDeviceController::update() {
       } else if (serial_data_status == SERIAL_DATA_ERROR) {
         // error
         Serial.printf("WARNING: failed to receive serial data - abort due to unexpected character (byte# %d): %x = %x\n", n_byte, b, (char) b);
+        if (lcd) lcd->printLineTemp(1, "ERR: serial error");
       } else {
         // unexpected behavior!
         Serial.println("ERROR: unexpected return code from processSerialData: " + String(serial_data_status));
@@ -194,6 +195,7 @@ void SerialDeviceController::update() {
           Serial.print("INFO: issuing new request for data") :
           Serial.print("INFO: time out, re-issuing request for data");
       #endif
+      if (serial_data_status != SERIAL_DATA_COMPLETE && lcd) lcd->printLineTemp(1, "ERR: serial timeout");
       request_data = true;
     }
 
