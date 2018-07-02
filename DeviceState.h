@@ -10,8 +10,8 @@
 #include "device/DeviceCommands.h"
 #include "device/DeviceInfo.h"
 
-// scale state
-#define STATE_VERSION    7 // update whenver structure changes
+// device state
+// note: must define STATE_VERSION as integer in the head file
 #define STATE_ADDRESS    0 // EEPROM storage location
 
 struct DeviceState {
