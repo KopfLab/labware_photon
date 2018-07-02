@@ -64,7 +64,7 @@ struct DeviceData {
   bool isUnitsIdentical(char* comparison);
 
   // logging
-  void assembleLog(bool include_time_offset = true); // assemble log (with our without time offset, in seconds)
+  bool assembleLog(bool include_time_offset = true); // assemble log (with our without time offset, in seconds)
   void assembleInfo(); // assemble data info
 };
 
@@ -196,20 +196,21 @@ bool DeviceData::isUnitsIdentical(char* comparison) {
 
 /***** LOGGING *****/
 
-void DeviceData::assembleLog(bool include_time_offset) {
+bool DeviceData::assembleLog(bool include_time_offset) {
   if (getN() > 1) {
     // have data
     (include_time_offset) ?
       getDataDoubleWithSigmaText(idx, variable, getValue(), getStdDev(), units, getN(), millis() - getDataTime(), json, sizeof(json), PATTERN_IKVSUNT_JSON, decimals) :
       getDataDoubleWithSigmaText(idx, variable, getValue(), getStdDev(), units, getN(), json, sizeof(json), PATTERN_IKVSUN_JSON, decimals);
+    return(true);
   } else if (getN() == 1) {
     // have single data point (sigma is not meaningful)
     (include_time_offset) ?
       getDataDoubleText(idx, variable, getValue(), units, getN(), millis() - getDataTime(), json, sizeof(json), PATTERN_IKVUNT_JSON, decimals) :
       getDataDoubleText(idx, variable, getValue(), units, getN(), json, sizeof(json), PATTERN_IKVUN_JSON, decimals);
+    return(true);
   } else {
-    // no data
-    getDataNullText(idx, variable, json, sizeof(json), PATTERN_IKV_JSON);
+    return (false);// don't include if there is no data
   }
 }
 

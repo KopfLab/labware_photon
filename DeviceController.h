@@ -583,7 +583,7 @@ void DeviceController::logData() {
   bool override_data_log = false;
   #ifdef WEBHOOKS_DEBUG_ON
     Serial.println("INFO: webhook debugging is on --> always assemble data log and publish to variable");
-    override_data_log = true; 
+    override_data_log = true;
   #endif
   if (getDS()->data_logging | override_data_log) {
       assembleDataLog();
@@ -602,8 +602,8 @@ void DeviceController::assembleDataLog(bool global_time_offset) {
   data_log_buffer[0] = 0;
   bool include_time_offset = !global_time_offset;
   for (int i=0; i<data.size(); i++) {
-    data[i].assembleLog(include_time_offset);
-    addToDataLog(data[i].json);
+    if(data[i].assembleLog(include_time_offset))
+      addToDataLog(data[i].json);
   }
 
   // global time
