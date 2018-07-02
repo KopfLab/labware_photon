@@ -24,7 +24,7 @@ The state of the device can be requested by calling `particle get <deviceID> dev
 
 ### issuing commands via CLI
 
-All calls are issued from the terminal and have the format `particle call <deviceID> device "<cmd>"` where `<deviceID>` is the name of the photon you want to issue a command to and `<cmd>` is the command (and should always be in quotes) - e.g. `particle call my-logger device "data-log on"`. If the command was successfully received and executed, `0` is returned, if the command was received but caused an error, a negative number (e.g. `-1` for generic error, `-2` for device is locked, `-3` for unknown command, etc.) is the return value. Positive return values mean executed with warning (e.g. `1` to note that the command did not change anything). The command's exact wording and all the return codes are defined in `DeviceCommands.h` and `DeviceCommandsLogger.h`. Issuing commands also requires being logged in (`particle login`) to have access to the photons.
+All calls are issued from the terminal and have the format `particle call <deviceID> device "<cmd>"` where `<deviceID>` is the name of the photon you want to issue a command to and `<cmd>` is the command (and should always be in quotes) - e.g. `particle call my-logger device "data-log on"`. If the command was successfully received and executed, `0` is returned, if the command was received but caused an error, a negative number (e.g. `-1` for generic error, `-2` for device is locked, `-3` for unknown command, etc.) is the return value. Positive return values mean executed with warning (e.g. `1` to note that the command did not change anything). The command's exact wording and all the return codes are defined in `DeviceCommands.h` and `SerialDeviceCommands.h`. Issuing commands also requires being logged in (`particle login`) to have access to the photons.
 
 Some common state variables are displayed in short notation in the upper right corner of the LCD screen (same line as the device name) - called **state overview**. It is noted in the following command lists where this is the case.
 
@@ -38,7 +38,7 @@ Some common state variables are displayed in short notation in the upper right c
   - `lock off` to unlock the device if it is locked
   - `reset data` to reset the data stored in the device
 
-#### Additional `DeviceControllerDataLogger` commands:
+#### Additional `SerialDeviceController` commands:
 
   - `read-period <options>` to specify how frequently data should be read (letter `R` + subsequent in state overview), `<options>`:
     - `manual` don't read data unless externally triggered in some way (device specific) - `RM` in state overview
@@ -49,5 +49,3 @@ Some common state variables are displayed in short notation in the upper right c
     - `2 s` log every 2 seconds (or any other number), must exceed the `read-period` (`D2s` in state overview if data logging is active, just `2s` if not)
     - `8 m` log every 8 minutes (or any other number)
     - `1 h` log every hour (or any other number)
-
-#### Additional `DeviceControllerSerialLogger` commands:
