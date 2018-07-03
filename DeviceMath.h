@@ -3,13 +3,6 @@
 
 /**** NUMERIC DATA FUNCTIONS ****/
 
-// extrat number of decimals behind the separator from a textual number representation
-int find_number_of_decimals (char* text, const char* sep = ".") {
-    int decimals = strlen(text) - strcspn(text, sep) - 1;
-    if (decimals < 0) decimals = 0;
-    return(decimals);
-}
-
 // find first decimals
 // @return positive = decimals, negative = integers
 // @note these functions are not currenly used

@@ -40,6 +40,7 @@ class SerialDeviceController : public DeviceController {
     unsigned long last_request; // last request (for request timing)
     unsigned long last_byte; // last byte (last byte read - for error timeout)
     int serial_data_status = SERIAL_DATA_COMPLETE; // whether data has been received
+    int error_counter; // how many errors/unexpected return in serial transmission (note that a single error will prevent the data from getting logged)
 
   public:
 
@@ -80,17 +81,23 @@ class SerialDeviceController : public DeviceController {
     virtual bool serialIsManual(); // whether the serial port is in manual mode (i.e. should be listening always or make request)
     virtual void startSerialData(); // start processing serial message
     virtual int processSerialData(byte b); // process a byte coming from the serial stream, return a SERIAL_DATA_ return code
-    virtual void completeSerialData(); // serial message completely received
+    virtual void completeSerialData(int error_count); // serial message completely received
 
     // interact with serial buffer
     virtual void sendRequestCommand();
     void resetSerialBuffers(); // reset all buffers
+    void resetSerialDataBuffer();
+    void resetSerialVariableBuffer();
+    void resetSerialValueBuffer();
+    void resetSerialUnitsBuffer();
+
     void appendToSerialDataBuffer (byte b); // append to total serial data buffer
     void appendToSerialVariableBuffer (byte b);
-    void setSerialVariableBuffer (char* var);
     void appendToSerialValueBuffer (byte b);
-    void setSerialValueBuffer(char* val);
     void appendToSerialUnitsBuffer (byte b);
+
+    void setSerialVariableBuffer (char* var);
+    void setSerialValueBuffer(char* val);
     void setSerialUnitsBuffer(char* u);
 
 };
@@ -156,15 +163,18 @@ void SerialDeviceController::update() {
       } else if (serial_data_status == SERIAL_DATA_COMPLETE) {
         // message completely received
         #ifdef SERIAL_DEBUG_ON
-          Serial.print("INFO: data reading complete at ");
+          Serial.printf("INFO: data reading complete with %d errors at ", error_counter);
           Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
           Serial.println(date_time_buffer);
         #endif
-        completeSerialData();
+        completeSerialData(error_counter);
+        updateDataInformation();
         waiting_for_response = false;
       } else if (serial_data_status == SERIAL_DATA_ERROR) {
         // error
-        Serial.printf("WARNING: failed to receive serial data - abort due to unexpected character (byte# %d): %x = %x\n", n_byte, b, (char) b);
+        Serial.printf("WARNING: failed to receive serial data due to unexpected character (byte# %d): %x = %x\n", n_byte, b, (char) b);
+        if (lcd) lcd->printLineTemp(1, "ERR: serial error");
+        error_counter++;
       } else {
         // unexpected behavior!
         Serial.println("ERROR: unexpected return code from processSerialData: " + String(serial_data_status));
@@ -194,6 +204,7 @@ void SerialDeviceController::update() {
           Serial.print("INFO: issuing new request for data") :
           Serial.print("INFO: time out, re-issuing request for data");
       #endif
+      if (serial_data_status != SERIAL_DATA_COMPLETE && lcd) lcd->printLineTemp(1, "ERR: serial timeout");
       request_data = true;
     }
 
@@ -211,6 +222,7 @@ void SerialDeviceController::update() {
       last_request = millis();
       waiting_for_response = true;
       serial_data_status = SERIAL_DATA_WAITING;
+      error_counter = 0;
       n_byte = 0;
     }
   }
@@ -446,8 +458,8 @@ int SerialDeviceController::processSerialData(byte b) {
   return(SERIAL_DATA_WAITING);
 }
 
-void SerialDeviceController::completeSerialData() {
-  updateDataInformation();
+void SerialDeviceController::completeSerialData(int error_count) {
+  // implement in derived classes, typically only save values if error count == 0
 }
 
 bool SerialDeviceController::serialIsManual(){
@@ -457,48 +469,85 @@ bool SerialDeviceController::serialIsManual(){
 /** SERIAL DATA - INTERACT WITH BUFFER **/
 
 void SerialDeviceController::resetSerialBuffers() {
-  int i;
-  for (i=0; i < sizeof(data_buffer); i++) data_buffer[i] = 0;
-  for (i=0; i < sizeof(variable_buffer); i++) variable_buffer[i] = 0;
-  for (i=0; i < sizeof(value_buffer); i++) value_buffer[i] = 0;
-  for (i=0; i < sizeof(units_buffer); i++) units_buffer[i] = 0;
+  resetSerialDataBuffer();
+  resetSerialVariableBuffer();
+  resetSerialValueBuffer();
+  resetSerialUnitsBuffer();
+}
+
+void SerialDeviceController::resetSerialDataBuffer() {
+  for (int i=0; i < sizeof(data_buffer); i++) data_buffer[i] = 0;
   data_charcounter = 0;
+}
+
+void SerialDeviceController::resetSerialVariableBuffer() {
+  for (int i=0; i < sizeof(variable_buffer); i++) variable_buffer[i] = 0;
   variable_charcounter = 0;
+}
+
+void SerialDeviceController::resetSerialValueBuffer() {
+  for (int i=0; i < sizeof(value_buffer); i++) value_buffer[i] = 0;
   value_charcounter = 0;
+}
+
+void SerialDeviceController::resetSerialUnitsBuffer() {
+  for (int i=0; i < sizeof(units_buffer); i++) units_buffer[i] = 0;
   units_charcounter = 0;
 }
 
 void SerialDeviceController::appendToSerialDataBuffer(byte b) {
-  data_buffer[data_charcounter] = (char) b;
-  data_charcounter++;
+  if (data_charcounter < sizeof(data_buffer) - 2) {
+    data_buffer[data_charcounter] = (char) b;
+    data_charcounter++;
+  } else {
+    Serial.println("ERROR: serial data buffer not big enough");
+  }
 }
 
 void SerialDeviceController::appendToSerialVariableBuffer(byte b) {
-  variable_buffer[variable_charcounter] = (char) b;
-  variable_charcounter++;
+  if (variable_charcounter < sizeof(variable_buffer) - 2) {
+    variable_buffer[variable_charcounter] = (char) b;
+    variable_charcounter++;
+  } else {
+    Serial.println("ERROR: serial variable buffer not big enough");
+  }
 }
 
 void SerialDeviceController::setSerialVariableBuffer(char* var) {
+  resetSerialVariableBuffer();
   strncpy(variable_buffer, var, sizeof(variable_buffer) - 1);
   variable_buffer[sizeof(variable_buffer)-1] = 0;
+  variable_charcounter = strlen(variable_buffer);
 }
 
 void SerialDeviceController::appendToSerialValueBuffer(byte b) {
-  value_buffer[value_charcounter] = (char) b;
-  value_charcounter++;
+  if (value_charcounter < sizeof(value_buffer) - 2) {
+    value_buffer[value_charcounter] = (char) b;
+    value_charcounter++;
+  } else {
+    Serial.println("ERROR: serial value buffer not big enough");
+  }
 }
 
 void SerialDeviceController::setSerialValueBuffer(char* val) {
+  resetSerialValueBuffer();
   strncpy(value_buffer, val, sizeof(value_buffer) - 1);
   value_buffer[sizeof(value_buffer)-1] = 0;
+  value_charcounter = strlen(value_buffer);
 }
 
 void SerialDeviceController::appendToSerialUnitsBuffer(byte b) {
-  units_buffer[units_charcounter] = (char) b;
-  units_charcounter++;
+  if (units_charcounter < sizeof(units_buffer) - 2) {
+    units_buffer[units_charcounter] = (char) b;
+    units_charcounter++;
+  } else {
+    Serial.println("ERROR: serial units buffer not big enough");
+  }
 }
 
 void SerialDeviceController::setSerialUnitsBuffer(char* u) {
+  resetSerialUnitsBuffer();
   strncpy(units_buffer, u, sizeof(units_buffer) - 1);
   units_buffer[sizeof(units_buffer)-1] = 0;
+  units_charcounter = strlen(units_buffer);
 }

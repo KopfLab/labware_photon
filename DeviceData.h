@@ -51,7 +51,8 @@ struct DeviceData {
   void setVariable(char* var);
   void setIndex(int idx);
   void setNewestValue(double val);
-  void setNewestValue(char* val, bool infer_decimals = false, int add_decimals = 1);
+  // returns whether the value is a valid number or not (if strict, expects only white spaces after the value)
+  bool setNewestValue(char* val, bool strict = true, bool infer_decimals = false, int add_decimals = 1, const char* sep = ".");
   void setNewestValueInvalid();
   void saveNewestValue(bool average); // set value based on current newest_value (calculate average if true)
   void setNewestDataTime(unsigned long dt);
@@ -72,7 +73,7 @@ struct DeviceData {
 
 void DeviceData::clear(bool all) {
   if (auto_clear || all) {
-    newest_value_valid = false;
+    setNewestValueInvalid();
     value.clear();
     data_time.clear();
   }
@@ -115,10 +116,36 @@ void DeviceData::setNewestValue(double val) {
 }
 
 // @param add_decimals how many decimals to add tot he infered decimals (only matters if inferred)
-void DeviceData::setNewestValue(char* val, bool infer_decimals, int add_decimals) {
-  setNewestValue(atof(val));
-  if (infer_decimals)
-    decimals = find_number_of_decimals(val) + add_decimals;
+// @NOTE: consider implementing a bool strict option that checks only white spaces are left at the end
+bool DeviceData::setNewestValue(char* val, bool strict, bool infer_decimals, int add_decimals, const char* sep) {
+  char* double_end;
+  double d = strtod (val, &double_end);
+  int converted = double_end - val;
+  int remaining = strlen(val) - converted;
+  // nothing converted
+  if (converted == 0) {
+    setNewestValueInvalid();
+    return(false);
+  }
+  // check for remainder to be only white spaces if strict
+  if (strict) {
+    char c;
+    for (int i = 0; i < remaining; i++) {
+      c = val[converted+i];
+      if (!isspace(c)) {
+        setNewestValueInvalid();
+        return(false);
+      }
+    }
+  }
+  // infer decimals
+  if (infer_decimals) {
+    decimals = strlen(val) - strcspn(val, sep) - 1 - remaining + add_decimals;
+    if (decimals < 0) decimals = 0;
+  }
+
+  setNewestValue(d);
+  return(true);
 }
 
 
