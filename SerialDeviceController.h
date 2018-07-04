@@ -420,9 +420,9 @@ bool SerialDeviceController::isTimeForDataLogAndClear() {
 
 void SerialDeviceController::postDataInformation() {
   Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
-  // dt = datetime, r = raw serial, d = parsed data
-  snprintf(data_information, sizeof(data_information), "{\"dt\":\"%s\",\"r\":\"%s\",\"d\":[%s]}",
-      date_time_buffer, data_buffer, data_information_buffer);
+  // dt = datetime, r = raw serial, e = number of errors encountered in raw serial, d = parsed data
+  snprintf(data_information, sizeof(data_information), "{\"dt\":\"%s\",\"r\":\"%s\",\"e\":%d,\"d\":[%s]}",
+      date_time_buffer, data_buffer, error_counter, data_information_buffer);
 }
 
 /** WEB COMMAND PROCESSING **/

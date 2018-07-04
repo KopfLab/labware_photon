@@ -186,7 +186,7 @@ void DeviceData::saveNewestValue(bool average) {
       Serial.printf("%s (data time = %Lu ms)\n", json, getDataTime());
     #endif
   } else {
-    Serial.println("WARNING: newest value not valid and therefore not saved");
+    Serial.printf("WARNING: newest value for %d (%s) not valid and therefore not saved\n", idx, variable);
   }
 }
 
