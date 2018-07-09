@@ -26,8 +26,8 @@ struct DeviceData {
   char json[100]; // full data log text
 
   DeviceData() {
-    variable[0] = 0;
     idx = 0;
+    variable[0] = 0;
     units[0] = 0;
     decimals = 0;
     auto_clear = true;
