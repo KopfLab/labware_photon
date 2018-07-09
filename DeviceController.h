@@ -705,6 +705,12 @@ bool DeviceController::publishDataLog() {
       else Serial.println("failed!");
     #endif
 
+    if (lcd) {
+      (success) ?
+        lcd->printLineTemp(1, "INFO: data log sent") :
+        lcd->printLineTemp(1, "ERR: data log error");
+    }
+
     return(success);
   #endif
 }
