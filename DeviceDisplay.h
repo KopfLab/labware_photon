@@ -339,3 +339,4 @@ void DeviceDisplay::update() {
 // default instances
 DeviceDisplay LCD_16x2 (0x3f, 16, 2);
 DeviceDisplay LCD_20x4 (0x27, 20, 4);
+DeviceDisplay LCD_20x4_0x3f (0x3f, 20, 4);
