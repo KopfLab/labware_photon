@@ -58,6 +58,7 @@ class DeviceController {
 
     // data logging (if used in derived class)
     unsigned long last_data_log;
+    int last_data_log_index;
 
   public:
 
@@ -129,8 +130,8 @@ class DeviceController {
 
     // particle webhook publishing
     virtual void logData();
-    virtual void assembleDataLog();
-    virtual void assembleDataLog(bool gobal_time_offset);
+    virtual bool assembleDataLog();
+    virtual bool assembleDataLog(bool gobal_time_offset);
     void addToDataLog(char* info);
     virtual bool publishDataLog();
     virtual void assembleStartupLog();
@@ -592,8 +593,8 @@ void DeviceController::logData() {
     override_data_log = true;
   #endif
   if (getDS()->data_logging | override_data_log) {
-      assembleDataLog();
-      publishDataLog();
+      last_data_log_index = -1;
+      while (assembleDataLog()) publishDataLog();
   } else {
     #ifdef CLOUD_DEBUG_ON
       Serial.println("INFO: data log is turned off --> continue without logging");
@@ -601,20 +602,58 @@ void DeviceController::logData() {
   }
 }
 
-void DeviceController::assembleDataLog() { assembleDataLog(true); }
+bool DeviceController::assembleDataLog() { assembleDataLog(true); }
 
-void DeviceController::assembleDataLog(bool global_time_offset) {
-  data_log[0] = 0;
-  data_log_buffer[0] = 0;
-  bool include_time_offset = !global_time_offset;
-  for (int i=0; i<data.size(); i++) {
-    if(data[i].assembleLog(include_time_offset))
+bool DeviceController::assembleDataLog(bool global_time_offset) {
+
+  // first reporting index
+  int i = last_data_log_index + 1;
+
+  // check if we're already done with all data
+  if (i == data.size()) return(false);
+
+  // check first next data (is there at least one with data?)
+  bool something_to_report = false;
+  int total_string_length = 0;
+  for (; i < data.size(); i++) {
+    if(data[i].assembleLog(!global_time_offset)) {
+      // found data that has something to report
+      something_to_report = true;
+      total_string_length += strlen(data[i].json);
+      last_data_log_index = i;
+      // reset buffers
+      data_log[0] = 0;
+      data_log_buffer[0] = 0;
       addToDataLog(data[i].json);
+      break;
+    }
   }
 
-  // global time
-  unsigned long global_time = millis() - (unsigned long) data[0].getDataTime();
+  // nothing to report
+  if (!something_to_report) return(false);
 
+  // global time
+  unsigned long global_time = millis() - (unsigned long) data[i].getDataTime();
+
+  // characters reserved for rest of data log
+  int cutoff = sizeof(data_log) - 50;
+
+  // all data that fits
+  for(i = i + 1; i < data.size(); i++) {
+    if(data[i].assembleLog(!global_time_offset)) {
+      if ( (total_string_length + strlen(data[i].json)) < cutoff) {
+        // still got space
+        total_string_length += strlen(data[i].json);
+        last_data_log_index = i;
+        addToDataLog(data[i].json);
+      } else {
+        // nope, nothing more available - stop here
+        break;
+      }
+    }
+  }
+
+  // data
   int buffer_size;
   if (global_time_offset) {
     // id = device name, to = time offset (global), d = structured data
@@ -623,10 +662,12 @@ void DeviceController::assembleDataLog(bool global_time_offset) {
     buffer_size = snprintf(data_log, sizeof(data_log), "{\"id\":\"%s\",\"d\":[%s]}", name, data_log_buffer);
   }
   if (buffer_size < 0 || buffer_size >= sizeof(data_log)) {
-    Serial.println("ERROR: data log buffer not large enough for state log");
+    return(false);
+    Serial.println("ERROR: data log buffer not large enough for data log - this should NOT be possible to happen");
     if (lcd) lcd->printLineTemp(1, "ERR: datalog too big");
-    // FIXME: implement better size checks!! --> malformatted JSON will crash the webhook
   }
+
+  return(true);
 }
 
 void DeviceController::addToDataLog(char* info) {
@@ -642,14 +683,20 @@ bool DeviceController::publishDataLog() {
 
   #ifdef CLOUD_DEBUG_ON
     if (!getDS()->data_logging) Serial.println("WARNING: publishing data log despite data logging turned off");
-    Serial.print("INFO: publishing data log " + String(data_log) + " to event '" + String(DATA_LOG_WEBHOOK) + "'... ");
+    Serial.printf("INFO: publishing data log '%s' until data index '%d' to event '%s'... ", data_log, last_data_log_index, DATA_LOG_WEBHOOK);
     #ifdef WEBHOOKS_DEBUG_ON
       Serial.println();
     #endif
   #endif
 
+  if (strlen(data_log) == 0) {
+    Serial.println("WARNING: no data log sent because there is none.");
+    return(false);
+  }
+
   #ifdef WEBHOOKS_DEBUG_ON
     Serial.println("WARNING: data log NOT sent because in WEBHOOKS_DEBUG_ON mode.");
+    return(false);
   #else
     bool success = Particle.connected() && Particle.publish(DATA_LOG_WEBHOOK, data_log, PRIVATE, WITH_ACK);
 
@@ -657,6 +704,12 @@ bool DeviceController::publishDataLog() {
       if (success) Serial.println("successful.");
       else Serial.println("failed!");
     #endif
+
+    if (lcd) {
+      (success) ?
+        lcd->printLineTemp(1, "INFO: data log sent") :
+        lcd->printLineTemp(1, "ERR: data log error");
+    }
 
     return(success);
   #endif

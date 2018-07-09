@@ -26,8 +26,8 @@ struct DeviceData {
   char json[100]; // full data log text
 
   DeviceData() {
-    variable[0] = 0;
     idx = 0;
+    variable[0] = 0;
     units[0] = 0;
     decimals = 0;
     auto_clear = true;
@@ -51,7 +51,8 @@ struct DeviceData {
   void setVariable(char* var);
   void setIndex(int idx);
   void setNewestValue(double val);
-  void setNewestValue(char* val, bool infer_decimals = false, int add_decimals = 1);
+  // returns whether the value is a valid number or not (if strict, expects only white spaces after the value)
+  bool setNewestValue(char* val, bool strict = true, bool infer_decimals = false, int add_decimals = 1, const char* sep = ".");
   void setNewestValueInvalid();
   void saveNewestValue(bool average); // set value based on current newest_value (calculate average if true)
   void setNewestDataTime(unsigned long dt);
@@ -115,10 +116,36 @@ void DeviceData::setNewestValue(double val) {
 }
 
 // @param add_decimals how many decimals to add tot he infered decimals (only matters if inferred)
-void DeviceData::setNewestValue(char* val, bool infer_decimals, int add_decimals) {
-  setNewestValue(atof(val));
-  if (infer_decimals)
-    decimals = find_number_of_decimals(val) + add_decimals;
+// @NOTE: consider implementing a bool strict option that checks only white spaces are left at the end
+bool DeviceData::setNewestValue(char* val, bool strict, bool infer_decimals, int add_decimals, const char* sep) {
+  char* double_end;
+  double d = strtod (val, &double_end);
+  int converted = double_end - val;
+  int remaining = strlen(val) - converted;
+  // nothing converted
+  if (converted == 0) {
+    setNewestValueInvalid();
+    return(false);
+  }
+  // check for remainder to be only white spaces if strict
+  if (strict) {
+    char c;
+    for (int i = 0; i < remaining; i++) {
+      c = val[converted+i];
+      if (!isspace(c)) {
+        setNewestValueInvalid();
+        return(false);
+      }
+    }
+  }
+  // infer decimals
+  if (infer_decimals) {
+    decimals = strlen(val) - strcspn(val, sep) - 1 - remaining + add_decimals;
+    if (decimals < 0) decimals = 0;
+  }
+
+  setNewestValue(d);
+  return(true);
 }
 
 
@@ -159,7 +186,7 @@ void DeviceData::saveNewestValue(bool average) {
       Serial.printf("%s (data time = %Lu ms)\n", json, getDataTime());
     #endif
   } else {
-    Serial.println("WARNING: newest value not valid and therefore not saved");
+    Serial.printf("WARNING: newest value for %d (%s) not valid and therefore not saved\n", idx, variable);
   }
 }
 
