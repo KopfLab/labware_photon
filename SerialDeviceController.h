@@ -145,8 +145,8 @@ void SerialDeviceController::update() {
       byte b = Serial1.read();
       last_byte = millis();
 
-      // skip byte if not waiting for response
-      if (!waiting_for_response) continue;
+      // skip byte if not waiting for response or already encountered an error
+      if (!waiting_for_response || serial_data_status == SERIAL_DATA_ERROR) continue;
 
       // first byte
       n_byte++;
