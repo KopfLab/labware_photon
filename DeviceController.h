@@ -147,11 +147,18 @@ void DeviceController::init() {
   // define pins
   pinMode(reset_pin, INPUT_PULLDOWN);
 
+  // initialize
+  #ifdef DEVICE_VERSION
+    Serial.printf("INFO: initializing device %s...\n", DEVICE_VERSION);
+  #else
+    Serial.println("INFO: initializing device");
+  #endif
+
   // lcd
   if (lcd) {
     lcd->init();
     #ifdef DEVICE_VERSION
-      lcd->printLine(1, "Starting up (" + String(DEVICE_VERSION) + ")...");
+      lcd->printLine(1, "Starting " + String(DEVICE_VERSION) + "...");
     #else
       lcd->printLine(1, "Starting up...");
     #endif
