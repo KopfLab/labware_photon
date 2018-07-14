@@ -116,7 +116,7 @@ void DeviceData::setNewestValue(double val) {
 }
 
 // @param add_decimals how many decimals to add tot he infered decimals (only matters if inferred)
-// @NOTE: consider implementing a bool strict option that checks only white spaces are left at the end
+// @param strict checks that only white spaces are left at the end
 bool DeviceData::setNewestValue(char* val, bool strict, bool infer_decimals, int add_decimals, const char* sep) {
   char* double_end;
   double d = strtod (val, &double_end);
