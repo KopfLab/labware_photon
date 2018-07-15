@@ -84,6 +84,7 @@ class DeviceController {
     void setNameCallback(void (*cb)()); // assign a callback function
 
     // data information
+    virtual int getNumberDataPoints();
     virtual bool isTimeForDataLogAndClear(); // whether it's time for a data reset and log (if logging is on)
     virtual void clearData(bool all = false); // clear data fields
     virtual void resetData(); // reset data completely
@@ -114,6 +115,7 @@ class DeviceController {
     bool parseStateLogging();
     bool parseDataLogging();
     bool parseDataLoggingPeriod();
+    virtual bool isDataLoggingPeriodValid(uint8_t log_type, int log_period);
     bool parseReset();
 
     // command info to LCD display
@@ -206,6 +208,11 @@ void DeviceController::init() {
 
   // data log
   last_data_log = 0;
+}
+
+int DeviceController::getNumberDataPoints() {
+  // default is that the first data type is representative
+  return(data[0].getN());
 }
 
 bool DeviceController::isTimeForDataLogAndClear() {
@@ -437,6 +444,10 @@ bool DeviceController::parseReset() {
   return(command.isTypeDefined());
 }
 
+bool DeviceController::isDataLoggingPeriodValid(uint8_t log_type, int log_period) {
+  return(true);
+}
+
 bool DeviceController::parseDataLoggingPeriod() {
   if (command.parseVariable(CMD_DATA_LOG_PERIOD)) {
     // parse read period
@@ -463,10 +474,11 @@ bool DeviceController::parseDataLoggingPeriod() {
       }
       // assign read period
       if (!command.isTypeDefined()) {
-        if (log_type == LOG_BY_TIME && log_period * 1000 <= getDS()->data_reading_period)
-          command.error(CMD_RET_ERR_LOG_SMALLER_READ, CMD_RET_ERR_LOG_SMALLER_READ_TEXT);
-        else
+        // FIXME: some needs to go in derived
+        if (isDataLoggingPeriodValid(log_type, log_period))
           command.success(changeDataLoggingPeriod(log_period, log_type));
+        else
+          command.error(CMD_RET_ERR_LOG_SMALLER_READ, CMD_RET_ERR_LOG_SMALLER_READ_TEXT);
       }
     } else {
       // invalid value
@@ -682,7 +694,7 @@ void DeviceController::assembleStateInformation() {
   char pair[60];
   getStateLockedText(getDS()->locked, pair, sizeof(pair)); addToStateInformation(pair);
   getStateStateLoggingText(getDS()->state_logging, pair, sizeof(pair)); addToStateInformation(pair);
-  getStateDataLoggingText(getDS()->data_logging, pair, sizeof(pair)); addToStateInformaion(pair);
+  getStateDataLoggingText(getDS()->data_logging, pair, sizeof(pair)); addToStateInformation(pair);
   getStateDataLoggingPeriodText(getDS()->data_logging_period, getDS()->data_logging_type, pair, sizeof(pair)); addToStateInformation(pair);
 }
 

@@ -63,11 +63,11 @@ class SerialDeviceController : public DeviceController {
     virtual SerialDeviceState* getDSS() = 0; // fetch the serial device state pointer
     bool changeDataReadingPeriod(int period);
     bool parseDataReadingPeriod();
+    virtual bool isDataLoggingPeriodValid(uint8_t log_type, int log_period);
     virtual void assembleDisplayStateInformation();
     virtual void assembleStateInformation();
 
     // data updates
-    virtual int getNumberDataPoints();
     virtual bool isTimeForDataLogAndClear();
     virtual void postDataInformation();
 
@@ -291,6 +291,9 @@ bool SerialDeviceController::parseDataReadingPeriod() {
   return(command.isTypeDefined());
 }
 
+bool SerialDeviceController::isDataLoggingPeriodValid(uint8_t log_type, int log_period) {
+  return(log_type == LOG_BY_TIME && log_period * 1000 <= getDSS()->data_reading_period);
+}
 
 /****** STATE INFORMATION *******/
 
@@ -315,11 +318,6 @@ void SerialDeviceController::assembleStateInformation() {
 }
 
 /**** DATA LOGGING ****/
-
-int SerialDeviceController::getNumberDataPoints() {
-  // default is that the first data type is representative
-  return(data[0].getN());
-}
 
 bool SerialDeviceController::isTimeForDataLogAndClear() {
   if (!serialIsEnabled()) return(false);

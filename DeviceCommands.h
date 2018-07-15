@@ -44,6 +44,13 @@
   #define CMD_DATA_LOG_ON     "on"
   #define CMD_DATA_LOG_OFF    "off"
 
+// logging rate
+#define CMD_DATA_LOG_PERIOD            "log-period" // device log-period number unit [notes] : timing between each data logging (if log is on)
+  #define CMD_DATA_LOG_PERIOD_NUMBER   "x"          // device log-period 5x : every 5 data recordings
+  #define CMD_DATA_LOG_PERIOD_SEC      CMD_TIME_SEC // device log-period 20s : every 20 seconds
+  #define CMD_DATA_LOG_PERIOD_MIN      CMD_TIME_MIN // device log-period 3m : every 3 minutes
+  #define CMD_DATA_LOG_PERIOD_HR       CMD_TIME_HR  // device log-period 1h : every hour
+
 // data reset
 #define CMD_RESET      "reset" // device "reset" : reset the data
   #define CMD_RESET_DATA  "data" // device "reset data"
