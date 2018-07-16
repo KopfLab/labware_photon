@@ -36,8 +36,10 @@ struct DeviceData {
 
   DeviceData(int idx) : DeviceData() { setIndex(idx); }
   DeviceData(int idx, char* var) : DeviceData(idx) { setVariable(var); }
+  DeviceData(int idx, char* var, char* units) : DeviceData(idx, var) { setUnits(units); }
   DeviceData(int idx, int d) : DeviceData(idx) { setDecimals(d); }
   DeviceData(int idx, char* var, int d) : DeviceData(idx, var) { setDecimals(d); }
+  DeviceData(int idx, char* var, char* units, int d) : DeviceData(idx, var, units) { setDecimals(d); }
 
   // clearing
   void clear(bool all = false);
