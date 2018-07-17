@@ -718,7 +718,7 @@ void DeviceController::logData() {
   }
 }
 
-bool DeviceController::assembleDataLog() { assembleDataLog(true); }
+bool DeviceController::assembleDataLog() { return(assembleDataLog(true)); }
 
 bool DeviceController::assembleDataLog(bool global_time_offset) {
 
