@@ -200,3 +200,12 @@ static void getStateIntText(char* key, int value, char* units, char* target, int
   else
     getInfoValueUnits(target, size, value_text, units, pattern);
 }
+
+// helper function to assemble double state text
+static void getStateDoubleText(char* key, double value, char* units, char* target, int size, char* pattern, int decimals, bool include_key = true) {
+  char value_text[20];
+  print_to_decimals(value_text, sizeof(value_text), value, decimals);
+  (include_key) ?
+    getInfoKeyValueUnits(target, size, key, value_text, units, pattern) :
+    getInfoValueUnits(target, size, value_text, units, pattern);
+}
