@@ -162,7 +162,7 @@ void DeviceController::init() {
   if (lcd) {
     lcd->init();
     #ifdef DEVICE_VERSION
-      lcd->printLine(1, "Starting " + String(DEVICE_VERSION) + "...");
+      lcd->printLine(1, "Starting " + String(DEVICE_VERSION));
     #else
       lcd->printLine(1, "Starting up...");
     #endif
