@@ -29,9 +29,11 @@ class DeviceController {
     // device info
     bool name_handler_registered = false;
     bool name_handler_succeeded = false;
-    bool startup_logged = false;
 
   protected:
+
+    // startup
+    bool startup_logged = false;
 
     // lcd pointer and buffer
     DeviceDisplay* lcd = 0;
