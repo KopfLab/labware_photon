@@ -292,7 +292,7 @@ bool SerialDeviceController::parseDataReadingPeriod() {
 }
 
 bool SerialDeviceController::isDataLoggingPeriodValid(uint8_t log_type, int log_period) {
-  return(log_type == LOG_BY_TIME && log_period * 1000 <= getDSS()->data_reading_period);
+  return(log_type == LOG_BY_EVENT || (log_type == LOG_BY_TIME && (log_period * 1000) > getDSS()->data_reading_period));
 }
 
 /****** STATE INFORMATION *******/

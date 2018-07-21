@@ -441,6 +441,12 @@ bool DeviceController::parseReset() {
       resetData();
       command.success(true);
       getStateStringText(CMD_RESET, CMD_RESET_DATA, command.data, sizeof(command.data), PATTERN_KV_JSON_QUOTED, false);
+    } else  if (command.parseValue(CMD_RESET_STATE)) {
+      getDS()->version = 0; // force reset of state on next startup
+      saveDS();
+      command.success(true);
+      getStateStringText(CMD_RESET, CMD_RESET_STATE, command.data, sizeof(command.data), PATTERN_KV_JSON_QUOTED, false);
+      command.setLogMsg("reset state on next startup");
     }
   }
   return(command.isTypeDefined());
@@ -476,7 +482,6 @@ bool DeviceController::parseDataLoggingPeriod() {
       }
       // assign read period
       if (!command.isTypeDefined()) {
-        // FIXME: some needs to go in derived
         if (isDataLoggingPeriodValid(log_type, log_period))
           command.success(changeDataLoggingPeriod(log_period, log_type));
         else

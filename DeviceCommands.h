@@ -54,6 +54,7 @@
 // data reset
 #define CMD_RESET      "reset" // device "reset" : reset the data
   #define CMD_RESET_DATA  "data" // device "reset data"
+  #define CMD_RESET_STATE "state" // device reset state on next power up
 
 struct DeviceCommand {
 

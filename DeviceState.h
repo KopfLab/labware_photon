@@ -19,7 +19,7 @@
 #define LOG_BY_EVENT   1 // log period is a number (x times)
 
 struct DeviceState {
-  const int version = STATE_VERSION;
+  int version = STATE_VERSION;
   bool locked = false; // whether state is locked
   bool state_logging = false; // whether state is logged (whenever there is a change)
   bool data_logging = false; // whether data is logged
