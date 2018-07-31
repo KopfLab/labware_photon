@@ -152,12 +152,20 @@ static void getDataDoubleText(int idx, char* key, double value, char* units, cha
   getDataDoubleText(idx, key, value, units, -1, -1, target, size, pattern, decimals);
 }
 
+static void getDataDoubleText(int idx, char* key, double value, char* target, int size, char* pattern, int decimals) {
+  getDataDoubleText(idx, key, value, "", -1, -1, target, size, pattern, decimals);
+}
+
 static void getDataDoubleText(char* key, double value, char* units, int n, char* target, int size, char* pattern, int decimals) {
   getDataDoubleText(-1, key, value, units, n, -1, target, size, pattern, decimals);
 }
 
 static void getDataDoubleText(char* key, double value, char* units, char* target, int size, char* pattern, int decimals) {
   getDataDoubleText(-1, key, value, units, -1, -1, target, size, pattern, decimals);
+}
+
+static void getDataDoubleText(char* key, double value, char* target, int size, char* pattern, int decimals) {
+  getDataDoubleText(-1, key, value, "", -1, -1, target, size, pattern, decimals);
 }
 
 static void getDataNullText(int idx, char* key, char* target, int size, char* pattern) {
