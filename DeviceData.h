@@ -36,8 +36,10 @@ struct DeviceData {
 
   DeviceData(int idx) : DeviceData() { setIndex(idx); }
   DeviceData(int idx, char* var) : DeviceData(idx) { setVariable(var); }
+  DeviceData(int idx, char* var, char* units) : DeviceData(idx, var) { setUnits(units); }
   DeviceData(int idx, int d) : DeviceData(idx) { setDecimals(d); }
   DeviceData(int idx, char* var, int d) : DeviceData(idx, var) { setDecimals(d); }
+  DeviceData(int idx, char* var, char* units, int d) : DeviceData(idx, var, units) { setDecimals(d); }
 
   // clearing
   void clear(bool all = false);
@@ -116,7 +118,7 @@ void DeviceData::setNewestValue(double val) {
 }
 
 // @param add_decimals how many decimals to add tot he infered decimals (only matters if inferred)
-// @NOTE: consider implementing a bool strict option that checks only white spaces are left at the end
+// @param strict checks that only white spaces are left at the end
 bool DeviceData::setNewestValue(char* val, bool strict, bool infer_decimals, int add_decimals, const char* sep) {
   char* double_end;
   double d = strtod (val, &double_end);

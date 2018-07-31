@@ -63,13 +63,11 @@ class SerialDeviceController : public DeviceController {
     virtual SerialDeviceState* getDSS() = 0; // fetch the serial device state pointer
     bool changeDataReadingPeriod(int period);
     bool parseDataReadingPeriod();
-    bool changeDataLoggingPeriod(int period, int type);
-    bool parseDataLoggingPeriod();
+    virtual bool isDataLoggingPeriodValid(uint8_t log_type, int log_period);
     virtual void assembleDisplayStateInformation();
     virtual void assembleStateInformation();
 
     // data updates
-    virtual int getNumberDataPoints();
     virtual bool isTimeForDataLogAndClear();
     virtual void postDataInformation();
 
@@ -293,63 +291,8 @@ bool SerialDeviceController::parseDataReadingPeriod() {
   return(command.isTypeDefined());
 }
 
-// logging period
-bool SerialDeviceController::changeDataLoggingPeriod(int period, int type) {
-  bool changed = period != getDSS()->data_logging_period | type != getDSS()->data_logging_type;
-
-  if (changed) {
-    getDSS()->data_logging_period = period;
-    getDSS()->data_logging_type = type;
-  }
-
-  #ifdef STATE_DEBUG_ON
-    if (changed) Serial.printf("INFO: setting data logging period to %d %s\n", period, type == LOG_BY_TIME ? "seconds" : "reads");
-    else Serial.printf("INFO: data logging period unchanged (%d)\n", type == LOG_BY_TIME ? "seconds" : "reads");
-  #endif
-
-  if (changed) saveDS();
-
-  return(changed);
-}
-
-bool SerialDeviceController::parseDataLoggingPeriod() {
-  if (command.parseVariable(CMD_DATA_LOG_PERIOD)) {
-    // parse read period
-    command.extractValue();
-    int log_period = atoi(command.value);
-    if (log_period > 0) {
-      command.extractUnits();
-      uint8_t log_type = LOG_BY_TIME;
-      if (command.parseUnits(CMD_DATA_LOG_PERIOD_NUMBER)) {
-        // events
-        log_type = LOG_BY_READ;
-      } else if (command.parseUnits(CMD_DATA_LOG_PERIOD_SEC)) {
-        // seconds (the base unit)
-        log_period = log_period;
-      } else if (command.parseUnits(CMD_DATA_LOG_PERIOD_MIN)) {
-        // minutes
-        log_period = 60 * log_period;
-      } else if (command.parseUnits(CMD_DATA_LOG_PERIOD_HR)) {
-        // minutes
-        log_period = 60 * 60 * log_period;
-      } else {
-        // unrecognized units
-        command.errorUnits();
-      }
-      // assign read period
-      if (!command.isTypeDefined()) {
-        if (log_type == LOG_BY_TIME && log_period * 1000 <= getDSS()->data_reading_period)
-          command.error(CMD_RET_ERR_LOG_SMALLER_READ, CMD_RET_ERR_LOG_SMALLER_READ_TEXT);
-        else
-          command.success(changeDataLoggingPeriod(log_period, log_type));
-      }
-    } else {
-      // invalid value
-      command.errorValue();
-    }
-    getStateDataLoggingPeriodText(getDSS()->data_logging_period, getDSS()->data_logging_type, command.data, sizeof(command.data));
-  }
-  return(command.isTypeDefined());
+bool SerialDeviceController::isDataLoggingPeriodValid(uint8_t log_type, int log_period) {
+  return(log_type == LOG_BY_EVENT || (log_type == LOG_BY_TIME && (log_period * 1000) > getDSS()->data_reading_period));
 }
 
 /****** STATE INFORMATION *******/
@@ -357,11 +300,6 @@ bool SerialDeviceController::parseDataLoggingPeriod() {
 void SerialDeviceController::assembleDisplayStateInformation() {
   DeviceController::assembleDisplayStateInformation();
   uint i = strlen(lcd_buffer);
-
-  // details on data logging
-  getStateDataLoggingPeriodText(getDSS()->data_logging_period, getDSS()->data_logging_type,
-      lcd_buffer + i, sizeof(lcd_buffer) - i, true);
-  i = strlen(lcd_buffer);
 
   // data reading period
   lcd_buffer[i] = 'R'; i++;
@@ -377,43 +315,13 @@ void SerialDeviceController::assembleStateInformation() {
   DeviceController::assembleStateInformation();
   char pair[60];
   getStateDataReadingPeriodText(getDSS()->data_reading_period, pair, sizeof(pair)); addToStateInformation(pair);
-  getStateDataLoggingPeriodText(getDSS()->data_logging_period, getDSS()->data_logging_type, pair, sizeof(pair)); addToStateInformation(pair);
 }
 
 /**** DATA LOGGING ****/
 
-int SerialDeviceController::getNumberDataPoints() {
-  // default is that the first data type is representative
-  return(data[0].getN());
-}
-
 bool SerialDeviceController::isTimeForDataLogAndClear() {
-
   if (!serialIsEnabled()) return(false);
-
-  if (getDSS()->data_logging_type == LOG_BY_TIME) {
-    // go by time
-    unsigned long log_period = getDSS()->data_logging_period * 1000;
-    if ((millis() - last_data_log) > log_period) {
-      #ifdef DATA_DEBUG_ON
-        Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
-        Serial.printf("INFO: triggering data log at %s (after %d seconds)\n", date_time_buffer, getDSS()->data_logging_period);
-      #endif
-      return(true);
-    }
-  } else if (getDSS()->data_logging_type == LOG_BY_READ) {
-    // go by read number
-    if (getNumberDataPoints() >= getDSS()->data_logging_period) {
-      #ifdef DATA_DEBUG_ON
-      Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
-      Serial.printf("INFO: triggering data log at %s (after %d reads)\n", date_time_buffer, getDSS()->data_logging_period);
-      #endif
-      return(true);
-    }
-  } else {
-    Serial.printf("ERROR: unknown logging type stored in state - this should be impossible! %d\n", getDSS()->data_logging_type);
-  }
-  return(false);
+  return(DeviceController::isTimeForDataLogAndClear());
 }
 
 /** DATA UPDATES **/
@@ -435,8 +343,6 @@ void SerialDeviceController::parseCommand() {
     // command processed successfully by parent function
   } else if (parseDataReadingPeriod()) {
     // parsing reading period
-  } else if (parseDataLoggingPeriod()) {
-    // parsing logging period
   }
 
 }

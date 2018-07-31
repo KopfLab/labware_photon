@@ -17,7 +17,7 @@ int find_first_decimals (double number) {
 // @param limit = highest number of decimals that should be used
 int find_signif_decimals (double number, uint signif = 1, bool decimals_only = false, int limit = 10) {
     int decimals = find_first_decimals (number) + signif - 1;
-    if (decimals_only && decimals > 0) decimals = 0;
+    if (decimals_only && decimals < 0) decimals = 0;
     if (decimals > limit) decimals = limit;
     return(decimals);
 }

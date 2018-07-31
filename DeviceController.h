@@ -29,9 +29,11 @@ class DeviceController {
     // device info
     bool name_handler_registered = false;
     bool name_handler_succeeded = false;
-    bool startup_logged = false;
 
   protected:
+
+    // startup
+    bool startup_logged = false;
 
     // lcd pointer and buffer
     DeviceDisplay* lcd = 0;
@@ -84,7 +86,8 @@ class DeviceController {
     void setNameCallback(void (*cb)()); // assign a callback function
 
     // data information
-    virtual bool isTimeForDataLogAndClear() { return(false); } // whether it's time for a data reset and log (if logging is on)
+    virtual int getNumberDataPoints();
+    virtual bool isTimeForDataLogAndClear(); // whether it's time for a data reset and log (if logging is on)
     virtual void clearData(bool all = false); // clear data fields
     virtual void resetData(); // reset data completely
     virtual void assembleDataInformation();
@@ -104,6 +107,7 @@ class DeviceController {
     bool changeLocked(bool on);
     bool changeStateLogging(bool on);
     bool changeDataLogging(bool on);
+    bool changeDataLoggingPeriod(int period, int type);
 
     // particle command parsing functions
     void setCommandCallback(void (*cb)()); // assign a callback function
@@ -112,6 +116,8 @@ class DeviceController {
     bool parseLocked();
     bool parseStateLogging();
     bool parseDataLogging();
+    bool parseDataLoggingPeriod();
+    virtual bool isDataLoggingPeriodValid(uint8_t log_type, int log_period);
     bool parseReset();
 
     // command info to LCD display
@@ -145,11 +151,18 @@ void DeviceController::init() {
   // define pins
   pinMode(reset_pin, INPUT_PULLDOWN);
 
+  // initialize
+  #ifdef DEVICE_VERSION
+    Serial.printf("INFO: initializing device %s...\n", DEVICE_VERSION);
+  #else
+    Serial.println("INFO: initializing device");
+  #endif
+
   // lcd
   if (lcd) {
     lcd->init();
     #ifdef DEVICE_VERSION
-      lcd->printLine(1, "Starting up (" + String(DEVICE_VERSION) + ")...");
+      lcd->printLine(1, "Starting " + String(DEVICE_VERSION));
     #else
       lcd->printLine(1, "Starting up...");
     #endif
@@ -197,6 +210,38 @@ void DeviceController::init() {
 
   // data log
   last_data_log = 0;
+}
+
+int DeviceController::getNumberDataPoints() {
+  // default is that the first data type is representative
+  return(data[0].getN());
+}
+
+bool DeviceController::isTimeForDataLogAndClear() {
+
+  if (getDS()->data_logging_type == LOG_BY_TIME) {
+    // go by time
+    unsigned long log_period = getDS()->data_logging_period * 1000;
+    if ((millis() - last_data_log) > log_period) {
+      #ifdef DATA_DEBUG_ON
+        Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
+        Serial.printf("INFO: triggering data log at %s (after %d seconds)\n", date_time_buffer, getDS()->data_logging_period);
+      #endif
+      return(true);
+    }
+  } else if (getDS()->data_logging_type == LOG_BY_EVENT) {
+    // go by read number
+    if (getNumberDataPoints() >= getDS()->data_logging_period) {
+      #ifdef DATA_DEBUG_ON
+      Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
+      Serial.printf("INFO: triggering data log at %s (after %d reads)\n", date_time_buffer, getDS()->data_logging_period);
+      #endif
+      return(true);
+    }
+  } else {
+    Serial.printf("ERROR: unknown logging type stored in state - this should be impossible! %d\n", getDS()->data_logging_type);
+  }
+  return(false);
 }
 
 void DeviceController::update() {
@@ -318,6 +363,25 @@ bool DeviceController::changeDataLogging (bool on) {
   return(changed);
 }
 
+// logging period
+bool DeviceController::changeDataLoggingPeriod(int period, int type) {
+  bool changed = period != getDS()->data_logging_period | type != getDS()->data_logging_type;
+
+  if (changed) {
+    getDS()->data_logging_period = period;
+    getDS()->data_logging_type = type;
+  }
+
+  #ifdef STATE_DEBUG_ON
+    if (changed) Serial.printf("INFO: setting data logging period to %d %s\n", period, type == LOG_BY_TIME ? "seconds" : "reads");
+    else Serial.printf("INFO: data logging period unchanged (%d)\n", type == LOG_BY_TIME ? "seconds" : "reads");
+  #endif
+
+  if (changed) saveDS();
+
+  return(changed);
+}
+
 /* COMMAND PARSING FUNCTIONS */
 
 void DeviceController::setCommandCallback(void (*cb)()) {
@@ -377,7 +441,57 @@ bool DeviceController::parseReset() {
       resetData();
       command.success(true);
       getStateStringText(CMD_RESET, CMD_RESET_DATA, command.data, sizeof(command.data), PATTERN_KV_JSON_QUOTED, false);
+    } else  if (command.parseValue(CMD_RESET_STATE)) {
+      getDS()->version = 0; // force reset of state on next startup
+      saveDS();
+      command.success(true);
+      getStateStringText(CMD_RESET, CMD_RESET_STATE, command.data, sizeof(command.data), PATTERN_KV_JSON_QUOTED, false);
+      command.setLogMsg("reset state on next startup");
     }
+  }
+  return(command.isTypeDefined());
+}
+
+bool DeviceController::isDataLoggingPeriodValid(uint8_t log_type, int log_period) {
+  return(true);
+}
+
+bool DeviceController::parseDataLoggingPeriod() {
+  if (command.parseVariable(CMD_DATA_LOG_PERIOD)) {
+    // parse read period
+    command.extractValue();
+    int log_period = atoi(command.value);
+    if (log_period > 0) {
+      command.extractUnits();
+      uint8_t log_type = LOG_BY_TIME;
+      if (command.parseUnits(CMD_DATA_LOG_PERIOD_NUMBER)) {
+        // events
+        log_type = LOG_BY_EVENT;
+      } else if (command.parseUnits(CMD_DATA_LOG_PERIOD_SEC)) {
+        // seconds (the base unit)
+        log_period = log_period;
+      } else if (command.parseUnits(CMD_DATA_LOG_PERIOD_MIN)) {
+        // minutes
+        log_period = 60 * log_period;
+      } else if (command.parseUnits(CMD_DATA_LOG_PERIOD_HR)) {
+        // minutes
+        log_period = 60 * 60 * log_period;
+      } else {
+        // unrecognized units
+        command.errorUnits();
+      }
+      // assign read period
+      if (!command.isTypeDefined()) {
+        if (isDataLoggingPeriodValid(log_type, log_period))
+          command.success(changeDataLoggingPeriod(log_period, log_type));
+        else
+          command.error(CMD_RET_ERR_LOG_SMALLER_READ, CMD_RET_ERR_LOG_SMALLER_READ_TEXT);
+      }
+    } else {
+      // invalid value
+      command.errorValue();
+    }
+    getStateDataLoggingPeriodText(getDS()->data_logging_period, getDS()->data_logging_type, command.data, sizeof(command.data));
   }
   return(command.isTypeDefined());
 }
@@ -428,6 +542,8 @@ void DeviceController::parseCommand() {
     // state logging getting parsed
   } else if (parseDataLogging()) {
     // data logging getting parsed
+  } else if (parseDataLoggingPeriod()) {
+    // parsing logging period
   } else if (parseReset()) {
     // reset getting parsed
   }
@@ -464,6 +580,12 @@ void DeviceController::assembleDisplayStateInformation() {
     lcd_buffer[i] = 'D';
     i++;
   }
+
+  // details on data logging
+  getStateDataLoggingPeriodText(getDS()->data_logging_period, getDS()->data_logging_type,
+      lcd_buffer + i, sizeof(lcd_buffer) - i, true);
+  i = strlen(lcd_buffer);
+
   lcd_buffer[i] = 0;
 }
 
@@ -580,6 +702,7 @@ void DeviceController::assembleStateInformation() {
   getStateLockedText(getDS()->locked, pair, sizeof(pair)); addToStateInformation(pair);
   getStateStateLoggingText(getDS()->state_logging, pair, sizeof(pair)); addToStateInformation(pair);
   getStateDataLoggingText(getDS()->data_logging, pair, sizeof(pair)); addToStateInformation(pair);
+  getStateDataLoggingPeriodText(getDS()->data_logging_period, getDS()->data_logging_type, pair, sizeof(pair)); addToStateInformation(pair);
 }
 
 
@@ -602,7 +725,7 @@ void DeviceController::logData() {
   }
 }
 
-bool DeviceController::assembleDataLog() { assembleDataLog(true); }
+bool DeviceController::assembleDataLog() { return(assembleDataLog(true)); }
 
 bool DeviceController::assembleDataLog(bool global_time_offset) {
 

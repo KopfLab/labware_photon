@@ -14,15 +14,21 @@
 // note: must define STATE_VERSION as integer in the head file
 #define STATE_ADDRESS    0 // EEPROM storage location
 
+// log types
+#define LOG_BY_TIME   0 // log period is a time in seconds
+#define LOG_BY_EVENT   1 // log period is a number (x times)
+
 struct DeviceState {
-  const int version = STATE_VERSION;
+  int version = STATE_VERSION;
   bool locked = false; // whether state is locked
   bool state_logging = false; // whether state is logged (whenever there is a change)
   bool data_logging = false; // whether data is logged
+  uint data_logging_period; // period between logs (in seconds!)
+  uint8_t data_logging_type; // what the data logging period signifies
 
   DeviceState() {};
-  DeviceState(bool locked, bool state_logging, bool data_logging) :
-    locked(locked), state_logging(state_logging), data_logging(data_logging) {}
+  DeviceState(bool locked, bool state_logging, bool data_logging, uint data_logging_period, uint8_t data_logging_type) :
+    locked(locked), state_logging(state_logging), data_logging(data_logging), data_logging_period(data_logging_period), data_logging_type(data_logging_type)  {}
 };
 
 /**** textual translations of state values ****/
@@ -62,4 +68,42 @@ static void getStateDataLoggingText(bool data_logging, char* target, int size, c
 static void getStateDataLoggingText(bool data_logging, char* target, int size, bool value_only = false) {
   if (value_only) getStateDataLoggingText(data_logging, target, size, PATTERN_V_SIMPLE, false);
   else getStateDataLoggingText(data_logging, target, size, PATTERN_KV_JSON_QUOTED, true);
+}
+
+// data logging period (any pattern)
+static void getStateDataLoggingPeriodText(int logging_period, uint8_t logging_type, char* target, int size, char* pattern, bool include_key = true) {
+  // specific logging period
+  char units[] = "?";
+  if (logging_type == LOG_BY_EVENT) {
+    // by read
+    strcpy(units, CMD_DATA_LOG_PERIOD_NUMBER);
+  } else  if (logging_type == LOG_BY_TIME) {
+    // by time
+    if (logging_period % 3600 == 0) {
+      // hours
+      strcpy(units, "h");
+      logging_period = logging_period/3600;
+    } else if (logging_period % 60 == 0) {
+      // minutes
+      strcpy(units, "m");
+      logging_period = logging_period/60;
+
+    } else {
+      strcpy(units, "s");
+    }
+  } else {
+    // not supported!
+    Serial.printf("ERROR: unknown logging type %d\n", logging_type);
+  }
+
+  getStateIntText(CMD_DATA_LOG_PERIOD, logging_period, units, target, size, pattern, include_key);
+}
+
+// logging period (standard patterns)
+static void getStateDataLoggingPeriodText(int logging_period, uint8_t logging_type, char* target, int size, bool value_only = false) {
+  if (value_only) {
+    getStateDataLoggingPeriodText(logging_period, logging_type, target, size, PATTERN_VU_SIMPLE, false);
+  } else {
+    getStateDataLoggingPeriodText(logging_period, logging_type, target, size, PATTERN_KVU_JSON, true);
+  }
 }
