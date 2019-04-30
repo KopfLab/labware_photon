@@ -246,7 +246,9 @@ bool DeviceData::assembleLog(bool include_time_offset) {
 void DeviceData::assembleInfo() {
   if (newest_value_valid) {
     // valid data
-    getDataDoubleText(idx, variable, newest_value, units, json, sizeof(json), PATTERN_IKVU_JSON, decimals);
+    (strlen(units) > 0) ?
+      getDataDoubleText(idx, variable, newest_value, units, json, sizeof(json), PATTERN_IKVU_JSON, decimals) :
+      getDataDoubleText(idx, variable, newest_value, json, sizeof(json), PATTERN_IKV_JSON, decimals);
   } else {
     // no valid data
     getDataNullText(idx, variable, json, sizeof(json), PATTERN_IKV_JSON);

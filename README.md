@@ -15,6 +15,10 @@ Then reference to the `labware_photon` classes via:
 
 - `#include "device/Device???.h"`
 
+## Serial
+
+The null soft RS232 module used typically in our serial device housings is described in detail at http://www.nulsom.com/datasheet/NS-RS232_en.pdf. The important pins on the DB9 connector are 2 (RX), 3 (TX) and 5 (GND).
+
 ## Web commands
 
 To run any web commands, you need to either have the [Particle Cloud command line interface (CLI)](https://github.com/spark/particle-cli) installed, or format the appropriate POST request to the [Particle Cloud API](https://docs.particle.io/reference/api/). Here only the currently implemented CLI calls are listed but they translate directly into the corresponding API requests. You only have access to the photons that are registered to your account.
