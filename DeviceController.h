@@ -198,7 +198,7 @@ void DeviceController::init() {
 
   // register particle functions
   Serial.println("INFO: registering device cloud variables");
-  Particle.subscribe("spark/", &DeviceController::captureName, this);
+  Particle.subscribe("spark/", &DeviceController::captureName, this, MY_DEVICES);
   Particle.function(CMD_ROOT, &DeviceController::receiveCommand, this);
   Particle.variable(STATE_INFO_VARIABLE, state_information);
   Particle.variable(DATA_INFO_VARIABLE, data_information);
@@ -251,7 +251,7 @@ void DeviceController::update() {
 
   // name capture
   if (!name_handler_registered && Particle.connected()){
-    name_handler_registered = Particle.publish("spark/device/name");
+    name_handler_registered = Particle.publish("spark/device/name", PRIVATE);
     if (name_handler_registered) Serial.println("INFO: name handler registered");
   }
 
