@@ -79,7 +79,7 @@ struct DeviceCommand {
     // command extraction
     void reset();
     void load(String& command_string);
-    void extractParam(char* param, int size);
+    void extractParam(char* param, uint size);
     void extractVariable();
     void extractValue();
     void extractUnits();
@@ -94,8 +94,8 @@ struct DeviceCommand {
     bool isTypeDefined(); // whether the command type was found
     void success(bool state_changed);
     void success(bool state_changed, bool capture_notes);
-    void warning(int code, char* text);
-    void error(int code, char* text);
+    void warning(int code, const char* text);
+    void error(int code, const char* text);
     void error();
     void errorLocked();
     void errorCommand();
@@ -103,7 +103,7 @@ struct DeviceCommand {
     void errorUnits();
 
     // set a log message
-    void setLogMsg(char* log_msg);
+    void setLogMsg(const char* log_msg);
 
 };
 
@@ -132,8 +132,8 @@ void DeviceCommand::reset() {
 // capture command excerpt (until next space) in param
 // using char array pointers instead of String to make sure we don't get memory leaks here
 // providing size to be sure to be on the safe side
-void DeviceCommand::extractParam(char* param, int size) {
-  int space = strcspn(buffer, " ");
+void DeviceCommand::extractParam(char* param, uint size) {
+  uint space = strcspn(buffer, " ");
   // size safety check
   if (space < size) {
     strncpy (param, buffer, space);
@@ -146,7 +146,7 @@ void DeviceCommand::extractParam(char* param, int size) {
   if (space == strlen(buffer)) {
     buffer[0] = 0;
   } else {
-    for(int i = space+1; i <= strlen(buffer); i+=1) {
+    for(uint i = space+1; i <= strlen(buffer); i+=1) {
       buffer[i-space-1] = buffer[i];
     }
   }
@@ -221,13 +221,13 @@ void DeviceCommand::success(bool state_changed, bool capture_notes) {
   }
 }
 
-void DeviceCommand::warning(int code, char* text) {
+void DeviceCommand::warning(int code, const char* text) {
   // warning affects return code and adds warning message
   ret_val = code;
   setLogMsg(text);
 }
 
-void DeviceCommand::error(int code, char* text) {
+void DeviceCommand::error(int code, const char* text) {
   // error changes type and stores entire command in notes
   ret_val = code;
   setLogMsg(text);
@@ -256,7 +256,7 @@ void DeviceCommand::errorUnits() {
   error(CMD_RET_ERR_UNITS, CMD_RET_ERR_UNITS_TEXT);
 }
 
-void DeviceCommand::setLogMsg(char* log_msg) {
+void DeviceCommand::setLogMsg(const char* log_msg) {
   strncpy(msg, log_msg, sizeof(msg) - 1);
   msg[sizeof(msg)-1] = 0;
 }
