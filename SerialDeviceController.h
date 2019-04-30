@@ -16,7 +16,7 @@ class SerialDeviceController : public DeviceController {
     // serial communication config
     const long serial_baud_rate;
     const long serial_config;
-    const int error_wait; // how long to wait after an error to re-issue request? [in ms]
+    const unsigned int error_wait; // how long to wait after an error to re-issue request? [in ms]
 
     // parameter construction
     void construct(const char* req_cmd);
@@ -26,21 +26,21 @@ class SerialDeviceController : public DeviceController {
     // serial communications
     char request_command[10];
     char data_buffer[500];
-    int data_charcounter;
+    unsigned int data_charcounter;
     char variable_buffer[25];
-    int variable_charcounter;
+    unsigned int variable_charcounter;
     char value_buffer[25];
-    int value_charcounter;
+    unsigned int value_charcounter;
     char units_buffer[20];
-    int units_charcounter;
+    unsigned int units_charcounter;
 
     // serial communications info
     bool waiting_for_response = false; // waiting for response
-    int n_byte; // number of bytes received
+    unsigned int n_byte; // number of bytes received
     unsigned long last_request; // last request (for request timing)
     unsigned long last_byte; // last byte (last byte read - for error timeout)
     int serial_data_status = SERIAL_DATA_COMPLETE; // whether data has been received
-    int error_counter; // how many errors/unexpected return in serial transmission (note that a single error will prevent the data from getting logged)
+    unsigned int error_counter; // how many errors/unexpected return in serial transmission (note that a single error will prevent the data from getting logged)
 
   public:
 
@@ -61,9 +61,9 @@ class SerialDeviceController : public DeviceController {
 
     // state changes and corresponding commands
     virtual SerialDeviceState* getDSS() = 0; // fetch the serial device state pointer
-    bool changeDataReadingPeriod(int period);
+    bool changeDataReadingPeriod(unsigned int period);
     bool parseDataReadingPeriod();
-    virtual bool isDataLoggingPeriodValid(uint8_t log_type, int log_period);
+    virtual bool isDataLoggingPeriodValid(uint8_t log_type, unsigned int log_period);
     virtual void assembleDisplayStateInformation();
     virtual void assembleStateInformation();
 
@@ -229,7 +229,7 @@ void SerialDeviceController::update() {
 /**** CHANGING STATE ****/
 
 // reading period
-bool SerialDeviceController::changeDataReadingPeriod(int period) {
+bool SerialDeviceController::changeDataReadingPeriod(unsigned int period) {
   bool changed = period != getDSS()->data_reading_period;
 
   if (changed) {
@@ -272,14 +272,14 @@ bool SerialDeviceController::parseDataReadingPeriod() {
         }
         // assign read period
         if (!command.isTypeDefined()) {
-          if (read_period < getDSS()->data_reading_period_min)
+          if ((unsigned int) read_period < getDSS()->data_reading_period_min)
             // make sure bigger than minimum
             command.error(CMD_RET_ERR_READ_LARGER_MIN, CMD_RET_ERR_READ_LARGER_MIN_TEXT);
-          else if (getDSS()->data_logging_type == LOG_BY_TIME && getDSS()->data_logging_period * 1000 <= read_period)
+          else if (getDSS()->data_logging_type == LOG_BY_TIME && getDSS()->data_logging_period * 1000u <= (unsigned int) read_period)
             // make sure smaller than log period
             command.error(CMD_RET_ERR_LOG_SMALLER_READ, CMD_RET_ERR_LOG_SMALLER_READ_TEXT);
           else
-            command.success(changeDataReadingPeriod(read_period));
+            command.success(changeDataReadingPeriod((unsigned int) read_period));
         }
       } else {
         // invalid value
@@ -291,8 +291,8 @@ bool SerialDeviceController::parseDataReadingPeriod() {
   return(command.isTypeDefined());
 }
 
-bool SerialDeviceController::isDataLoggingPeriodValid(uint8_t log_type, int log_period) {
-  return(log_type == LOG_BY_EVENT || (log_type == LOG_BY_TIME && (log_period * 1000) > getDSS()->data_reading_period));
+bool SerialDeviceController::isDataLoggingPeriodValid(uint8_t log_type, unsigned int log_period) {
+  return(log_type == LOG_BY_EVENT || (log_type == LOG_BY_TIME && (log_period * 1000u) > getDSS()->data_reading_period));
 }
 
 /****** STATE INFORMATION *******/
@@ -355,7 +355,7 @@ void SerialDeviceController::sendRequestCommand() {
 
 void SerialDeviceController::startSerialData() {
   unsigned long start_time = millis();
-  for (int i=0; i<data.size(); i++) data[i].setNewestDataTime(start_time);
+  for (unsigned int i=0; i < data.size(); i++) data[i].setNewestDataTime(start_time);
   resetSerialBuffers();
 }
 
@@ -382,27 +382,27 @@ void SerialDeviceController::resetSerialBuffers() {
 }
 
 void SerialDeviceController::resetSerialDataBuffer() {
-  for (int i=0; i < sizeof(data_buffer); i++) data_buffer[i] = 0;
+  for (unsigned int i=0; i < sizeof(data_buffer); i++) data_buffer[i] = 0;
   data_charcounter = 0;
 }
 
 void SerialDeviceController::resetSerialVariableBuffer() {
-  for (int i=0; i < sizeof(variable_buffer); i++) variable_buffer[i] = 0;
+  for (unsigned int i=0; i < sizeof(variable_buffer); i++) variable_buffer[i] = 0;
   variable_charcounter = 0;
 }
 
 void SerialDeviceController::resetSerialValueBuffer() {
-  for (int i=0; i < sizeof(value_buffer); i++) value_buffer[i] = 0;
+  for (unsigned int i=0; i < sizeof(value_buffer); i++) value_buffer[i] = 0;
   value_charcounter = 0;
 }
 
 void SerialDeviceController::resetSerialUnitsBuffer() {
-  for (int i=0; i < sizeof(units_buffer); i++) units_buffer[i] = 0;
+  for (unsigned int i=0; i < sizeof(units_buffer); i++) units_buffer[i] = 0;
   units_charcounter = 0;
 }
 
 void SerialDeviceController::appendToSerialDataBuffer(byte b) {
-  if (data_charcounter < sizeof(data_buffer) - 2) {
+  if ( (data_charcounter + 2u) < sizeof(data_buffer)) {
     data_buffer[data_charcounter] = (char) b;
     data_charcounter++;
   } else {
@@ -411,7 +411,7 @@ void SerialDeviceController::appendToSerialDataBuffer(byte b) {
 }
 
 void SerialDeviceController::appendToSerialVariableBuffer(byte b) {
-  if (variable_charcounter < sizeof(variable_buffer) - 2) {
+  if ( (variable_charcounter + 2u) < sizeof(variable_buffer)) {
     variable_buffer[variable_charcounter] = (char) b;
     variable_charcounter++;
   } else {

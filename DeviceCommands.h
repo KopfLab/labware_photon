@@ -79,16 +79,16 @@ struct DeviceCommand {
     // command extraction
     void reset();
     void load(String& command_string);
-    void extractParam(char* param, uint size);
+    void extractParam(char* param, unsigned int size);
     void extractVariable();
     void extractValue();
     void extractUnits();
     void assignNotes();
 
     // command parsing
-    bool parseVariable(char* cmd);
-    bool parseValue(char* cmd);
-    bool parseUnits(char* cmd);
+    bool parseVariable(const char* cmd);
+    bool parseValue(const char* cmd);
+    bool parseUnits(const char* cmd);
 
     // command status
     bool isTypeDefined(); // whether the command type was found
@@ -132,8 +132,8 @@ void DeviceCommand::reset() {
 // capture command excerpt (until next space) in param
 // using char array pointers instead of String to make sure we don't get memory leaks here
 // providing size to be sure to be on the safe side
-void DeviceCommand::extractParam(char* param, uint size) {
-  uint space = strcspn(buffer, " ");
+void DeviceCommand::extractParam(char* param, unsigned int size) {
+  unsigned int space = strcspn(buffer, " ");
   // size safety check
   if (space < size) {
     strncpy (param, buffer, space);
@@ -146,7 +146,7 @@ void DeviceCommand::extractParam(char* param, uint size) {
   if (space == strlen(buffer)) {
     buffer[0] = 0;
   } else {
-    for(uint i = space+1; i <= strlen(buffer); i+=1) {
+    for(unsigned int i = space+1; i <= strlen(buffer); i+=1) {
       buffer[i-space-1] = buffer[i];
     }
   }
@@ -173,7 +173,7 @@ void DeviceCommand::assignNotes() {
 }
 
 // check if variable has the specific value
-bool DeviceCommand::parseVariable(char* cmd) {
+bool DeviceCommand::parseVariable(const char* cmd) {
   if (strcmp(variable, cmd) == 0) {
     return(true);
   } else {
@@ -182,7 +182,7 @@ bool DeviceCommand::parseVariable(char* cmd) {
 }
 
 // check if variable has the specific value
-bool DeviceCommand::parseValue(char* cmd) {
+bool DeviceCommand::parseValue(const char* cmd) {
   if (strcmp(value, cmd) == 0) {
     return(true);
   } else {
@@ -191,7 +191,7 @@ bool DeviceCommand::parseValue(char* cmd) {
 }
 
 // check if units has the specific value
-bool DeviceCommand::parseUnits(char* cmd) {
+bool DeviceCommand::parseUnits(const char* cmd) {
   if (strcmp(units, cmd) == 0) {
     return(true);
   } else {

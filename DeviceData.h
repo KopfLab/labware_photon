@@ -35,22 +35,22 @@ struct DeviceData {
   };
 
   DeviceData(int idx) : DeviceData() { setIndex(idx); }
-  DeviceData(int idx, char* var) : DeviceData(idx) { setVariable(var); }
-  DeviceData(int idx, char* var, char* units) : DeviceData(idx, var) { setUnits(units); }
+  DeviceData(int idx, const char* var) : DeviceData(idx) { setVariable(var); }
+  DeviceData(int idx, const char* var, const char* units) : DeviceData(idx, var) { setUnits(units); }
   DeviceData(int idx, int d) : DeviceData(idx) { setDecimals(d); }
-  DeviceData(int idx, char* var, int d) : DeviceData(idx, var) { setDecimals(d); }
-  DeviceData(int idx, char* var, char* units, int d) : DeviceData(idx, var, units) { setDecimals(d); }
+  DeviceData(int idx, const char* var, int d) : DeviceData(idx, var) { setDecimals(d); }
+  DeviceData(int idx, const char* var, const char* units, int d) : DeviceData(idx, var, units) { setDecimals(d); }
 
   // clearing
   void clear(bool all = false);
   void setAutoClear(bool clear);
 
   // data
-  int getN();
+  unsigned int getN();
   double getValue();
   double getStdDev();
   unsigned long getDataTime();
-  void setVariable(char* var);
+  void setVariable(const char* var);
   void setIndex(int idx);
   void setNewestValue(double val);
   // returns whether the value is a valid number or not (if strict, expects only white spaces after the value)
@@ -58,7 +58,7 @@ struct DeviceData {
   void setNewestValueInvalid();
   void saveNewestValue(bool average); // set value based on current newest_value (calculate average if true)
   void setNewestDataTime(unsigned long dt);
-  void setUnits(char* u);
+  void setUnits(const char* u);
   void setDecimals(int d);
   int getDecimals();
 
@@ -87,7 +87,7 @@ void DeviceData::setAutoClear(bool clear) {
 
 /** DATA **/
 
-int DeviceData::getN() {
+unsigned int DeviceData::getN() {
   return value.n;
 }
 
@@ -103,7 +103,7 @@ unsigned long DeviceData::getDataTime() {
   return (unsigned long) round(data_time.mean);
 }
 
-void DeviceData::setVariable(char* var) {
+void DeviceData::setVariable(const char* var) {
   strncpy(variable, var, sizeof(variable) - 1);
   variable[sizeof(variable)-1] = 0;
 }
@@ -192,7 +192,7 @@ void DeviceData::saveNewestValue(bool average) {
   }
 }
 
-void DeviceData::setUnits(char* u) {
+void DeviceData::setUnits(const char* u) {
   strncpy(units, u, sizeof(units) - 1);
   units[sizeof(units)-1] = 0;
 }

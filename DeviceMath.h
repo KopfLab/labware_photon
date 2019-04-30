@@ -51,7 +51,7 @@ void print_to_signif (char* target, int size, double number, int signif) {
 // implemented based on Welford's algorithm
 struct RunningStats {
 
-    int n;
+    unsigned int n;
     double mean;
     double M2;
 
@@ -62,7 +62,7 @@ struct RunningStats {
         }
 
         void clear () {
-            n = 0;
+            n = 0u;
             mean = 0.0;
             M2 = 0.0;
         }
@@ -74,7 +74,7 @@ struct RunningStats {
             M2 += delta * (x - mean);
         }
 
-        int getN() {
+        unsigned int getN() {
             return n;
         }
 

@@ -79,14 +79,14 @@ class DeviceController {
     virtual void update(); // to be run during loop()
 
     // reset
-    bool wasReset() { reset; }; // whether controller was started in reset mode
+    bool wasReset() { return(reset); }; // whether controller was started in reset mode
 
     // device name
     void captureName(const char *topic, const char *data);
     void setNameCallback(void (*cb)()); // assign a callback function
 
     // data information
-    virtual int getNumberDataPoints();
+    virtual unsigned int getNumberDataPoints();
     virtual bool isTimeForDataLogAndClear(); // whether it's time for a data reset and log (if logging is on)
     virtual void clearData(bool all = false); // clear data fields
     virtual void resetData(); // reset data completely
@@ -107,7 +107,7 @@ class DeviceController {
     bool changeLocked(bool on);
     bool changeStateLogging(bool on);
     bool changeDataLogging(bool on);
-    bool changeDataLoggingPeriod(int period, int type);
+    bool changeDataLoggingPeriod(unsigned int period, int type);
 
     // particle command parsing functions
     void setCommandCallback(void (*cb)()); // assign a callback function
@@ -117,7 +117,7 @@ class DeviceController {
     bool parseStateLogging();
     bool parseDataLogging();
     bool parseDataLoggingPeriod();
-    virtual bool isDataLoggingPeriodValid(uint8_t log_type, int log_period);
+    virtual bool isDataLoggingPeriodValid(uint8_t log_type, unsigned int log_period);
     bool parseReset();
 
     // command info to LCD display
@@ -198,7 +198,7 @@ void DeviceController::init() {
 
   // register particle functions
   Serial.println("INFO: registering device cloud variables");
-  Particle.subscribe("spark/", &DeviceController::captureName, this);
+  Particle.subscribe("spark/", &DeviceController::captureName, this, MY_DEVICES);
   Particle.function(CMD_ROOT, &DeviceController::receiveCommand, this);
   Particle.variable(STATE_INFO_VARIABLE, state_information);
   Particle.variable(DATA_INFO_VARIABLE, data_information);
@@ -212,7 +212,7 @@ void DeviceController::init() {
   last_data_log = 0;
 }
 
-int DeviceController::getNumberDataPoints() {
+unsigned int DeviceController::getNumberDataPoints() {
   // default is that the first data type is representative
   return(data[0].getN());
 }
@@ -251,7 +251,7 @@ void DeviceController::update() {
 
   // name capture
   if (!name_handler_registered && Particle.connected()){
-    name_handler_registered = Particle.publish("spark/device/name");
+    name_handler_registered = Particle.publish("spark/device/name", PRIVATE);
     if (name_handler_registered) Serial.println("INFO: name handler registered");
   }
 
@@ -364,8 +364,8 @@ bool DeviceController::changeDataLogging (bool on) {
 }
 
 // logging period
-bool DeviceController::changeDataLoggingPeriod(int period, int type) {
-  bool changed = period != getDS()->data_logging_period | type != getDS()->data_logging_type;
+bool DeviceController::changeDataLoggingPeriod(unsigned int period, int type) {
+  bool changed = (period != getDS()->data_logging_period) | (type != getDS()->data_logging_type);
 
   if (changed) {
     getDS()->data_logging_period = period;
@@ -452,7 +452,7 @@ bool DeviceController::parseReset() {
   return(command.isTypeDefined());
 }
 
-bool DeviceController::isDataLoggingPeriodValid(uint8_t log_type, int log_period) {
+bool DeviceController::isDataLoggingPeriodValid(uint8_t log_type, unsigned int log_period) {
   return(true);
 }
 
@@ -482,8 +482,8 @@ bool DeviceController::parseDataLoggingPeriod() {
       }
       // assign read period
       if (!command.isTypeDefined()) {
-        if (isDataLoggingPeriodValid(log_type, log_period))
-          command.success(changeDataLoggingPeriod(log_period, log_type));
+        if (isDataLoggingPeriodValid(log_type, (unsigned int) log_period))
+          command.success(changeDataLoggingPeriod((unsigned int) log_period, log_type));
         else
           command.error(CMD_RET_ERR_LOG_SMALLER_READ, CMD_RET_ERR_LOG_SMALLER_READ_TEXT);
       }
@@ -602,7 +602,7 @@ void DeviceController::clearData(bool all) {
   #ifdef DATA_DEBUG_ON
     Serial.println(Time.format(Time.now(), "INFO: clearing data at %Y-%m-%d %H:%M:%S %Z"));
   #endif
-  for (int i=0; i<data.size(); i++) data[i].clear(all);
+  for (unsigned int i = 0; i < data.size(); i++) data[i].clear(all);
 }
 
 void DeviceController::resetData() {
@@ -644,7 +644,7 @@ void DeviceController::addToDataInformation(char* info) {
 }
 
 void DeviceController::assembleDataInformation() {
-  for (int i=0; i<data.size(); i++) {
+  for (unsigned int i=0; i<data.size(); i++) {
     data[i].assembleInfo();
     addToDataInformation(data[i].json);
   }
@@ -730,7 +730,7 @@ bool DeviceController::assembleDataLog() { return(assembleDataLog(true)); }
 bool DeviceController::assembleDataLog(bool global_time_offset) {
 
   // first reporting index
-  int i = last_data_log_index + 1;
+  unsigned int i = last_data_log_index + 1u;
 
   // check if we're already done with all data
   if (i == data.size()) return(false);
@@ -759,7 +759,7 @@ bool DeviceController::assembleDataLog(bool global_time_offset) {
   unsigned long global_time = millis() - (unsigned long) data[i].getDataTime();
 
   // characters reserved for rest of data log
-  int cutoff = sizeof(data_log) - 50;
+  unsigned int cutoff = sizeof(data_log) - 50;
 
   // all data that fits
   for(i = i + 1; i < data.size(); i++) {
@@ -784,7 +784,7 @@ bool DeviceController::assembleDataLog(bool global_time_offset) {
   } else {
     buffer_size = snprintf(data_log, sizeof(data_log), "{\"id\":\"%s\",\"d\":[%s]}", name, data_log_buffer);
   }
-  if (buffer_size < 0 || buffer_size >= sizeof(data_log)) {
+  if (buffer_size < 0 || buffer_size >= (int) sizeof(data_log)) {
     return(false);
     Serial.println("ERROR: data log buffer not large enough for data log - this should NOT be possible to happen");
     if (lcd) lcd->printLineTemp(1, "ERR: datalog too big");
@@ -850,7 +850,7 @@ void DeviceController::assembleStateLog() {
   int buffer_size = snprintf(state_log, sizeof(state_log),
      "{\"id\":\"%s\",\"t\":\"%s\",\"s\":[%s],\"m\":\"%s\",\"n\":\"%s\"}",
      name, command.type, command.data, command.msg, command.notes);
-  if (buffer_size < 0 || buffer_size >= sizeof(state_log)) {
+  if (buffer_size < 0 || buffer_size >= (int) sizeof(state_log)) {
     Serial.println("ERROR: state log buffer not large enough for state log");
     if (lcd) lcd->printLineTemp(1, "ERR: statelog too big");
     // FIXME: implement better size checks!!, i.e. split up call --> malformatted JSON will crash the webhook

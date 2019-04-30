@@ -8,19 +8,19 @@
 // scale state
 struct SerialDeviceState : public DeviceState {
 
-  uint data_reading_period_min; // minimum time between reads (in ms)
-  uint data_reading_period;     // period between reads (stored in ms!!!)
+  unsigned int data_reading_period_min; // minimum time between reads (in ms)
+  unsigned int data_reading_period;     // period between reads (stored in ms!!!)
 
   SerialDeviceState () {};
 
-  SerialDeviceState (bool locked, bool state_logging, bool data_logging, uint data_reading_period_min, uint data_reading_period, uint data_logging_period, uint8_t data_logging_type) :
+  SerialDeviceState (bool locked, bool state_logging, bool data_logging, unsigned int data_reading_period_min, unsigned int data_reading_period, unsigned int data_logging_period, int data_logging_type) :
     DeviceState(locked, state_logging, data_logging, data_logging_period, data_logging_type), data_reading_period_min(data_reading_period_min), data_reading_period(data_reading_period) {};
 };
 
 /**** textual translations of state values ****/
 
 // logging_period (any pattern)
-static void getStateDataReadingPeriodText(int reading_period, char* target, int size, char* pattern, bool include_key = true) {
+static void getStateDataReadingPeriodText(unsigned int reading_period, char* target, int size, const char* pattern, bool include_key = true) {
   if (reading_period == 0) {
     // manual mode
     getStateStringText(CMD_DATA_READ_PERIOD, CMD_DATA_READ_PERIOD_MANUAL, target, size, pattern, include_key);
@@ -41,7 +41,7 @@ static void getStateDataReadingPeriodText(int reading_period, char* target, int 
 }
 
 // read period (standard patterns)
-static void getStateDataReadingPeriodText(int reading_period, char* target, int size, bool value_only = false) {
+static void getStateDataReadingPeriodText(unsigned int reading_period, char* target, int size, bool value_only = false) {
   if (value_only) {
     (reading_period == 0) ?
       getStateDataReadingPeriodText(reading_period, target, size, PATTERN_V_SIMPLE, false) : // manual

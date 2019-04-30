@@ -112,9 +112,9 @@ void DeviceDisplay::setTempTextShowTime(uint8_t show_time) {
 
 void DeviceDisplay::moveToPos(uint8_t line, uint8_t col) {
 	if (line_now != line || col_now != col) {
-		line = (col > cols) ? line + 1 : line; // jump to next line if cols overflow
+		line = (col > cols) ? line + 1L : line; // jump to next line if cols overflow
 		col = (col > cols) ? col - cols : col; // jump to next line if cols overflow
-		line = (line > lines) ? 1 : line; // start at beginning of screen if lines overflow
+		line = (line > lines) ? 1L : line; // start at beginning of screen if lines overflow
 		line_now = line;
 		col_now = col;
 		setCursor(col - 1L, line - 1L);
@@ -122,7 +122,7 @@ void DeviceDisplay::moveToPos(uint8_t line, uint8_t col) {
 }
 
 uint16_t DeviceDisplay::getPos(uint8_t line, uint8_t col) {
-	return((line - 1) * cols + col - 1);
+	return((line - 1L) * cols + col - 1L);
 }
 uint16_t DeviceDisplay::getPos() {
 	return(getPos(line_now, col_now));
@@ -132,14 +132,14 @@ void DeviceDisplay::goToLine(uint8_t line) {
 	if (line > lines) {
 		Serial.printf("ERROR: requested move to line %d. Display only has %d lines.\n", line, lines);
 	} else {
-		moveToPos(line, 1);
+		moveToPos(line, 1L);
 	}
 }
 
 void DeviceDisplay::print(const char c[], bool temp) {
 
 	// determine text length to maximally fill the line
-	uint8_t length = (strlen(c) > (cols - col_now + 1)) ? cols - col_now + 1 : strlen(c);
+	uint8_t length = ( (strlen(c) + col_now) > (cols + 1u)) ? cols - col_now + 1u : strlen(c);
 
 	// position information
 	uint8_t col_init = col_now;
@@ -216,7 +216,8 @@ void DeviceDisplay::printLine (uint8_t line, const char text[], uint8_t start, u
 
 	// assemble print text (pad the start/end according to align)
 	char full_text[length + 1] = "";
-	uint8_t space_start, space_end = 0;
+	uint8_t space_start = 0;
+	uint8_t space_end = 0;
 	if (align == LCD_ALIGN_LEFT) {
 		space_start = strlen(text);
 		space_end = length;
@@ -230,7 +231,7 @@ void DeviceDisplay::printLine (uint8_t line, const char text[], uint8_t start, u
 	}
 
 	// spaces
-	for (int i = space_start; i < space_end; i++) {
+	for (uint8_t i = space_start; i < space_end; i++) {
 		full_text[i] = ' ';
 	}
 
