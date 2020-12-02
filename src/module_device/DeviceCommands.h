@@ -1,5 +1,5 @@
 #pragma once
-#include "device/DeviceInfo.h"
+#include "DeviceInfo.h"
 
 // return codes:
 //  -  0 : success without warning

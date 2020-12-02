@@ -7,8 +7,8 @@
  */
 
 #pragma once
-#include "device/DeviceCommands.h"
-#include "device/DeviceInfo.h"
+#include "DeviceCommands.h"
+#include "DeviceInfo.h"
 
 // device state
 // note: must define STATE_VERSION as integer in the head file

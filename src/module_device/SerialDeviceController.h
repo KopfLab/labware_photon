@@ -1,7 +1,7 @@
 #pragma once
-#include "device/DeviceController.h"
-#include "device/SerialDeviceCommands.h"
-#include "device/SerialDeviceState.h"
+#include "DeviceController.h"
+#include "SerialDeviceCommands.h"
+#include "SerialDeviceState.h"
 
 // serial data status code
 #define SERIAL_DATA_WAITING   0 // waiting for more data

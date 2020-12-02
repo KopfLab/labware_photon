@@ -1,5 +1,5 @@
 #pragma once
-#include "device/DeviceMath.h"
+#include "DeviceMath.h"
 
 /**** general parameters and constants for device cloude interaction ****/
 

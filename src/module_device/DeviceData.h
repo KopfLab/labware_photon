@@ -1,5 +1,5 @@
 #pragma once
-#include "device/DeviceMath.h"
+#include "DeviceMath.h"
 
 // device data for spark cloud
 struct DeviceData {

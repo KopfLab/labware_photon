@@ -1,6 +1,6 @@
 #pragma once
-#include "device/DeviceState.h"
-#include "device/SerialDeviceCommands.h"
+#include "DeviceState.h"
+#include "SerialDeviceCommands.h"
 
 // constants
 #define READ_MANUAL   0 // data reading is manual

@@ -1,5 +1,5 @@
 #pragma once
-#include "device/DeviceCommands.h"
+#include "DeviceCommands.h"
 
 // time units
 #define CMD_TIME_MS     "ms" // milli seconds
