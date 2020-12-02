@@ -5,6 +5,7 @@
 // - DATA_DEBUG_ON      // use to enable info messages about data changes
 // - SERIAL_DEBUG_ON    // use to enable info messages about serial data
 // - LCD_DEBUG_ON       // see DeviceDisplay.h
+// - STATE_RESET        // use to force a state reset on startup
 
 #pragma once
 #include <vector>
@@ -21,7 +22,13 @@ class DeviceController {
 
     // reset PIN
     const int reset_pin;
-    bool reset = false;
+    #ifdef STATE_RESET
+      // force state reset
+      bool reset = true;
+    #else
+      // no reset on startup
+      bool reset = false;
+    #endif
 
     // state log exceptions
     bool override_state_log = false;
