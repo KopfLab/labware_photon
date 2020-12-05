@@ -1,3 +1,12 @@
+### USAGE ###
+
+# see programs for PROGRAM options
+# to compile: make PROGRAM 
+# to flash latest compile: make flash
+# to compile & flahs: make PROGRAM flash
+
+### PARAMS ###
+
 # platform and version
 PLATFORM?=photon
 VERSION?=2.0.0-rc.4
@@ -9,6 +18,7 @@ BIN:=$(shell ls -Art *.bin | tail -n 1)
 ### PROGRAMS ###
 
 MODULES:=
+debug/blink: MODULES=
 debug/logger: MODULES=modules/logger
 debug/lcd: MODULES=
 ministat: MODULES=device_module stepper_module
