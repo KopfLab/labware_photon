@@ -3,7 +3,9 @@
 # see programs for PROGRAM options
 # to compile: make PROGRAM 
 # to flash latest compile: make flash
-# to compile & flahs: make PROGRAM flash
+# to start serial monitor: make monitor
+# to compile & flash: make PROGRAM flash
+# to compile, flash & monitor: make PROGRAM flash monitor
 
 ### PARAMS ###
 
@@ -19,8 +21,9 @@ BIN:=$(shell ls -Art *.bin | tail -n 1)
 
 MODULES:=
 debug/blink: MODULES=
-debug/logger: MODULES=modules/logger
+debug/i2c_scanner: MODULES=
 debug/lcd: MODULES=
+debug/logger: MODULES=modules/logger
 ministat: MODULES=device_module stepper_module
 
 ### HELPERS ###
