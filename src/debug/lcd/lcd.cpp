@@ -508,14 +508,25 @@ void info_handler(const char *topic, const char *data)
 	}
 }
 
-// simplify startup so LCd can show something while it's still running
-SYSTEM_MODE(SEMI_AUTOMATIC);
+// manual wifi management
+SYSTEM_THREAD(ENABLED);
+SYSTEM_MODE(MANUAL);
+bool connect = false;
+bool connected = false;
+byte mac[6];
 
-void setup(void)
-{
+void setup(void) {
+
+	// turn wifi module on
+  	WiFi.on();
+
+	// start serial
 	Serial.begin(9600);
-	Time.zone(-6); // to get the time correctly
+	waitFor(Serial.isConnected, 5000); // give monitor 5 seconds to connect
 	Serial.println("Starting up...");
+
+	// timezone
+	Time.zone(-6); // to get the time correctly
 
 	// LCD screen
 	lcd = find_LCD();
@@ -524,16 +535,11 @@ void setup(void)
 	lcd->printLine(1, "Starting up...");
 	lcd->printLine(2, "extra long super testing");
 
-	// connect device to cloud
-  	Serial.println("INFO: connecting to cloud");
-	Particle.connect();
-
-	// device info
-	Serial.println("Requesting device info...");
-	Particle.subscribe("spark/", info_handler);
-	Particle.publish("spark/device/name");
-	Particle.publish("spark/device/ip");
-	Serial.println("Startup complete");
+	// particle subscriptions
+	Particle.subscribe("spark/", info_handler, ALL_DEVICES);
+	
+	// finished
+	Serial.println("Setup complete");
 }
 
 int test = 0;
@@ -541,8 +547,32 @@ int test = 0;
 void loop(void)
 {
 
+	// cloud connection
+	if (Particle.connected()) {
+		if (!connected) {
+		// connection just made
+		WiFi.macAddress(mac);
+		Serial.printf("MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+		Serial.println(Time.format(Time.now(), "Cloud connection established at %H:%M:%S %d.%m.%Y"));
+		Particle.publish("spark/device/name", PRIVATE);
+		Particle.publish("spark/device/ip", PRIVATE);
+		connected = true;
+		}
+		Particle.process();
+	} else if (connected) {
+		// should be connected but isn't
+		Serial.println(Time.format(Time.now(), "Lost cloud connected at %H:%M:%S %d.%m.%Y"));
+		connect = false;
+		connected = false;
+	} else if (!connect) {
+		// start cloud connection
+		Serial.println(Time.format(Time.now(), "Initiate connection at %H:%M:%S %d.%m.%Y"));
+		Particle.connect();
+		connect = true;
+	}
+
 	// Time sync (once a day)
-	if (millis() - last_sync > ONE_DAY_MILLIS)
+	if (Particle.connected() && millis() - last_sync > ONE_DAY_MILLIS)
 	{
 		// Request time synchronization from the Particle Cloud
 		Particle.syncTime();
