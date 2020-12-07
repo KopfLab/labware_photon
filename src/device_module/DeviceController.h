@@ -169,9 +169,9 @@ void DeviceController::init() {
   if (lcd) {
     lcd->init();
     #ifdef DEVICE_VERSION
-      lcd->printLine(1, "Starting " + String(DEVICE_VERSION));
+      lcd->printLine(1, "Start " + String(DEVICE_VERSION));
     #else
-      lcd->printLine(1, "Starting up...");
+      lcd->printLine(1, "Start up...");
     #endif
   }
 
@@ -192,6 +192,14 @@ void DeviceController::init() {
 
   // startup time info
   Serial.println(Time.format(Time.now(), "INFO: startup time: %Y-%m-%d %H:%M:%S %Z"));
+
+  // connect device to cloud
+  Serial.println("INFO: connecting to cloud");
+   // lcd
+  if (lcd) {
+    lcd->printLine(2, "Connect WiFi...");
+  }
+  Particle.connect();
 
   // state and log variables
   strcpy(state_information, "{}");
