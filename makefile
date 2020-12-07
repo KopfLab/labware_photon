@@ -2,7 +2,8 @@
 
 # see programs for PROGRAM options
 # to compile: make PROGRAM 
-# to flash latest compile: make flash
+# to flash latest compile via USB: make flash
+# to flash latest compile via cloud: make flash device=DEVICE
 # to start serial monitor: make monitor
 # to compile & flash: make PROGRAM flash
 # to compile, flash & monitor: make PROGRAM flash monitor

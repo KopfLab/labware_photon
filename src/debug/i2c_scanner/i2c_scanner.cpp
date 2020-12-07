@@ -30,6 +30,7 @@
 // Devices with higher bit address might not be seen properly.
 //
 
+SYSTEM_MODE(MANUAL); // manual mode, no wifi
  
 void setup()
 {

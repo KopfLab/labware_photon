@@ -508,6 +508,9 @@ void info_handler(const char *topic, const char *data)
 	}
 }
 
+// simplify startup so LCd can show something while it's still running
+SYSTEM_MODE(SEMI_AUTOMATIC);
+
 void setup(void)
 {
 	Serial.begin(9600);
@@ -520,6 +523,10 @@ void setup(void)
 	lcd->setTempTextShowTime(3); // 3 seconds temporary text show time
 	lcd->printLine(1, "Starting up...");
 	lcd->printLine(2, "extra long super testing");
+
+	// connect device to cloud
+  	Serial.println("INFO: connecting to cloud");
+	Particle.connect();
 
 	// device info
 	Serial.println("Requesting device info...");

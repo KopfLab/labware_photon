@@ -33,9 +33,12 @@ class LoggerController {
     // state log exceptions
     bool override_state_log = false;
 
-    // Logger info
+    // logger info
     bool name_handler_registered = false;
     bool name_handler_succeeded = false;
+
+    // state
+    LoggerState* ds;
 
   protected:
 
@@ -79,11 +82,11 @@ class LoggerController {
     // constructor
     LoggerController();
     LoggerController (int reset_pin) : reset_pin(reset_pin) {}
-    LoggerController (int reset_pin, LoggerDisplay* lcd) : reset_pin(reset_pin), lcd(lcd) {}
+    LoggerController (int reset_pin, LoggerDisplay* lcd, LoggerState *state) : reset_pin(reset_pin), lcd(lcd), ds(state) {}
 
     // setup and loop methods
-    virtual void init(); // to be run during setup()
-    virtual void update(); // to be run during loop()
+    void init(); // to be run during setup() - FIXME
+    void update(); // to be run during loop() - FIXME
 
     // reset
     bool wasReset() { reset; }; // whether controller was started in reset mode
@@ -93,22 +96,22 @@ class LoggerController {
     void setNameCallback(void (*cb)()); // assign a callback function
 
     // data information
-    virtual int getNumberDataPoints();
-    virtual bool isTimeForDataLogAndClear(); // whether it's time for a data reset and log (if logging is on)
-    virtual void clearData(bool all = false); // clear data fields
-    virtual void resetData(); // reset data completely
-    virtual void assembleDataInformation();
+    int getNumberDataPoints(); // FIXME
+    bool isTimeForDataLogAndClear(); // whether it's time for a data reset and log (if logging is on) // FIXME
+    void clearData(bool all = false); // clear data fields // FIXME
+    void resetData(); // reset data completely // FIXME
+    void assembleDataInformation(); // FIXME
     void addToDataInformation(char* info);
     void setDataCallback(void (*cb)()); // assign a callback function
 
     // state information
-    virtual void assembleStateInformation();
+    void assembleStateInformation(); // FIXME
     void addToStateInformation(char* info);
 
     // state control & persistence functions (implement in derived classes)
-    virtual LoggerState* getDS() = 0; // fetch the Logger state pointer
-    virtual void saveDS() = 0; // save Logger state to EEPROM
-    virtual bool restoreDS() = 0; // load Logger state from EEPROM
+    LoggerState* getDS() { return(ds); }; // fetch the Logger state pointer
+    void saveDS() { }; // save Logger state to EEPROM // FIXME
+    bool restoreDS() { return(false); }; // load Logger state from EEPROM // FIXME
 
     // state change functions (will work in derived classes as long as getDS() is re-implemented)
     bool changeLocked(bool on);
@@ -119,37 +122,37 @@ class LoggerController {
     // particle command parsing functions
     void setCommandCallback(void (*cb)()); // assign a callback function
     int receiveCommand (String command); // receive cloud command
-    virtual void parseCommand (); // parse a cloud command
+    void parseCommand (); // parse a cloud command // FIXME
     bool parseLocked();
     bool parseStateLogging();
     bool parseDataLogging();
     bool parseDataLoggingPeriod();
-    virtual bool isDataLoggingPeriodValid(uint8_t log_type, int log_period);
+    bool isDataLoggingPeriodValid(uint8_t log_type, int log_period); // FIXME
     bool parseReset();
 
     // command info to LCD display
-    virtual void assembleDisplayCommandInformation();
-    virtual void showDisplayCommandInformation();
+    void assembleDisplayCommandInformation(); // FIXME
+    void showDisplayCommandInformation(); // FIXME
 
     // state info to LCD display
-    virtual void assembleDisplayStateInformation();
-    virtual void showDisplayStateInformation();
+    void assembleDisplayStateInformation(); // FIXME
+    void showDisplayStateInformation(); // FIXME
 
     // particle variables
-    virtual void updateDataInformation();
-    virtual void postDataInformation();
-    virtual void updateStateInformation();
-    virtual void postStateInformation();
+    void updateDataInformation(); // FIXME
+    void postDataInformation(); // FIXME
+    void updateStateInformation(); // FIXME
+    void postStateInformation(); // FIXME
 
     // particle webhook publishing
-    virtual void logData();
-    virtual bool assembleDataLog();
-    virtual bool assembleDataLog(bool gobal_time_offset);
+    void logData(); // FIXME
+    bool assembleDataLog(); // FIXME
+    bool assembleDataLog(bool gobal_time_offset); // FIXME
     void addToDataLog(char* info);
-    virtual bool publishDataLog();
-    virtual void assembleStartupLog();
-    virtual void assembleStateLog();
-    virtual bool publishStateLog();
+    bool publishDataLog(); // FIXME
+    void assembleStartupLog(); // FIXME
+    void assembleStateLog(); // FIXME
+    bool publishStateLog(); // FIXME
 };
 
 /* SETUP & LOOP */
@@ -193,6 +196,14 @@ void LoggerController::init() {
   // startup time info
   Serial.println(Time.format(Time.now(), "INFO: startup time: %Y-%m-%d %H:%M:%S %Z"));
 
+  // connect device to cloud
+  Serial.println("INFO: connecting to cloud");
+   // lcd
+  if (lcd) {
+    lcd->printLine(2, "Connect WiFi...");
+  }
+  Particle.connect();
+
   // state and log variables
   strcpy(state_information, "{}");
   state_information[2] = 0;
@@ -205,7 +216,7 @@ void LoggerController::init() {
 
   // register particle functions
   Serial.println("INFO: registering Logger cloud variables");
-  Particle.subscribe("spark/", &LoggerController::captureName, this, MY_LoggerS);
+  Particle.subscribe("spark/", &LoggerController::captureName, this, MY_DEVICES);
   Particle.function(CMD_ROOT, &LoggerController::receiveCommand, this);
   Particle.variable(STATE_INFO_VARIABLE, state_information);
   Particle.variable(DATA_INFO_VARIABLE, data_information);

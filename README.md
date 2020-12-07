@@ -1,6 +1,21 @@
-# Photon labware
+# Lablogger devices
 
-Base classes for particle photons tied into the lab device and data infrastructure.
+Microcontrollers for lablogger.
+
+## Makefile
+
+- to compile: make PROGRAM 
+- to flash latest compile via USB: make flash
+- to flash latest compile via cloud: make flash device=DEVICE
+- to start serial monitor: make monitor
+- to compile & flash: make PROGRAM flash
+- to compile, flash & monitor: make PROGRAM flash monitor
+
+## Available programs
+
+ - fill in
+
+# revise the following
 
 ## Usage
 
