@@ -46,6 +46,7 @@ void setup() {
   // start serial
   Serial.begin(9600);
   waitFor(Serial.isConnected, 5000); // give monitor 5 seconds to connect
+  delay(500);
   Serial.println("Starting up...");
 
   // timezone
@@ -60,6 +61,8 @@ void setup() {
   
   // finished
   Serial.println("Setup complete");
+  WiFi.macAddress(mac);
+  Serial.printf("MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 }
 
 void loop() {
