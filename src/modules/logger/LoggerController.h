@@ -142,6 +142,7 @@ class LoggerController {
     void showDisplayCommandInformation(); // FIXME
 
     // state info to LCD display
+    void updateDisplayStateInformation();
     void assembleDisplayStateInformation(); // FIXME
     void showDisplayStateInformation(); // FIXME
 
@@ -281,10 +282,11 @@ void LoggerController::update() {
 		}
 		Particle.process();
 	} else if (cloud_connected) {
-		// should be connected but isn't
+		// should be connected but isn't --> reconnect
 		Serial.println(Time.format(Time.now(), "INFO: lost cloud connection at %H:%M:%S %d.%m.%Y"));
 		cloud_connection_started = false;
 		cloud_connected = false;
+    updateDisplayStateInformation();
 	} else if (!cloud_connection_started) {
 		// start cloud connection
 		Serial.println(Time.format(Time.now(), "INFO: initiate cloud connection at %H:%M:%S %d.%m.%Y"));
@@ -607,6 +609,12 @@ void LoggerController::showDisplayCommandInformation() {
 
 /* STATE DISPLAY INFORMATION */
 
+void LoggerController::updateDisplayStateInformation() {
+  lcd_buffer[0] = 0; // reset buffer
+  assembleDisplayStateInformation();
+  showDisplayStateInformation();
+}
+
 void LoggerController::assembleDisplayStateInformation() {
   uint i = 0;
   if (Particle.connected()) {
@@ -705,9 +713,7 @@ void LoggerController::updateStateInformation() {
   #ifdef CLOUD_DEBUG_ON
     Serial.print("INFO: updating state information: ");
   #endif
-  lcd_buffer[0] = 0; // reset buffer
-  assembleDisplayStateInformation();
-  showDisplayStateInformation();
+  updateDisplayStateInformation();
   state_information_buffer[0] = 0; // reset buffer
   assembleStateInformation();
   postStateInformation();
