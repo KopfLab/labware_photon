@@ -274,8 +274,9 @@ void LoggerController::update() {
       Serial.printf("INFO: MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n", 
         mac_address[0], mac_address[1], mac_address[2], mac_address[3], mac_address[4], mac_address[5]);
       Serial.println(Time.format(Time.now(), "INFO: cloud connection established at %H:%M:%S %d.%m.%Y"));
-      lcd->printLine(2, "");
       cloud_connected = true;
+      // date information
+      updateStateInformation();
       // name capture
       if (!name_handler_registered){
         name_handler_registered = Particle.publish("spark/device/name", PRIVATE);
@@ -302,11 +303,9 @@ void LoggerController::update() {
 
   // startup complete
   if (Particle.connected() && !startup_logged && name_handler_succeeded) {
-
     // state and data information
     updateStateInformation();
     updateDataInformation();
-
     if (getDS()->state_logging) {
       Serial.println("INFO: start-up completed.");
       assembleStartupLog();
@@ -647,7 +646,8 @@ void LoggerController::assembleDisplayStateInformation() {
 
 void LoggerController::showDisplayStateInformation() {
   if (lcd) {
-    lcd->printLine(1, name);
+    if (name_handler_succeeded)
+      lcd->printLine(1, name);
     lcd->printLineRight(1, lcd_buffer, strlen(lcd_buffer) + 1);
   }
 }
