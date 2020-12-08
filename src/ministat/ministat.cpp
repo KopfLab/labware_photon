@@ -9,7 +9,7 @@
 //#define SERIAL_DEBUG_ON
 //#define LCD_DEBUG_ON
 #define STEPPER_DEBUG_ON
-#define STATE_RESET // FIXME auto state reset
+//#define STATE_RESET // FIXME auto state reset
 
 // keep track of installed version
 #define STATE_VERSION    4 // change whenver StepperState structure changes
@@ -63,7 +63,7 @@ StepperState* state = new StepperState(
 );
 
 // controller
-StepperController* pump = new StepperController(
+StepperController* stirrer = new StepperController(
   /* reset pin */         A5,
   /* lcd screen */        lcd,
   /* pointer to board */  board,
@@ -85,12 +85,12 @@ void setup() {
   lcd->setTempTextShowTime(3); // how many seconds temp time
 
   // controller
-  pump->init();
+  stirrer->init();
 
 }
 
 void loop() {
-  pump->update();
+  stirrer->update();
 }
 
 
