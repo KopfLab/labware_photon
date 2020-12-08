@@ -9,7 +9,9 @@
  *
  */
 
-#include <LiquidCrystal_I2C_Spark.h> // requirement: https://github.com/BulldogLowell/LiquidCrystal_I2C_Spark
+#include "LoggerDisplay.h"
+//#include <LiquidCrystal_I2C_Spark.h> // requirement: https://github.com/BulldogLowell/LiquidCrystal_I2C_Spark
+
 
 // alignments
 #define LCD_ALIGN_LEFT 1
@@ -27,13 +29,16 @@
 // #define LCD_DEBUG_ON
 
 // Display class handles displaying information
-// for the peristaltic pumping system
-class DeviceDisplay : public LiquidCrystal_I2C
+class DeviceDisplay
 {
 private:
 	// i2c address and presence
-	const uint8_t lcd_addr;
+	const uint8_t i2c_addrs[2] = {0x3f, 0x27};
+	uint8_t lcd_addr;
 	bool present = false;
+
+	// display object
+	LiquidCrystal_I2C* lcd;
 
 	// display layout
 	const uint8_t cols, lines;
@@ -56,8 +61,7 @@ private:
 
 public:
 	// standard constructor
-	DeviceDisplay(uint8_t lcd_Addr, uint8_t lcd_cols, uint8_t lcd_lines) : // addr, en,rw,rs,d4,d5,d6,d7,bl,blpol
-																		   LiquidCrystal_I2C(lcd_Addr, lcd_cols, lcd_lines), lcd_addr(lcd_Addr), cols(lcd_cols), lines(lcd_lines)
+	DeviceDisplay(uint8_t lcd_cols, uint8_t lcd_lines) : cols(lcd_cols), lines(lcd_lines)
 	{
 		if (cols * lines > LCD_MAX_SIZE)
 		{
@@ -120,9 +124,14 @@ void DeviceDisplay::init()
 
 	if (present)
 	{
-		LiquidCrystal_I2C::init();
-		backlight();
-		clear();
+		// create the lcd object and initialize it
+		lcd = new LiquidCrystal_I2C(lcd_addr, cols, lines);
+		lcd->init();
+		//LiquidCrystal_I2C::init();
+		//backlight();
+		//clear();
+		lcd->backlight();
+		lcd->clear();
 		for (int i = 0; i < cols * lines; i++)
 		{
 			temp_pos[i] = false;
@@ -139,15 +148,19 @@ bool DeviceDisplay::checkAddress()
 {
 	// checking that device available at the supposed address
 	Wire.begin();
-	Serial.print("Info: checking for I2C device at address 0x");
-	if (lcd_addr < 16)
-		Serial.print("0");
-	Serial.print(lcd_addr, HEX);
-	Serial.print("...");
-	Wire.beginTransmission(lcd_addr);
-	bool success = (Wire.endTransmission() == 0);
-	if (success) Serial.println("success.");
-	else Serial.println("FAILED!");
+	bool success = 0;
+	for (int i=0; i < sizeof(i2c_addrs)/sizeof(i2c_addrs[0]); i++) {
+		Serial.printf("Info: checking for lcd at I2C address 0x%02X... ", i2c_addrs[i]);
+		Wire.beginTransmission(i2c_addrs[i]);
+		success = (Wire.endTransmission() == 0);
+		if (success) {
+			Serial.println("found -> use.");
+			lcd_addr = i2c_addrs[i];
+			break;
+		} else {
+			Serial.println("NOT found.");
+		}
+	}
 	return(success);
 }
 
@@ -175,7 +188,7 @@ void DeviceDisplay::moveToPos(uint8_t line, uint8_t col)
 		line = (line > lines) ? 1 : line;	  // start at beginning of screen if lines overflow
 		line_now = line;
 		col_now = col;
-		setCursor(col - 1L, line - 1L);
+		lcd->setCursor(col - 1L, line - 1L);
 	}
 }
 
@@ -234,7 +247,8 @@ void DeviceDisplay::print(const char c[], bool temp)
 
 				// update lcd
 				moveToPos(line_now, col_init + needs_update);
-				LiquidCrystal_I2C::print(update);
+				lcd->print(update);
+				//LiquidCrystal_I2C::print(update);
 
 				// store new text in buffer
 				strncpy(buffer + pos_now + needs_update, update, i - needs_update);
@@ -449,32 +463,11 @@ void DeviceDisplay::update()
 	}
 }
 
-// default instances and LCD finder
-DeviceDisplay LCD_16x2(0x3f, 16, 2);
-DeviceDisplay LCD_20x4(0x27, 20, 4);
-const int n_LCDs = 2;
-DeviceDisplay *LCDs[] = { &LCD_16x2, &LCD_20x4 };
-DeviceDisplay* find_LCD() {
-	Serial.println("Info: searching through default LCD configurations...");
-	bool success = false;
-	for (int i = 0; i < n_LCDs; i++) {
-		success = LCDs[i]->checkAddress();
-		if (success) {
-			Serial.printf("Info: found LCD present for default LCD configuration %d, proceeding with this one...\n", i + 1);
-			return(LCDs[i]);
-		}
-	}
-	// no suitable LCD found, return the first one in the array
-	Serial.println("WARNING: no LCD in the default configurations seems to be present, reverting to first default.");
-	return(LCDs[0]);
-}
-
-
 // ********************** //
 // implementation example //
 // ********************** //
 
-DeviceDisplay *lcd = 0;
+LoggerDisplay *lcd = &LCD_16x2;
 
 int last_second = 0;
 int last_message = 0;
@@ -523,13 +516,13 @@ void setup(void) {
 	// start serial
 	Serial.begin(9600);
 	waitFor(Serial.isConnected, 5000); // give monitor 5 seconds to connect
+	delay(500);
 	Serial.println("Starting up...");
 
 	// timezone
 	Time.zone(-6); // to get the time correctly
 
 	// LCD screen
-	lcd = find_LCD();
 	lcd->init();
 	lcd->setTempTextShowTime(3); // 3 seconds temporary text show time
 	lcd->printLine(1, "Starting up...");
