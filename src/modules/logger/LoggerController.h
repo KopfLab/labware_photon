@@ -37,6 +37,13 @@ class LoggerController {
     bool name_handler_registered = false;
     bool name_handler_succeeded = false;
 
+    // cloud connection
+    bool cloud_connection_started = false;
+    bool cloud_connected = false;
+
+    // mac address
+    byte mac_address[6];
+
     // state
     LoggerState* ds;
 
@@ -162,8 +169,8 @@ void LoggerController::init() {
   pinMode(reset_pin, INPUT_PULLDOWN);
 
   // initialize
-  #ifdef Logger_VERSION
-    Serial.printf("INFO: initializing Logger %s...\n", Logger_VERSION);
+  #ifdef LOGGER_VERSION
+    Serial.printf("INFO: initializing Logger %s...\n", LOGGER_VERSION);
   #else
     Serial.println("INFO: initializing Logger");
   #endif
@@ -171,8 +178,8 @@ void LoggerController::init() {
   // lcd
   if (lcd) {
     lcd->init();
-    #ifdef Logger_VERSION
-      lcd->printLine(1, "Start " + String(Logger_VERSION));
+    #ifdef LOGGER_VERSION
+      lcd->printLine(1, "Start " + String(LOGGER_VERSION));
     #else
       lcd->printLine(1, "Start up...");
     #endif
@@ -196,14 +203,6 @@ void LoggerController::init() {
   // startup time info
   Serial.println(Time.format(Time.now(), "INFO: startup time: %Y-%m-%d %H:%M:%S %Z"));
 
-  // connect device to cloud
-  Serial.println("INFO: connecting to cloud");
-   // lcd
-  if (lcd) {
-    lcd->printLine(2, "Connect WiFi...");
-  }
-  Particle.connect();
-
   // state and log variables
   strcpy(state_information, "{}");
   state_information[2] = 0;
@@ -215,7 +214,7 @@ void LoggerController::init() {
   data_log[2] = 0;
 
   // register particle functions
-  Serial.println("INFO: registering Logger cloud variables");
+  Serial.println("INFO: registering logger cloud variables");
   Particle.subscribe("spark/", &LoggerController::captureName, this, MY_DEVICES);
   Particle.function(CMD_ROOT, &LoggerController::receiveCommand, this);
   Particle.variable(STATE_INFO_VARIABLE, state_information);
@@ -264,17 +263,41 @@ bool LoggerController::isTimeForDataLogAndClear() {
 
 void LoggerController::update() {
 
+  // cloud connection
+	if (Particle.connected()) {
+		if (!cloud_connected) {
+      // connection freshly made
+      WiFi.macAddress(mac_address);
+      Serial.printf("INFO: MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n", 
+        mac_address[0], mac_address[1], mac_address[2], mac_address[3], mac_address[4], mac_address[5]);
+      Serial.println(Time.format(Time.now(), "INFO: cloud connection established at %H:%M:%S %d.%m.%Y"));
+      lcd->printLine(2, "");
+      cloud_connected = true;
+      // name capture
+      if (!name_handler_registered){
+        name_handler_registered = Particle.publish("spark/device/name", PRIVATE);
+        if (name_handler_registered) Serial.println("INFO: name handler registered");
+      }
+		}
+		Particle.process();
+	} else if (cloud_connected) {
+		// should be connected but isn't
+		Serial.println(Time.format(Time.now(), "INFO: lost cloud connection at %H:%M:%S %d.%m.%Y"));
+		cloud_connection_started = false;
+		cloud_connected = false;
+	} else if (!cloud_connection_started) {
+		// start cloud connection
+		Serial.println(Time.format(Time.now(), "INFO: initiate cloud connection at %H:%M:%S %d.%m.%Y"));
+    lcd->printLine(2, "Connect WiFi...");
+		Particle.connect();
+		cloud_connection_started = true;
+	}
+
   // lcd update
   if (lcd) lcd->update();
 
-  // name capture
-  if (!name_handler_registered && Particle.connected()){
-    name_handler_registered = Particle.publish("spark/Logger/name", PRIVATE);
-    if (name_handler_registered) Serial.println("INFO: name handler registered");
-  }
-
   // startup complete
-  if (!startup_logged && name_handler_succeeded) {
+  if (Particle.connected() && !startup_logged && name_handler_succeeded) {
 
     // state and data information
     updateStateInformation();
@@ -306,7 +329,7 @@ void LoggerController::captureName(const char *topic, const char *data) {
   // store name and also assign it to Logger information
   strncpy ( name, data, sizeof(name) );
   name_handler_succeeded = true;
-  Serial.println("INFO: Logger name '" + String(name) + "'");
+  Serial.println("INFO: logger name '" + String(name) + "'");
   if (lcd) lcd->printLine(1, name);
   if (name_callback) name_callback();
 }
@@ -586,6 +609,12 @@ void LoggerController::showDisplayCommandInformation() {
 
 void LoggerController::assembleDisplayStateInformation() {
   uint i = 0;
+  if (Particle.connected()) {
+    lcd_buffer[i] = 'W';
+  } else {
+    lcd_buffer[i] = '!';
+  }
+  i++;
   if (getDS()->locked) {
     lcd_buffer[i] = 'L';
     i++;
@@ -595,15 +624,13 @@ void LoggerController::assembleDisplayStateInformation() {
     i++;
   }
   if (getDS()->data_logging) {
+    // data logging
     lcd_buffer[i] = 'D';
     i++;
+    getStateDataLoggingPeriodText(getDS()->data_logging_period, getDS()->data_logging_type,
+        lcd_buffer + i, sizeof(lcd_buffer) - i, true);
+    i = strlen(lcd_buffer);
   }
-
-  // details on data logging
-  getStateDataLoggingPeriodText(getDS()->data_logging_period, getDS()->data_logging_type,
-      lcd_buffer + i, sizeof(lcd_buffer) - i, true);
-  i = strlen(lcd_buffer);
-
   lcd_buffer[i] = 0;
 }
 
@@ -694,13 +721,16 @@ void LoggerController::postStateInformation() {
     Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
     // dt = datetime, s = state information
     char version[30];
-    #ifdef Logger_VERSION
-      strncpy(version, Logger_VERSION, sizeof(version));
+    #ifdef LOGGER_VERSION
+      strncpy(version, LOGGER_VERSION, sizeof(version));
     #else
       strncpy(version, "?", sizeof(version));
     #endif
-    snprintf(state_information, sizeof(state_information), "{\"dt\":\"%s\",\"version\":\"%s\",\"s\":[%s]}",
-      date_time_buffer, version, state_information_buffer);
+    snprintf(state_information, sizeof(state_information), 
+      "{\"dt\":\"%s\",\"version\":\"%s\",\"mac\":\"%02x:%02x:%02x:%02x:%02x:%02x\",\"s\":[%s]}",
+      date_time_buffer, version, 
+      mac_address[0], mac_address[1], mac_address[2], mac_address[3], mac_address[4], mac_address[5],
+      state_information_buffer);
   } else {
     Serial.println("ERROR: particle not (yet) connected.");
   }
