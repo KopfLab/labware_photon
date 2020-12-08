@@ -4,7 +4,7 @@
 /**** general parameters and constants for Logger cloude interaction ****/
 
 // command from spark cloud
-#define CMD_ROOT              "Logger" // command root (i.e. registered particle call function)
+#define CMD_ROOT              "device" // command root (i.e. registered particle call function)
 #define CMD_MAX_CHAR          63  // spark.functions are limited to 63 char long call
 
 #define STATE_INFO_VARIABLE   "state" // name of the particle exposed state variable
