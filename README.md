@@ -69,3 +69,9 @@ Some common state variables are displayed in short notation in the upper right c
     - `2 s` log every 2 seconds (or any other number), must exceed the `read-period` (`D2s` in state overview if data logging is active, just `2s` if not)
     - `8 m` log every 8 minutes (or any other number)
     - `1 h` log every hour (or any other number)
+
+# Troubleshooting
+
+## Photon reset
+
+To reset a photon, use `particle device doctor` (or `make doctor`) to flash new firmware (first step) and you can reset other parts as well but setting new WiFi credentials does not always work this way. Instead afterwards flash the cloud debug app using `make debug/cloud flash monitor` to check wifi basics. If it has trouble connecting despite the correct network configuration, reset wifi by holding `SETUP` button on photon until fast blue blinking (~10-20s). Then hold `SETUP` for shorter until the slow blue blinking and run `particle setup` from the command line to set up WiFi credentials from scratch (and claim the photon if not part of the account yet).
