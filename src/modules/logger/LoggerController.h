@@ -181,7 +181,7 @@ void LoggerController::init() {
   if (lcd) {
     lcd->init();
     #ifdef LOGGER_VERSION
-      lcd->printLine(1, "Start " + String(LOGGER_VERSION));
+      lcd->printLine(1, LOGGER_VERSION);
     #else
       lcd->printLine(1, "Start up...");
     #endif
