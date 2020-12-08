@@ -12,7 +12,7 @@
 
 # platform and version
 PLATFORM?=photon
-VERSION?=2.0.0-rc.4
+VERSION?=2.0.0
 device?=
 
 # default bin is the latest compiled
@@ -23,7 +23,7 @@ BIN:=$(shell ls -Art *.bin | tail -n 1)
 MODULES:=
 debug/blink: MODULES=
 debug/i2c_scanner: MODULES=
-debug/lcd: MODULES=
+debug/lcd: MODULES=modules/logger/LoggerDisplay.h
 debug/logger: MODULES=modules/logger
 ministat: MODULES=device_module stepper_module
 
@@ -38,6 +38,13 @@ list:
 monitor:
 	@echo "\nINFO: connecting to serial monitor..."
 	@trap "exit" INT; while :; do particle serial monitor; done
+
+# start photon repair doctor
+doctor:
+	@particle usb dfu
+	@echo "\nINFO: starting particle doctor..."
+	@echo "WARNING: do NOT reset keys if device is not claimed by you - it may become impossible to access"
+	@particle device doctor
 
 ### COMPILE & FLASH ###
 
