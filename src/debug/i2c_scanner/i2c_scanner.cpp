@@ -30,7 +30,11 @@
 // Devices with higher bit address might not be seen properly.
 //
 
-SYSTEM_MODE(MANUAL); // manual mode, no wifi
+// enable sysstem treading
+SYSTEM_THREAD(ENABLED);
+
+// manual mode, no wifi
+SYSTEM_MODE(MANUAL);
  
 void setup()
 {
