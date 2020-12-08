@@ -50,3 +50,6 @@ lib/
 # Keys
 *.der
 *.pem
+
+# OS
+.DS_Store
