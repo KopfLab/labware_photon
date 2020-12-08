@@ -140,7 +140,7 @@ bool LoggerDisplay::checkAddress()
 	Wire.begin();
 	bool success = 0;
 	for (int i=0; i < sizeof(i2c_addrs)/sizeof(i2c_addrs[0]); i++) {
-		Serial.printf("Info: checking for lcd at I2C address 0x%02X... ", i2c_addrs[i]);
+		Serial.printf("INFO: checking for lcd at I2C address 0x%02X... ", i2c_addrs[i]);
 		Wire.beginTransmission(i2c_addrs[i]);
 		success = (Wire.endTransmission() == 0);
 		if (success) {
@@ -166,7 +166,7 @@ bool LoggerDisplay::checkPresent()
 void LoggerDisplay::setTempTextShowTime(uint8_t show_time)
 {
 	temp_text_show_time = show_time * 1000L;
-	Serial.printf("Info: setting LCD temporary text timer to %d seconds (%d ms)\n", show_time, temp_text_show_time);
+	Serial.printf("INFO: setting LCD temporary text timer to %d seconds (%d ms)\n", show_time, temp_text_show_time);
 }
 
 void LoggerDisplay::moveToPos(uint8_t line, uint8_t col)
