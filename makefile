@@ -23,10 +23,11 @@ BIN:=$(shell ls -Art *.bin | tail -n 1)
 MODULES:=
 debug/blink: MODULES=
 debug/cloud: MODULES=
+debug/credentials: MODULES=
 debug/i2c_scanner: MODULES=
 debug/lcd: MODULES=modules/logger/LoggerDisplay.h
 debug/logger: MODULES=modules/logger
-ministat: MODULES=device_module stepper_module
+ministat: MODULES=modules/logger modules/stepper
 
 ### HELPERS ###
 
