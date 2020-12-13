@@ -14,6 +14,13 @@
 #include "LoggerCommands.h"
 #include "LoggerData.h"
 #include "LoggerDisplay.h"
+#include "LoggerComponent.h"
+
+// EEPROM variabls
+#define STATE_ADDRESS    0 // EEPROM storage location
+
+#define EEPROM_START    0 // EEPROM storage start
+const size_t EEPROM_MAX = EEPROM.length();
 
 // controller class
 class LoggerController {
@@ -45,6 +52,8 @@ class LoggerController {
     byte mac_address[6];
 
     // state
+    const size_t eeprom_start = 0;
+    size_t eeprom_location = 0;
     LoggerState* ds;
 
   protected:
@@ -53,7 +62,7 @@ class LoggerController {
     bool startup_logged = false;
 
     // lcd pointer and buffer
-    LoggerDisplay* lcd = 0;
+    LoggerDisplay* lcd = NULL;
     char lcd_buffer[21];
 
     // call backs
@@ -85,12 +94,28 @@ class LoggerController {
     char name[20] = "";
     LoggerCommand command;
     std::vector<LoggerData> data;
+    std::vector<LoggerComponent*> components;
+    std::vector<LoggerComponent*>::iterator components_iter;
 
     // constructor
     LoggerController();
-    LoggerController (int reset_pin) : reset_pin(reset_pin) {}
-    LoggerController (int reset_pin, LoggerDisplay* lcd) : reset_pin(reset_pin), lcd(lcd), ds(new LoggerState()) {}
-    LoggerController (int reset_pin, LoggerDisplay* lcd, LoggerState *state) : reset_pin(reset_pin), lcd(lcd), ds(state) {}
+    LoggerController (int reset_pin) : LoggerController(reset_pin, NULL) {}
+    LoggerController (int reset_pin, LoggerDisplay* lcd) : LoggerController(reset_pin, lcd, new LoggerState()) {}
+    LoggerController (int reset_pin, LoggerDisplay* lcd, LoggerState *state) : reset_pin(reset_pin), lcd(lcd), ds(state) {
+      eeprom_location = eeprom_start + sizeof(*state);
+    }
+
+    // add component NEW
+    void addComponent(LoggerComponent* component) {
+      component->setEEPROMStart(eeprom_location);
+      eeprom_location = eeprom_location + component->getStateSize();
+      if (eeprom_location >= EEPROM_MAX) {
+        Serial.printf("ERROR: component '%s' state would exceed EEPROM size, cannot add component.\n", component->name);
+      } else {
+        Serial.printf("INFO: adding component '%s' to the controller.\n", component->name);
+        components.push_back(component);
+      }
+    };
 
     // setup and loop methods
     void init(); // to be run during setup() - FIXME
@@ -118,6 +143,16 @@ class LoggerController {
 
     // state control & persistence functions (implement in derived classes)
     virtual LoggerState* getDS() { return(ds); }; // fetch the Logger state pointer
+    virtual size_t getStateSize() { return(sizeof(ds)); }
+    virtual void loadState(bool reset) {
+      if (!reset){
+        Serial.println("INFO: trying to restore controller state from memory");
+        restoreDS();
+      } else {
+        Serial.println("INFO: resetting controller state back to default values");
+        saveDS();
+      }
+    };
     virtual void saveDS() { }; // save Logger state to EEPROM // FIXME
     virtual bool restoreDS() { return(false); }; // load Logger state from EEPROM // FIXME
 
@@ -162,6 +197,7 @@ class LoggerController {
     virtual void assembleStartupLog(); // FIXME
     virtual void assembleStateLog(); // FIXME
     virtual bool publishStateLog(); // FIXME
+
 };
 
 /* SETUP & LOOP */
@@ -172,9 +208,9 @@ void LoggerController::init() {
 
   // initialize
   #ifdef LOGGER_VERSION
-    Serial.printf("INFO: initializing Logger %s...\n", LOGGER_VERSION);
+    Serial.printf("INFO: initializing controller %s...\n", LOGGER_VERSION);
   #else
-    Serial.println("INFO: initializing Logger");
+    Serial.println("INFO: initializing controller");
   #endif
 
   // lcd
@@ -194,13 +230,17 @@ void LoggerController::init() {
     if (lcd) lcd->printLineTemp(1, "Resetting...");
   }
 
-  // initialize / restore state
-  if (!reset){
-    Serial.println("INFO: trying to restore state (version " + String(STATE_VERSION) + ") from memory");
-    restoreDS();
-  } else {
-    Serial.println("INFO: resetting state back to default values");
-    saveDS();
+  // controller state
+  loadState(reset);
+
+  // components' state
+  for(components_iter = components.begin(); components_iter != components.end(); components_iter++) {
+    (*components_iter)->loadState(reset);
+  }
+
+  // components' init
+  for(components_iter = components.begin(); components_iter != components.end(); components_iter++) {
+    (*components_iter)->init();
   }
 
   // startup time info
@@ -275,7 +315,8 @@ void LoggerController::update() {
         mac_address[0], mac_address[1], mac_address[2], mac_address[3], mac_address[4], mac_address[5]);
       Serial.println(Time.format(Time.now(), "INFO: cloud connection established at %H:%M:%S %d.%m.%Y"));
       cloud_connected = true;
-      // date information
+      lcd->printLine(2, ""); // clear "connect wifi" message
+      // update state information
       updateStateInformation();
       // name capture
       if (!name_handler_registered){
@@ -294,6 +335,7 @@ void LoggerController::update() {
 		// start cloud connection
 		Serial.println(Time.format(Time.now(), "INFO: initiate cloud connection at %H:%M:%S %d.%m.%Y"));
     lcd->printLine(2, "Connect WiFi...");
+    updateDisplayStateInformation();
 		Particle.connect();
 		cloud_connection_started = true;
 	}
