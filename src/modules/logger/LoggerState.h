@@ -10,21 +10,17 @@
 #include "LoggerCommands.h"
 #include "LoggerInfo.h"
 
-// Logger state
-// note: must define STATE_VERSION as integer in the head file
-#define STATE_ADDRESS    0 // EEPROM storage location
-
 // log types
 #define LOG_BY_TIME    0 // log period is a time in seconds
 #define LOG_BY_EVENT   1 // log period is a number (x times)
 
 struct LoggerState {
-  int version = STATE_VERSION;
   bool locked = false; // whether state is locked
   bool state_logging = false; // whether state is logged (whenever there is a change)
   bool data_logging = false; // whether data is logged
   uint data_logging_period; // period between logs (in seconds!)
   uint8_t data_logging_type; // what the data logging period signifies
+  uint8_t version = 2;
 
   LoggerState() {};
   LoggerState(bool locked, bool state_logging, bool data_logging, uint data_logging_period, uint8_t data_logging_type) :

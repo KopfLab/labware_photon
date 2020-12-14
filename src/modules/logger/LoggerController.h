@@ -54,7 +54,7 @@ class LoggerController {
     // state
     const size_t eeprom_start = 0;
     size_t eeprom_location = 0;
-    LoggerState* ds;
+    LoggerState* state;
 
   protected:
 
@@ -90,6 +90,9 @@ class LoggerController {
 
   public:
 
+    // controller version
+    const char *version;
+
     // public variables
     char name[20] = "";
     LoggerCommand command;
@@ -98,10 +101,9 @@ class LoggerController {
     std::vector<LoggerComponent*>::iterator components_iter;
 
     // constructor
-    LoggerController();
-    LoggerController (int reset_pin) : LoggerController(reset_pin, NULL) {}
-    LoggerController (int reset_pin, LoggerDisplay* lcd) : LoggerController(reset_pin, lcd, new LoggerState()) {}
-    LoggerController (int reset_pin, LoggerDisplay* lcd, LoggerState *state) : reset_pin(reset_pin), lcd(lcd), ds(state) {
+    LoggerController (const char *version, int reset_pin) : LoggerController(version, reset_pin, NULL) {}
+    LoggerController (const char *version, int reset_pin, LoggerDisplay* lcd) : LoggerController(version, reset_pin, lcd, new LoggerState()) {}
+    LoggerController (const char *version, int reset_pin, LoggerDisplay* lcd, LoggerState *state) : version(version), reset_pin(reset_pin), lcd(lcd), state(state) {
       eeprom_location = eeprom_start + sizeof(*state);
     }
 
@@ -110,9 +112,9 @@ class LoggerController {
       component->setEEPROMStart(eeprom_location);
       eeprom_location = eeprom_location + component->getStateSize();
       if (eeprom_location >= EEPROM_MAX) {
-        Serial.printf("ERROR: component '%s' state would exceed EEPROM size, cannot add component.\n", component->name);
+        Serial.printf("ERROR: component '%s' state would exceed EEPROM size, cannot add component.\n", component->id);
       } else {
-        Serial.printf("INFO: adding component '%s' to the controller.\n", component->name);
+        Serial.printf("INFO: adding component '%s' to the controller.\n", component->id);
         components.push_back(component);
       }
     };
@@ -141,20 +143,37 @@ class LoggerController {
     virtual void assembleStateInformation(); // FIXME
     void addToStateInformation(char* info);
 
-    // state control & persistence functions (implement in derived classes)
-    virtual LoggerState* getDS() { return(ds); }; // fetch the Logger state pointer
-    virtual size_t getStateSize() { return(sizeof(ds)); }
+    // state control & persistence functions
+    virtual LoggerState* getDS() { return(state); }; // fetch the Logger state pointer
+    virtual size_t getStateSize() { return(sizeof(*state)); }
     virtual void loadState(bool reset) {
       if (!reset){
-        Serial.println("INFO: trying to restore controller state from memory");
-        restoreDS();
+        Serial.printf("INFO: trying to restore state from memory for controller '%s'\n", version);
+        restoreState();
       } else {
-        Serial.println("INFO: resetting controller state back to default values");
-        saveDS();
+        Serial.printf("INFO: resetting state for controller '%s' back to default values\n", version);
+        saveState();
       }
     };
-    virtual void saveDS() { }; // save Logger state to EEPROM // FIXME
-    virtual bool restoreDS() { return(false); }; // load Logger state from EEPROM // FIXME
+    virtual void saveState() { 
+      EEPROM.put(eeprom_start, *state);
+      #ifdef STATE_DEBUG_ON
+        Serial.printf("INFO: controller '%s' state saved in memory (if any updates were necessary)\n", version);
+      #endif
+    }; 
+    virtual bool restoreState() {
+      LoggerState *saved_state = new LoggerState();
+      EEPROM.get(eeprom_start, *saved_state);
+      bool recoverable = saved_state->version == state->version;
+      if(recoverable) {
+        EEPROM.get(eeprom_start, *state);
+        Serial.printf("INFO: successfully restored controller state from memory (state version %d)\n", state->version);
+      } else {
+        Serial.printf("INFO: could not restore state from memory (found state version %d instead of %d), sticking with initial default\n", saved_state->version, state->version);
+        saveState();
+      }
+      return(recoverable);
+    };
 
     // state change functions (will work in derived classes as long as getDS() is re-implemented)
     bool changeLocked(bool on);
@@ -207,20 +226,12 @@ void LoggerController::init() {
   pinMode(reset_pin, INPUT_PULLDOWN);
 
   // initialize
-  #ifdef LOGGER_VERSION
-    Serial.printf("INFO: initializing controller %s...\n", LOGGER_VERSION);
-  #else
-    Serial.println("INFO: initializing controller");
-  #endif
+  Serial.printf("INFO: initializing controller '%s'...\n", version);
 
   // lcd
   if (lcd) {
     lcd->init();
-    #ifdef LOGGER_VERSION
-      lcd->printLine(1, LOGGER_VERSION);
-    #else
-      lcd->printLine(1, "Start up...");
-    #endif
+    lcd->printLine(1, version);
   }
 
   //  check for reset
@@ -400,7 +411,7 @@ bool LoggerController::changeLocked(bool on) {
       on ? Serial.println("INFO: Logger already locked") : Serial.println("INFO: Logger already unlocked");
   #endif
 
-  if (changed) saveDS();
+  if (changed) saveState();
 
   return(changed);
 }
@@ -421,7 +432,7 @@ bool LoggerController::changeStateLogging (bool on) {
       on ? Serial.println("INFO: state logging already on") : Serial.println("INFO: state logging already off");
   #endif
 
-  if (changed) saveDS();
+  if (changed) saveState();
 
   return(changed);
 }
@@ -441,7 +452,7 @@ bool LoggerController::changeDataLogging (bool on) {
       on ? Serial.println("INFO: data logging already on") : Serial.println("INFO: data logging already off");
   #endif
 
-  if (changed) saveDS();
+  if (changed) saveState();
 
   // make sure data is reset
   if (changed && on) resetData();
@@ -463,7 +474,7 @@ bool LoggerController::changeDataLoggingPeriod(int period, int type) {
     else Serial.printf("INFO: data logging period unchanged (%d)\n", type == LOG_BY_TIME ? "seconds" : "reads");
   #endif
 
-  if (changed) saveDS();
+  if (changed) saveState();
 
   return(changed);
 }
@@ -529,7 +540,7 @@ bool LoggerController::parseReset() {
       getStateStringText(CMD_RESET, CMD_RESET_DATA, command.data, sizeof(command.data), PATTERN_KV_JSON_QUOTED, false);
     } else  if (command.parseValue(CMD_RESET_STATE)) {
       getDS()->version = 0; // force reset of state on next startup
-      saveDS();
+      saveState();
       command.success(true);
       getStateStringText(CMD_RESET, CMD_RESET_STATE, command.data, sizeof(command.data), PATTERN_KV_JSON_QUOTED, false);
       command.setLogMsg("reset state on next startup");
@@ -771,12 +782,6 @@ void LoggerController::postStateInformation() {
   if (Particle.connected()) {
     Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
     // dt = datetime, s = state information
-    char version[30];
-    #ifdef LOGGER_VERSION
-      strncpy(version, LOGGER_VERSION, sizeof(version));
-    #else
-      strncpy(version, "?", sizeof(version));
-    #endif
     snprintf(state_information, sizeof(state_information), 
       "{\"dt\":\"%s\",\"version\":\"%s\",\"mac\":\"%02x:%02x:%02x:%02x:%02x:%02x\",\"s\":[%s]}",
       date_time_buffer, version, 
