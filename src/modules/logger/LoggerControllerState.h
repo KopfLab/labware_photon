@@ -1,5 +1,5 @@
 /*
- * LoggerState.h
+ * LoggerControllerState.h
  * Author: Sebastian Kopf <sebastian.kopf@colorado.edu>
  * Structure that captures the Logger state. Note that this is trouble as a class or a structure
  * with methods because of issues in EEPROM storage. Methods that modify and save/restore states
@@ -14,7 +14,7 @@
 #define LOG_BY_TIME    0 // log period is a time in seconds
 #define LOG_BY_EVENT   1 // log period is a number (x times)
 
-struct LoggerState {
+struct LoggerControllerState {
   bool locked = false; // whether state is locked
   bool state_logging = false; // whether state is logged (whenever there is a change)
   bool data_logging = false; // whether data is logged
@@ -22,8 +22,8 @@ struct LoggerState {
   uint8_t data_logging_type; // what the data logging period signifies
   uint8_t version = 2;
 
-  LoggerState() {};
-  LoggerState(bool locked, bool state_logging, bool data_logging, uint data_logging_period, uint8_t data_logging_type) :
+  LoggerControllerState() {};
+  LoggerControllerState(bool locked, bool state_logging, bool data_logging, uint data_logging_period, uint8_t data_logging_type) :
     locked(locked), state_logging(state_logging), data_logging(data_logging), data_logging_period(data_logging_period), data_logging_type(data_logging_type)  {}
 };
 

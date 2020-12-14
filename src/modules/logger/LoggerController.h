@@ -9,7 +9,7 @@
 
 #pragma once
 #include <vector>
-#include "LoggerState.h"
+#include "LoggerControllerState.h"
 #include "LoggerInfo.h"
 #include "LoggerCommands.h"
 #include "LoggerData.h"
@@ -54,7 +54,7 @@ class LoggerController {
     // state
     const size_t eeprom_start = 0;
     size_t eeprom_location = 0;
-    LoggerState* state;
+    LoggerControllerState* state;
 
   protected:
 
@@ -102,8 +102,8 @@ class LoggerController {
 
     // constructor
     LoggerController (const char *version, int reset_pin) : LoggerController(version, reset_pin, NULL) {}
-    LoggerController (const char *version, int reset_pin, LoggerDisplay* lcd) : LoggerController(version, reset_pin, lcd, new LoggerState()) {}
-    LoggerController (const char *version, int reset_pin, LoggerDisplay* lcd, LoggerState *state) : version(version), reset_pin(reset_pin), lcd(lcd), state(state) {
+    LoggerController (const char *version, int reset_pin, LoggerDisplay* lcd) : LoggerController(version, reset_pin, lcd, new LoggerControllerState()) {}
+    LoggerController (const char *version, int reset_pin, LoggerDisplay* lcd, LoggerControllerState *state) : version(version), reset_pin(reset_pin), lcd(lcd), state(state) {
       eeprom_location = eeprom_start + sizeof(*state);
     }
 
@@ -144,7 +144,7 @@ class LoggerController {
     void addToStateInformation(char* info);
 
     // state control & persistence functions
-    virtual LoggerState* getDS() { return(state); }; // fetch the Logger state pointer
+    virtual LoggerControllerState* getDS() { return(state); }; // fetch the Logger state pointer
     virtual size_t getStateSize() { return(sizeof(*state)); }
     virtual void loadState(bool reset) {
       if (!reset){
@@ -162,7 +162,7 @@ class LoggerController {
       #endif
     }; 
     virtual bool restoreState() {
-      LoggerState *saved_state = new LoggerState();
+      LoggerControllerState *saved_state = new LoggerControllerState();
       EEPROM.get(eeprom_start, *saved_state);
       bool recoverable = saved_state->version == state->version;
       if(recoverable) {
