@@ -62,7 +62,7 @@ class LoggerController {
     bool startup_logged = false;
 
     // lcd pointer and buffer
-    LoggerDisplay* lcd = NULL;
+    LoggerDisplay* lcd;
     char lcd_buffer[21];
 
     // call backs
@@ -101,8 +101,9 @@ class LoggerController {
     std::vector<LoggerComponent*>::iterator components_iter;
 
     // constructor
-    LoggerController (const char *version, int reset_pin) : LoggerController(version, reset_pin, NULL) {}
+    LoggerController (const char *version, int reset_pin) : LoggerController(version, reset_pin, new LoggerDisplay()) {}
     LoggerController (const char *version, int reset_pin, LoggerDisplay* lcd) : LoggerController(version, reset_pin, lcd, new LoggerControllerState()) {}
+    LoggerController (const char *version, int reset_pin, LoggerControllerState *state) : LoggerController(version, reset_pin, new LoggerDisplay(), state) {}
     LoggerController (const char *version, int reset_pin, LoggerDisplay* lcd, LoggerControllerState *state) : version(version), reset_pin(reset_pin), lcd(lcd), state(state) {
       eeprom_location = eeprom_start + sizeof(*state);
     }
@@ -175,6 +176,7 @@ class LoggerController {
 
     // state info to LCD display
     virtual void updateDisplayStateInformation();
+    virtual void updateDisplayComponentsStateInformation();
     virtual void assembleDisplayStateInformation();
     virtual void showDisplayStateInformation();
 
@@ -262,16 +264,14 @@ void LoggerController::init() {
   Serial.printf("INFO: initializing controller '%s'...\n", version);
 
   // lcd
-  if (lcd) {
-    lcd->init();
-    lcd->printLine(1, version);
-  }
+  lcd->init();
+  lcd->printLine(1, version);
 
   //  check for reset
   if(digitalRead(reset_pin) == HIGH) {
     reset = true;
     Serial.println("INFO: reset request detected");
-    if (lcd) lcd->printLineTemp(1, "Resetting...");
+    lcd->printLineTemp(1, "Resetting...");
   }
 
   // controller state
@@ -365,6 +365,7 @@ void LoggerController::update() {
       cloud_connected = true;
       lcd->printLine(2, ""); // clear "connect wifi" message
       updateDisplayStateInformation();
+      updateDisplayComponentsStateInformation();
       // name capture
       if (!name_handler_registered){
         name_handler_registered = Particle.publish("spark/device/name", PRIVATE);
@@ -377,18 +378,17 @@ void LoggerController::update() {
 		Serial.println(Time.format(Time.now(), "INFO: lost cloud connection at %H:%M:%S %d.%m.%Y"));
 		cloud_connection_started = false;
 		cloud_connected = false;
-    updateDisplayStateInformation();
 	} else if (!cloud_connection_started) {
 		// start cloud connection
 		Serial.println(Time.format(Time.now(), "INFO: initiate cloud connection at %H:%M:%S %d.%m.%Y"));
     lcd->printLine(2, "Connect WiFi...");
-    updateDisplayStateInformation();
+    updateDisplayStateInformation(); // not components, preserve connect wifi message
 		Particle.connect();
 		cloud_connection_started = true;
 	}
 
   // lcd update
-  if (lcd) lcd->update();
+  lcd->update();
 
   // startup complete
   if (Particle.connected() && !startup_logged && name_handler_succeeded) {
@@ -422,7 +422,7 @@ void LoggerController::captureName(const char *topic, const char *data) {
   strncpy ( name, data, sizeof(name) );
   name_handler_succeeded = true;
   Serial.println("INFO: logger name '" + String(name) + "'");
-  if (lcd) lcd->printLine(1, name);
+  lcd->printLine(1, name);
   if (name_callback) name_callback();
 }
 
@@ -657,7 +657,6 @@ int LoggerController::receiveCommand(String command_string) {
 
   // state information
   if (command->ret_val >= CMD_RET_SUCCESS && command->ret_val != CMD_RET_WARN_NO_CHANGE) {
-    updateDisplayStateInformation();
     updateLoggerStateVariable();
   }
 
@@ -712,7 +711,7 @@ void LoggerController::assembleDisplayCommandInformation() {
 }
 
 void LoggerController::showDisplayCommandInformation() {
-  if (lcd) lcd->printLineTemp(1, lcd_buffer);
+  lcd->printLineTemp(1, lcd_buffer);
 }
 
 /* STATE DISPLAY INFORMATION */
@@ -752,11 +751,9 @@ void LoggerController::assembleDisplayStateInformation() {
 }
 
 void LoggerController::showDisplayStateInformation() {
-  if (lcd) {
-    if (name_handler_succeeded)
-      lcd->printLine(1, name);
-    lcd->printLineRight(1, lcd_buffer, strlen(lcd_buffer) + 1);
-  }
+  if (name_handler_succeeded)
+    lcd->printLine(1, name);
+  lcd->printLineRight(1, lcd_buffer, strlen(lcd_buffer) + 1);
 }
 
 /* STATE INFORMATION */
@@ -765,12 +762,22 @@ void LoggerController::updateLoggerStateVariable() {
   #ifdef CLOUD_DEBUG_ON
     Serial.print("INFO: updating state variable: ");
   #endif
+  updateDisplayStateInformation();
+  updateDisplayComponentsStateInformation();
   state_variable_buffer[0] = 0; // reset buffer
   assembleLoggerStateVariable();
+  assembleLoggerComponentsStateVariable();
   postLoggerStateVariable();
   #ifdef CLOUD_DEBUG_ON
     Serial.println(state_variable);
   #endif
+}
+
+void LoggerController::updateDisplayComponentsStateInformation() {
+  for(components_iter = components.begin(); components_iter != components.end(); components_iter++) 
+  {
+     (*components_iter)->updateDisplayStateInformation();
+  }
 }
 
 void LoggerController::assembleLoggerStateVariable() {
@@ -779,7 +786,6 @@ void LoggerController::assembleLoggerStateVariable() {
   getStateStateLoggingText(getDS()->state_logging, pair, sizeof(pair)); addToLoggerStateVariableBuffer(pair);
   getStateDataLoggingText(getDS()->data_logging, pair, sizeof(pair)); addToLoggerStateVariableBuffer(pair);
   getStateDataLoggingPeriodText(getDS()->data_logging_period, getDS()->data_logging_type, pair, sizeof(pair)); addToLoggerStateVariableBuffer(pair);
-  assembleLoggerComponentsStateVariable();
 }
 
 void LoggerController::assembleLoggerComponentsStateVariable() {
@@ -951,7 +957,7 @@ bool LoggerController::assembleDataLog(bool global_time_offset) {
   if (buffer_size < 0 || buffer_size >= sizeof(data_log)) {
     return(false);
     Serial.println("ERROR: data log buffer not large enough for data log - this should NOT be possible to happen");
-    if (lcd) lcd->printLineTemp(1, "ERR: datalog too big");
+    lcd->printLineTemp(1, "ERR: datalog too big");
   }
 
   return(true);
@@ -992,11 +998,9 @@ bool LoggerController::publishDataLog() {
       else Serial.println("failed!");
     #endif
 
-    if (lcd) {
-      (success) ?
+    (success) ?
         lcd->printLineTemp(1, "INFO: data log sent") :
         lcd->printLineTemp(1, "ERR: data log error");
-    }
 
     return(success);
   #endif
@@ -1016,7 +1020,7 @@ void LoggerController::assembleStateLog() {
      name, command->type, command->data, command->msg, command->notes);
   if (buffer_size < 0 || buffer_size >= sizeof(state_log)) {
     Serial.println("ERROR: state log buffer not large enough for state log");
-    if (lcd) lcd->printLineTemp(1, "ERR: statelog too big");
+    lcd->printLineTemp(1, "ERR: statelog too big");
     // FIXME: implement better size checks!!, i.e. split up call --> malformatted JSON will crash the webhook
   }
 }

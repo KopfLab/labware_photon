@@ -24,7 +24,10 @@ private:
 	const uint8_t i2c_addrs[2] = {0x3f, 0x27};
 	uint8_t lcd_addr;
 
-	// lcd actually present?
+	// lcd exists?
+	bool exists = true;
+
+	// lcd actually present at one of the i2c addresses?
 	bool present = false;
 
 	// display object
@@ -50,6 +53,12 @@ private:
 	uint16_t getPos(uint8_t line, uint8_t col);
 
 public:
+
+	// empty constructor (no screen)
+	LoggerDisplay() : LoggerDisplay(0, 0) {
+		exists = false;
+	}
+
 	// standard constructor
 	LoggerDisplay(uint8_t lcd_cols, uint8_t lcd_lines) : cols(lcd_cols), lines(lcd_lines)
 	{
@@ -109,8 +118,9 @@ void LoggerDisplay::init()
 {
 
 	// checking that device available at the supposed address
-	if (checkAddress()) present = true;
-	else Serial.println("WARNiNG: LCD functionality disabled.");
+	if (!exists) Serial.println("INFO: logger does not use an LCD screen.");
+	else if (checkAddress()) present = true;
+	else Serial.println("WARNING: no I2C LCD fouund, LCD functionality disabled.");
 
 	if (present)
 	{
@@ -156,11 +166,11 @@ bool LoggerDisplay::checkAddress()
 
 bool LoggerDisplay::checkPresent()
 {
-	if (!present)
+	if (exists && !present)
 	{
 		Serial.println("ERROR: lcd not present, restart device with LCD properly connected.");
 	}
-	return (present);
+	return (exists && present);
 }
 
 void LoggerDisplay::setTempTextShowTime(uint8_t show_time)
@@ -447,7 +457,7 @@ void LoggerDisplay::clearTempText()
 
 void LoggerDisplay::update()
 {
-	if (temp_text && (millis() - temp_text_show_start) > temp_text_show_time)
+	if (present && temp_text && (millis() - temp_text_show_start) > temp_text_show_time)
 	{
 		clearTempText();
 	}
