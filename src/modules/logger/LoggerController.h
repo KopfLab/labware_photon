@@ -74,8 +74,8 @@ class LoggerController {
     char date_time_buffer[25];
 
     // buffer and information variables
-    char state_information[STATE_INFO_MAX_CHAR];
-    char state_information_buffer[STATE_INFO_MAX_CHAR-50];
+    char state_variable[STATE_INFO_MAX_CHAR];
+    char state_variable_buffer[STATE_INFO_MAX_CHAR-50];
     char data_information[DATA_INFO_MAX_CHAR];
     char data_information_buffer[DATA_INFO_MAX_CHAR-50];
 
@@ -142,10 +142,6 @@ class LoggerController {
     void addToDataInformation(char* info);
     void setDataCallback(void (*cb)()); // assign a callback function
 
-    // state information
-    virtual void assembleStateInformation(); // FIXME
-    void addToStateInformation(char* info);
-
     // state management
     virtual LoggerControllerState* getDS() { return(state); }; // fetch the Logger state pointer
     virtual size_t getStateSize() { return(sizeof(*state)); }
@@ -154,7 +150,7 @@ class LoggerController {
     virtual void saveState();
     virtual bool restoreState();
 
-    // state change functions (will work in derived classes as long as getDS() is re-implemented)
+    // state change functions
     bool changeLocked(bool on);
     bool changeStateLogging(bool on);
     bool changeDataLogging(bool on);
@@ -179,14 +175,20 @@ class LoggerController {
 
     // state info to LCD display
     virtual void updateDisplayStateInformation();
-    virtual void assembleDisplayStateInformation(); // FIXME
-    virtual void showDisplayStateInformation(); // FIXME
+    virtual void assembleDisplayStateInformation();
+    virtual void showDisplayStateInformation();
+
+    // logger state variable
+    virtual void updateLoggerStateVariable();
+    virtual void assembleLoggerStateVariable();
+    virtual void assembleLoggerComponentsStateVariable();
+    void addToLoggerStateVariableBuffer(char* info);
+    virtual void postLoggerStateVariable();
 
     // particle variables
     virtual void updateDataInformation(); // FIXME
     virtual void postDataInformation(); // FIXME
-    virtual void updateStateInformation(); // FIXME
-    virtual void postStateInformation(); // FIXME
+    
 
     // particle webhook publishing
     virtual void logData(); // FIXME
@@ -283,8 +285,8 @@ void LoggerController::init() {
   Serial.println(Time.format(Time.now(), "INFO: startup time: %Y-%m-%d %H:%M:%S %Z"));
 
   // state and log variables
-  strcpy(state_information, "{}");
-  state_information[2] = 0;
+  strcpy(state_variable, "{}");
+  state_variable[2] = 0;
   strcpy(data_information, "{}");
   data_information[2] = 0;
   strcpy(state_log, "{}");
@@ -296,7 +298,7 @@ void LoggerController::init() {
   Serial.println("INFO: registering logger cloud variables");
   Particle.subscribe("spark/", &LoggerController::captureName, this, MY_DEVICES);
   Particle.function(CMD_ROOT, &LoggerController::receiveCommand, this);
-  Particle.variable(STATE_INFO_VARIABLE, state_information);
+  Particle.variable(STATE_INFO_VARIABLE, state_variable);
   Particle.variable(DATA_INFO_VARIABLE, data_information);
   #ifdef WEBHOOKS_DEBUG_ON
     // report logs in variables instead of webhooks
@@ -362,8 +364,7 @@ void LoggerController::update() {
       Serial.println(Time.format(Time.now(), "INFO: cloud connection established at %H:%M:%S %d.%m.%Y"));
       cloud_connected = true;
       lcd->printLine(2, ""); // clear "connect wifi" message
-      // update state information
-      updateStateInformation();
+      updateDisplayStateInformation();
       // name capture
       if (!name_handler_registered){
         name_handler_registered = Particle.publish("spark/device/name", PRIVATE);
@@ -392,7 +393,7 @@ void LoggerController::update() {
   // startup complete
   if (Particle.connected() && !startup_logged && name_handler_succeeded) {
     // state and data information
-    updateStateInformation();
+    updateLoggerStateVariable();
     updateDataInformation();
     if (getDS()->state_logging) {
       Serial.println("INFO: start-up completed.");
@@ -656,7 +657,8 @@ int LoggerController::receiveCommand(String command_string) {
 
   // state information
   if (command->ret_val >= CMD_RET_SUCCESS && command->ret_val != CMD_RET_WARN_NO_CHANGE) {
-    updateStateInformation();
+    updateDisplayStateInformation();
+    updateLoggerStateVariable();
   }
 
   // command reporting callback
@@ -690,6 +692,7 @@ void LoggerController::parseComponentsCommand() {
   for(components_iter = components.begin(); components_iter != components.end(); components_iter++) 
   {
      success = (*components_iter)->parseCommand(command);
+     if (success) break;
   }
 }
 
@@ -756,6 +759,59 @@ void LoggerController::showDisplayStateInformation() {
   }
 }
 
+/* STATE INFORMATION */
+
+void LoggerController::updateLoggerStateVariable() {
+  #ifdef CLOUD_DEBUG_ON
+    Serial.print("INFO: updating state variable: ");
+  #endif
+  state_variable_buffer[0] = 0; // reset buffer
+  assembleLoggerStateVariable();
+  postLoggerStateVariable();
+  #ifdef CLOUD_DEBUG_ON
+    Serial.println(state_variable);
+  #endif
+}
+
+void LoggerController::assembleLoggerStateVariable() {
+  char pair[60];
+  getStateLockedText(getDS()->locked, pair, sizeof(pair)); addToLoggerStateVariableBuffer(pair);
+  getStateStateLoggingText(getDS()->state_logging, pair, sizeof(pair)); addToLoggerStateVariableBuffer(pair);
+  getStateDataLoggingText(getDS()->data_logging, pair, sizeof(pair)); addToLoggerStateVariableBuffer(pair);
+  getStateDataLoggingPeriodText(getDS()->data_logging_period, getDS()->data_logging_type, pair, sizeof(pair)); addToLoggerStateVariableBuffer(pair);
+  assembleLoggerComponentsStateVariable();
+}
+
+void LoggerController::assembleLoggerComponentsStateVariable() {
+  for(components_iter = components.begin(); components_iter != components.end(); components_iter++) 
+  {
+     (*components_iter)->assembleLoggerStateVariable();
+  }
+}
+
+void LoggerController::addToLoggerStateVariableBuffer(char* info) {
+  if (state_variable_buffer[0] == 0) {
+    strncpy(state_variable_buffer, info, sizeof(state_variable_buffer));
+  } else {
+    snprintf(state_variable_buffer, sizeof(state_variable_buffer),
+        "%s,%s", state_variable_buffer, info);
+  }
+}
+
+void LoggerController::postLoggerStateVariable() {
+  if (Particle.connected()) {
+    Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
+    // dt = datetime, s = state information
+    snprintf(state_variable, sizeof(state_variable), 
+      "{\"dt\":\"%s\",\"version\":\"%s\",\"mac\":\"%02x:%02x:%02x:%02x:%02x:%02x\",\"s\":[%s]}",
+      date_time_buffer, version, 
+      mac_address[0], mac_address[1], mac_address[2], mac_address[3], mac_address[4], mac_address[5],
+      state_variable_buffer);
+  } else {
+    Serial.println("ERROR: particle not (yet) connected.");
+  }
+}
+
 /* DATA INFORMATION */
 
 void LoggerController::clearData(bool all) {
@@ -813,53 +869,6 @@ void LoggerController::assembleDataInformation() {
 void LoggerController::setDataCallback(void (*cb)()) {
   data_callback = cb;
 }
-
-/* STATE INFORMATION */
-
-void LoggerController::updateStateInformation() {
-  #ifdef CLOUD_DEBUG_ON
-    Serial.print("INFO: updating state information: ");
-  #endif
-  updateDisplayStateInformation();
-  state_information_buffer[0] = 0; // reset buffer
-  assembleStateInformation();
-  postStateInformation();
-  #ifdef CLOUD_DEBUG_ON
-    Serial.println(state_information);
-  #endif
-}
-
-void LoggerController::postStateInformation() {
-  if (Particle.connected()) {
-    Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
-    // dt = datetime, s = state information
-    snprintf(state_information, sizeof(state_information), 
-      "{\"dt\":\"%s\",\"version\":\"%s\",\"mac\":\"%02x:%02x:%02x:%02x:%02x:%02x\",\"s\":[%s]}",
-      date_time_buffer, version, 
-      mac_address[0], mac_address[1], mac_address[2], mac_address[3], mac_address[4], mac_address[5],
-      state_information_buffer);
-  } else {
-    Serial.println("ERROR: particle not (yet) connected.");
-  }
-}
-
-void LoggerController::addToStateInformation(char* info) {
-  if (state_information_buffer[0] == 0) {
-    strncpy(state_information_buffer, info, sizeof(state_information_buffer));
-  } else {
-    snprintf(state_information_buffer, sizeof(state_information_buffer),
-        "%s,%s", state_information_buffer, info);
-  }
-}
-
-void LoggerController::assembleStateInformation() {
-  char pair[60];
-  getStateLockedText(getDS()->locked, pair, sizeof(pair)); addToStateInformation(pair);
-  getStateStateLoggingText(getDS()->state_logging, pair, sizeof(pair)); addToStateInformation(pair);
-  getStateDataLoggingText(getDS()->data_logging, pair, sizeof(pair)); addToStateInformation(pair);
-  getStateDataLoggingPeriodText(getDS()->data_logging_period, getDS()->data_logging_type, pair, sizeof(pair)); addToStateInformation(pair);
-}
-
 
 /***** DATA LOG & WEBHOOK CALLS *******/
 

@@ -53,61 +53,12 @@ class LoggerComponent
     };
 
     // commands
-    bool parseCommand(LoggerCommand *command) {
-      Serial.printf("parsing command in %s with data '%s'\n", id, command->data);
+    virtual bool parseCommand(LoggerCommand *command) {
       return(false);
     };
 
-};
-
-
-// derived state
-struct DerivedState {
-  bool test = false;
-  uint8_t version = 2;
-  DerivedState() {};
-  DerivedState(bool test) : test(test) {}
-};
-
-// derived component
-class DerivedLoggerComponent : public LoggerComponent
-{
-
-  private:
-
-    DerivedState *state;
-
-  public:
-
-    
-    // constructor
-    DerivedLoggerComponent (const char *id, LoggerController *ctrl, DerivedState *state) : LoggerComponent(id, ctrl), state(state) {}
-
-    virtual size_t getStateSize() { return(sizeof(*state)); }
-
-    virtual void saveState() { 
-      EEPROM.put(eeprom_start, *state);
-      #ifdef STATE_DEBUG_ON
-        Serial.printf("INFO: component '%s' state saved in memory (if any updates were necessary)\n", id);
-      #endif
-    }; 
-    virtual bool restoreState() {
-      DerivedState *saved_state = new DerivedState();
-      EEPROM.get(eeprom_start, *saved_state);
-      bool recoverable = saved_state->version == state->version;
-      if(recoverable) {
-        EEPROM.get(eeprom_start, *state);
-        Serial.printf("INFO: successfully restored component state from memory (state version %d)\n", state->version);
-      } else {
-        Serial.printf("INFO: could not restore state from memory (found state version %d instead of %d), sticking with initial default\n", saved_state->version, state->version);
-        saveState();
-      }
-      return(recoverable);
-    };
-
-    virtual void init() {
-        LoggerComponent::init();
-        Serial.println("derived component init");
+    // state variable
+    virtual void assembleLoggerStateVariable() {
     };
 
 };
