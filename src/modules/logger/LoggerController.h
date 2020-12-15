@@ -61,8 +61,7 @@ class LoggerController {
     // startup
     bool startup_logged = false;
 
-    // lcd pointer and buffer
-    LoggerDisplay* lcd;
+    // lcd buffer
     char lcd_buffer[21];
 
     // call backs
@@ -95,6 +94,7 @@ class LoggerController {
 
     // public variables
     char name[20] = "";
+    LoggerDisplay* lcd;
     LoggerCommand* command = new LoggerCommand();
     std::vector<LoggerData> data;
     std::vector<LoggerComponent*> components;

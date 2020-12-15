@@ -11,9 +11,12 @@ class LoggerComponent
 
   protected:
 
-     // controller
+    // controller
     LoggerController *ctrl;
  
+    // lcd
+    char lcd_buffer[21];
+
     // state
     size_t eeprom_start;
 
@@ -55,6 +58,11 @@ class LoggerComponent
     // commands
     virtual bool parseCommand(LoggerCommand *command) {
       return(false);
+    };
+
+    // state display
+    virtual void updateDisplayStateInformation() {
+      
     };
 
     // state variable
