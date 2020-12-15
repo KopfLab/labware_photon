@@ -95,7 +95,7 @@ class LoggerController {
 
     // public variables
     char name[20] = "";
-    LoggerCommand command;
+    LoggerCommand* command = new LoggerCommand();
     std::vector<LoggerData> data;
     std::vector<LoggerComponent*> components;
     std::vector<LoggerComponent*>::iterator components_iter;
@@ -119,8 +119,11 @@ class LoggerController {
       }
     };
 
-    // setup and loop methods
-    void init(); // to be run during setup() - FIXME
+    // init (setup)
+    void init(); 
+    virtual void initComponents();
+
+    // update (loop)
     void update(); // to be run during loop() - FIXME
 
     // reset
@@ -143,37 +146,13 @@ class LoggerController {
     virtual void assembleStateInformation(); // FIXME
     void addToStateInformation(char* info);
 
-    // state control & persistence functions
+    // state management
     virtual LoggerControllerState* getDS() { return(state); }; // fetch the Logger state pointer
     virtual size_t getStateSize() { return(sizeof(*state)); }
-    virtual void loadState(bool reset) {
-      if (!reset){
-        Serial.printf("INFO: trying to restore state from memory for controller '%s'\n", version);
-        restoreState();
-      } else {
-        Serial.printf("INFO: resetting state for controller '%s' back to default values\n", version);
-        saveState();
-      }
-    };
-    virtual void saveState() { 
-      EEPROM.put(eeprom_start, *state);
-      #ifdef STATE_DEBUG_ON
-        Serial.printf("INFO: controller '%s' state saved in memory (if any updates were necessary)\n", version);
-      #endif
-    }; 
-    virtual bool restoreState() {
-      LoggerControllerState *saved_state = new LoggerControllerState();
-      EEPROM.get(eeprom_start, *saved_state);
-      bool recoverable = saved_state->version == state->version;
-      if(recoverable) {
-        EEPROM.get(eeprom_start, *state);
-        Serial.printf("INFO: successfully restored controller state from memory (state version %d)\n", state->version);
-      } else {
-        Serial.printf("INFO: could not restore state from memory (found state version %d instead of %d), sticking with initial default\n", saved_state->version, state->version);
-        saveState();
-      }
-      return(recoverable);
-    };
+    virtual void loadState(bool reset);
+    virtual void loadComponentsState(bool reset);
+    virtual void saveState();
+    virtual bool restoreState();
 
     // state change functions (will work in derived classes as long as getDS() is re-implemented)
     bool changeLocked(bool on);
@@ -184,7 +163,8 @@ class LoggerController {
     // particle command parsing functions
     void setCommandCallback(void (*cb)()); // assign a callback function
     int receiveCommand (String command); // receive cloud command
-    virtual void parseCommand (); // parse a cloud command // FIXME
+    virtual void parseCommand (); // parse a cloud command
+    virtual void parseComponentsCommand(); // parse a cloud command in the components
     bool parseLocked();
     bool parseStateLogging();
     bool parseDataLogging();
@@ -193,8 +173,9 @@ class LoggerController {
     bool parseReset();
 
     // command info to LCD display
-    virtual void assembleDisplayCommandInformation(); // FIXME
-    virtual void showDisplayCommandInformation(); // FIXME
+    virtual void updateDisplayCommandInformation();
+    virtual void assembleDisplayCommandInformation();
+    virtual void showDisplayCommandInformation();
 
     // state info to LCD display
     virtual void updateDisplayStateInformation();
@@ -219,7 +200,57 @@ class LoggerController {
 
 };
 
-/* SETUP & LOOP */
+/* STATE MANAGEMENT */
+
+void LoggerController::loadState(bool reset)
+{
+  if (!reset)
+  {
+    Serial.printf("INFO: trying to restore state from memory for controller '%s'\n", version);
+    restoreState();
+  }
+  else
+  {
+    Serial.printf("INFO: resetting state for controller '%s' back to default values\n", version);
+    saveState();
+  }
+};
+
+void LoggerController::loadComponentsState(bool reset)
+{
+  for(components_iter = components.begin(); components_iter != components.end(); components_iter++) 
+  {
+    (*components_iter)->loadState(reset);
+  }
+}
+
+void LoggerController::saveState()
+{
+  EEPROM.put(eeprom_start, *state);
+#ifdef STATE_DEBUG_ON
+  Serial.printf("INFO: controller '%s' state saved in memory (if any updates were necessary)\n", version);
+#endif
+};
+
+bool LoggerController::restoreState()
+{
+  LoggerControllerState *saved_state = new LoggerControllerState();
+  EEPROM.get(eeprom_start, *saved_state);
+  bool recoverable = saved_state->version == state->version;
+  if (recoverable)
+  {
+    EEPROM.get(eeprom_start, *state);
+    Serial.printf("INFO: successfully restored controller state from memory (state version %d)\n", state->version);
+  }
+  else
+  {
+    Serial.printf("INFO: could not restore state from memory (found state version %d instead of %d), sticking with initial default\n", saved_state->version, state->version);
+    saveState();
+  }
+  return (recoverable);
+};
+
+/* INIT */
 
 void LoggerController::init() {
   // define pins
@@ -243,16 +274,10 @@ void LoggerController::init() {
 
   // controller state
   loadState(reset);
-
-  // components' state
-  for(components_iter = components.begin(); components_iter != components.end(); components_iter++) {
-    (*components_iter)->loadState(reset);
-  }
+  loadComponentsState(reset);
 
   // components' init
-  for(components_iter = components.begin(); components_iter != components.end(); components_iter++) {
-    (*components_iter)->init();
-  }
+  initComponents();
 
   // startup time info
   Serial.println(Time.format(Time.now(), "INFO: startup time: %Y-%m-%d %H:%M:%S %Z"));
@@ -288,6 +313,14 @@ int LoggerController::getNumberDataPoints() {
   return(data[0].getN());
 }
 
+void LoggerController::initComponents() 
+{
+  for(components_iter = components.begin(); components_iter != components.end(); components_iter++) 
+  {
+    (*components_iter)->init();
+  }
+}
+
 bool LoggerController::isTimeForDataLogAndClear() {
 
   if (getDS()->data_logging_type == LOG_BY_TIME) {
@@ -314,6 +347,8 @@ bool LoggerController::isTimeForDataLogAndClear() {
   }
   return(false);
 }
+
+/* UPDATE */
 
 void LoggerController::update() {
 
@@ -487,66 +522,66 @@ void LoggerController::setCommandCallback(void (*cb)()) {
 
 bool LoggerController::parseLocked() {
   // decision tree
-  if (command.parseVariable(CMD_LOCK)) {
+  if (command->parseVariable(CMD_LOCK)) {
     // locking
-    command.extractValue();
-    if (command.parseValue(CMD_LOCK_ON)) {
-      command.success(changeLocked(true));
-    } else if (command.parseValue(CMD_LOCK_OFF)) {
-      command.success(changeLocked(false));
+    command->extractValue();
+    if (command->parseValue(CMD_LOCK_ON)) {
+      command->success(changeLocked(true));
+    } else if (command->parseValue(CMD_LOCK_OFF)) {
+      command->success(changeLocked(false));
     }
-    getStateLockedText(getDS()->locked, command.data, sizeof(command.data));
+    getStateLockedText(getDS()->locked, command->data, sizeof(command->data));
   } else if (getDS()->locked) {
     // Logger is locked --> no other commands allowed
-    command.errorLocked();
+    command->errorLocked();
   }
-  return(command.isTypeDefined());
+  return(command->isTypeDefined());
 }
 
 bool LoggerController::parseStateLogging() {
-  if (command.parseVariable(CMD_STATE_LOG)) {
+  if (command->parseVariable(CMD_STATE_LOG)) {
     // state logging
-    command.extractValue();
-    if (command.parseValue(CMD_STATE_LOG_ON)) {
-      command.success(changeStateLogging(true));
-    } else if (command.parseValue(CMD_STATE_LOG_OFF)) {
-      command.success(changeStateLogging(false));
+    command->extractValue();
+    if (command->parseValue(CMD_STATE_LOG_ON)) {
+      command->success(changeStateLogging(true));
+    } else if (command->parseValue(CMD_STATE_LOG_OFF)) {
+      command->success(changeStateLogging(false));
     }
-    getStateStateLoggingText(getDS()->state_logging, command.data, sizeof(command.data));
+    getStateStateLoggingText(getDS()->state_logging, command->data, sizeof(command->data));
   }
-  return(command.isTypeDefined());
+  return(command->isTypeDefined());
 }
 
 bool LoggerController::parseDataLogging() {
-  if (command.parseVariable(CMD_DATA_LOG)) {
+  if (command->parseVariable(CMD_DATA_LOG)) {
     // state logging
-    command.extractValue();
-    if (command.parseValue(CMD_DATA_LOG_ON)) {
-      command.success(changeDataLogging(true));
-    } else if (command.parseValue(CMD_DATA_LOG_OFF)) {
-      command.success(changeDataLogging(false));
+    command->extractValue();
+    if (command->parseValue(CMD_DATA_LOG_ON)) {
+      command->success(changeDataLogging(true));
+    } else if (command->parseValue(CMD_DATA_LOG_OFF)) {
+      command->success(changeDataLogging(false));
     }
-    getStateDataLoggingText(getDS()->data_logging, command.data, sizeof(command.data));
+    getStateDataLoggingText(getDS()->data_logging, command->data, sizeof(command->data));
   }
-  return(command.isTypeDefined());
+  return(command->isTypeDefined());
 }
 
 bool LoggerController::parseReset() {
-  if (command.parseVariable(CMD_RESET)) {
-    command.extractValue();
-    if (command.parseValue(CMD_RESET_DATA)) {
+  if (command->parseVariable(CMD_RESET)) {
+    command->extractValue();
+    if (command->parseValue(CMD_RESET_DATA)) {
       resetData();
-      command.success(true);
-      getStateStringText(CMD_RESET, CMD_RESET_DATA, command.data, sizeof(command.data), PATTERN_KV_JSON_QUOTED, false);
-    } else  if (command.parseValue(CMD_RESET_STATE)) {
+      command->success(true);
+      getStateStringText(CMD_RESET, CMD_RESET_DATA, command->data, sizeof(command->data), PATTERN_KV_JSON_QUOTED, false);
+    } else  if (command->parseValue(CMD_RESET_STATE)) {
       getDS()->version = 0; // force reset of state on next startup
       saveState();
-      command.success(true);
-      getStateStringText(CMD_RESET, CMD_RESET_STATE, command.data, sizeof(command.data), PATTERN_KV_JSON_QUOTED, false);
-      command.setLogMsg("reset state on next startup");
+      command->success(true);
+      getStateStringText(CMD_RESET, CMD_RESET_STATE, command->data, sizeof(command->data), PATTERN_KV_JSON_QUOTED, false);
+      command->setLogMsg("reset state on next startup");
     }
   }
-  return(command.isTypeDefined());
+  return(command->isTypeDefined());
 }
 
 bool LoggerController::isDataLoggingPeriodValid(uint8_t log_type, int log_period) {
@@ -554,43 +589,43 @@ bool LoggerController::isDataLoggingPeriodValid(uint8_t log_type, int log_period
 }
 
 bool LoggerController::parseDataLoggingPeriod() {
-  if (command.parseVariable(CMD_DATA_LOG_PERIOD)) {
+  if (command->parseVariable(CMD_DATA_LOG_PERIOD)) {
     // parse read period
-    command.extractValue();
-    int log_period = atoi(command.value);
+    command->extractValue();
+    int log_period = atoi(command->value);
     if (log_period > 0) {
-      command.extractUnits();
+      command->extractUnits();
       uint8_t log_type = LOG_BY_TIME;
-      if (command.parseUnits(CMD_DATA_LOG_PERIOD_NUMBER)) {
+      if (command->parseUnits(CMD_DATA_LOG_PERIOD_NUMBER)) {
         // events
         log_type = LOG_BY_EVENT;
-      } else if (command.parseUnits(CMD_DATA_LOG_PERIOD_SEC)) {
+      } else if (command->parseUnits(CMD_DATA_LOG_PERIOD_SEC)) {
         // seconds (the base unit)
         log_period = log_period;
-      } else if (command.parseUnits(CMD_DATA_LOG_PERIOD_MIN)) {
+      } else if (command->parseUnits(CMD_DATA_LOG_PERIOD_MIN)) {
         // minutes
         log_period = 60 * log_period;
-      } else if (command.parseUnits(CMD_DATA_LOG_PERIOD_HR)) {
+      } else if (command->parseUnits(CMD_DATA_LOG_PERIOD_HR)) {
         // minutes
         log_period = 60 * 60 * log_period;
       } else {
         // unrecognized units
-        command.errorUnits();
+        command->errorUnits();
       }
       // assign read period
-      if (!command.isTypeDefined()) {
+      if (!command->isTypeDefined()) {
         if (isDataLoggingPeriodValid(log_type, log_period))
-          command.success(changeDataLoggingPeriod(log_period, log_type));
+          command->success(changeDataLoggingPeriod(log_period, log_type));
         else
-          command.error(CMD_RET_ERR_LOG_SMALLER_READ, CMD_RET_ERR_LOG_SMALLER_READ_TEXT);
+          command->error(CMD_RET_ERR_LOG_SMALLER_READ, CMD_RET_ERR_LOG_SMALLER_READ_TEXT);
       }
     } else {
       // invalid value
-      command.errorValue();
+      command->errorValue();
     }
-    getStateDataLoggingPeriodText(getDS()->data_logging_period, getDS()->data_logging_type, command.data, sizeof(command.data));
+    getStateDataLoggingPeriodText(getDS()->data_logging_period, getDS()->data_logging_type, command->data, sizeof(command->data));
   }
-  return(command.isTypeDefined());
+  return(command->isTypeDefined());
 }
 
 /****** WEB COMMAND PROCESSING *******/
@@ -598,14 +633,15 @@ bool LoggerController::parseDataLoggingPeriod() {
 int LoggerController::receiveCommand(String command_string) {
 
   // load, parse and finalize command
-  command.load(command_string);
-  command.extractVariable();
+  command->load(command_string);
+  command->extractVariable();
   parseCommand();
-  if (!command.isTypeDefined()) command.errorCommand();
+
+  // mark error if type still undefined
+  if (!command->isTypeDefined()) command->errorCommand();
 
   // lcd info
-  assembleDisplayCommandInformation();
-  showDisplayCommandInformation();
+  updateDisplayCommandInformation();
 
   // assemble and publish log
   #ifdef WEBHOOKS_DEBUG_ON
@@ -619,7 +655,7 @@ int LoggerController::receiveCommand(String command_string) {
   override_state_log = false;
 
   // state information
-  if (command.ret_val >= CMD_RET_SUCCESS && command.ret_val != CMD_RET_WARN_NO_CHANGE) {
+  if (command->ret_val >= CMD_RET_SUCCESS && command->ret_val != CMD_RET_WARN_NO_CHANGE) {
     updateStateInformation();
   }
 
@@ -627,7 +663,7 @@ int LoggerController::receiveCommand(String command_string) {
   if (command_callback) command_callback();
 
   // return value
-  return(command.ret_val);
+  return(command->ret_val);
 }
 
 void LoggerController::parseCommand() {
@@ -643,18 +679,33 @@ void LoggerController::parseCommand() {
     // parsing logging period
   } else if (parseReset()) {
     // reset getting parsed
+  } else {
+    parseComponentsCommand();
   }
 
 }
 
+void LoggerController::parseComponentsCommand() {
+  bool success = false;
+  for(components_iter = components.begin(); components_iter != components.end(); components_iter++) 
+  {
+     success = (*components_iter)->parseCommand(command);
+  }
+}
+
 /* COMMAND DISPLAY INFORMATION */
 
+void LoggerController::updateDisplayCommandInformation() {
+  assembleDisplayCommandInformation();
+  showDisplayCommandInformation();
+}
+
 void LoggerController::assembleDisplayCommandInformation() {
-  if (command.ret_val == CMD_RET_ERR_LOCKED)
+  if (command->ret_val == CMD_RET_ERR_LOCKED)
     // make user aware of locked status since this may be a confusing error
-    snprintf(lcd_buffer, sizeof(lcd_buffer), "LOCK%s: %s", command.type_short, command.command);
+    snprintf(lcd_buffer, sizeof(lcd_buffer), "LOCK%s: %s", command->type_short, command->command);
   else
-    snprintf(lcd_buffer, sizeof(lcd_buffer), "%s: %s", command.type_short, command.command);
+    snprintf(lcd_buffer, sizeof(lcd_buffer), "%s: %s", command->type_short, command->command);
 }
 
 void LoggerController::showDisplayCommandInformation() {
@@ -949,11 +1000,11 @@ void LoggerController::assembleStartupLog() {
 
 void LoggerController::assembleStateLog() {
   state_log[0] = 0;
-  if (command.data[0] == 0) strcpy(command.data, "{}"); // empty data entry
+  if (command->data[0] == 0) strcpy(command->data, "{}"); // empty data entry
   // id = Logger name, t = state log type, s = state change, m = message, n = notes
   int buffer_size = snprintf(state_log, sizeof(state_log),
      "{\"id\":\"%s\",\"t\":\"%s\",\"s\":[%s],\"m\":\"%s\",\"n\":\"%s\"}",
-     name, command.type, command.data, command.msg, command.notes);
+     name, command->type, command->data, command->msg, command->notes);
   if (buffer_size < 0 || buffer_size >= sizeof(state_log)) {
     Serial.println("ERROR: state log buffer not large enough for state log");
     if (lcd) lcd->printLineTemp(1, "ERR: statelog too big");

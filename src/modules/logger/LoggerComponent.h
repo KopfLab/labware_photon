@@ -1,5 +1,7 @@
 #pragma once
 
+#include "LoggerCommands.h"
+
 // declare controller to include as member
 class LoggerController;
 
@@ -48,6 +50,12 @@ class LoggerComponent
     // update
     virtual void update() {
 
+    };
+
+    // commands
+    bool parseCommand(LoggerCommand *command) {
+      Serial.printf("parsing command in %s with data '%s'\n", id, command->data);
+      return(false);
     };
 
 };
