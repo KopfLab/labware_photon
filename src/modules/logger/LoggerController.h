@@ -656,7 +656,7 @@ int LoggerController::receiveCommand(String command_string) {
   override_state_log = false;
 
   // state information
-  if (command->ret_val >= CMD_RET_SUCCESS && command->ret_val != CMD_RET_WARN_NO_CHANGE) {
+  if (command->hasStateChanged()) {
     updateLoggerStateVariable();
   }
 

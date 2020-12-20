@@ -112,6 +112,7 @@ struct LoggerCommand {
 
     // command status
     bool isTypeDefined(); // whether the command type was found
+    bool hasStateChanged(); // whether state has been changed successfully by the command
     void success(bool state_changed);
     void success(bool state_changed, bool capture_notes);
     void warning(int code, const char* text);
@@ -223,6 +224,10 @@ bool LoggerCommand::parseUnits(char* cmd) {
 
 bool LoggerCommand::isTypeDefined() {
   return(ret_val != CMD_RET_UNDEFINED);
+}
+
+bool LoggerCommand::hasStateChanged() {
+  return(ret_val >= CMD_RET_SUCCESS && ret_val != CMD_RET_WARN_NO_CHANGE);
 }
 
 void LoggerCommand::success(bool state_changed) { success(state_changed, true); }
