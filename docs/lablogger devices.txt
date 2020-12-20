@@ -1,0 +1,134 @@
+title Lablogger Devices
+
+# classes
+entity Particle#lightgreen
+activecolor Particle#lightgreen
+actor main.cpp
+participant LoggerController#orange
+activecolor LoggerController#orange
+participant LoggerComponent#pink
+activecolor LoggerComponent#pink
+participant LoggerDisplay#lightblue
+activecolor LoggerDisplay#lightblue
+participant LoggerCommand#yellow
+
+# init
+note over main.cpp: setup
+main.cpp->LoggerController: init()
+activate LoggerController
+
+## lcd
+LoggerController->LoggerDisplay: init()
+LoggerController->LoggerDisplay: printLine(1, version)
+
+## state
+LoggerController->LoggerController: loadState(bool reset)
+LoggerController->LoggerController: loadComponentsState()
+activate LoggerController#red
+LoggerController->LoggerComponent: loadState(bool reset)
+deactivateafter LoggerController
+
+## components init
+LoggerController->LoggerController: initComponents()
+activate LoggerController#red
+LoggerController->LoggerComponent: init()
+deactivateafter LoggerController
+
+## particle functions
+LoggerController->Particle: function("device")
+LoggerController->Particle: variable("state" = state_variable)
+LoggerController->Particle: variable("data" = data_variable)
+LoggerController->Particle: subscribe("spark/")
+activate Particle
+
+note right of LoggerController: last_datalog = 0
+deactivateafter LoggerController
+
+# name handler
+LoggerController<-Particle: captureName()
+activate LoggerController
+deactivateafter Particle
+LoggerController->LoggerDisplay: printLine(1, name)
+LoggerController->LoggerController: name_callback()
+deactivateafter LoggerController
+
+# update
+note over main.cpp: loop
+main.cpp->LoggerController: update()
+
+# command parsing
+LoggerController<-Particle: receiveCommand
+activate LoggerController
+LoggerController->LoggerCommand: load()
+LoggerController->LoggerCommand: extractVariable()
+LoggerController->LoggerController: parseCommand()
+activate LoggerController#red
+LoggerController->LoggerController: parseLocked()
+LoggerController->LoggerController: parseStateLogging()
+LoggerController->LoggerController: parseDataLogging()
+LoggerController->LoggerController: parseDataLoggingPeriod()
+LoggerController->LoggerController: parseReset()
+LoggerController->LoggerController: parseComponentsCommand()
+activate LoggerController#green
+LoggerController->LoggerComponent: parseCommand()
+deactivateafter LoggerController
+deactivateafter LoggerController
+
+group #ff00ff if command->isTypeDefined()
+LoggerController-->LoggerCommand: errorCommand()
+end
+LoggerController->LoggerController: updateDisplayCommandInformation()
+activate LoggerController#red
+LoggerController->LoggerController: assembleDisplayCommandInformation()
+LoggerController->LoggerController: showDisplayCommandInformation()
+activate LoggerController#green
+LoggerController->LoggerDisplay: printLineTemp(1, lcd_buffer)
+deactivateafter LoggerController
+deactivateafter LoggerController
+group #ff00ff if state->state_logging
+LoggerController->LoggerController: assembleStateLog()
+parallel
+LoggerController->LoggerController: publishStateLog()
+Particle<-LoggerController:publish("state_log")
+parallel off
+end
+
+group #ff00ff if command->hasStateChanged()
+LoggerController->LoggerController: updateLoggerStateVariable()
+activate LoggerController#red
+LoggerController->LoggerController: updateDisplayStateInformation()
+activate LoggerController#green
+LoggerController->LoggerController: assembleDisplayStateInformation()
+LoggerController->LoggerController: showDisplayStateInformation()
+activate LoggerController#blue
+LoggerController->LoggerDisplay: printLine()
+deactivateafter LoggerController
+deactivateafter LoggerController
+LoggerController->LoggerController: updateDisplayComponentStateInformation()
+activate LoggerController#green
+LoggerController->LoggerComponent: updateDisplayStateInformation()
+activate LoggerComponent
+LoggerComponent->LoggerDisplay: printLine()
+deactivateafter LoggerComponent
+deactivateafter LoggerController
+LoggerController->LoggerController: assembleLoggerStateVariable()
+LoggerController->LoggerController: assembleLoggerComponentStateVariable()
+activate LoggerController#green
+LoggerController->LoggerComponent: assembleLoggerStateVariable()
+activate LoggerComponent
+LoggerController<-LoggerComponent: addToLoggerStateVariableBuffer()
+deactivateafter LoggerComponent
+deactivateafter LoggerController
+parallel
+LoggerController->LoggerController: postLoggerStateVariable()
+Particle<-LoggerController: state_variable
+parallel off
+deactivateafter LoggerController
+end
+
+LoggerController->LoggerController: command_callback()
+parallel
+LoggerController<-LoggerCommand: ret_val
+Particle<-LoggerController: ret_val
+parallel off
+deactivateafter LoggerController
