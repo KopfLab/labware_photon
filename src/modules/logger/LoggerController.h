@@ -156,6 +156,7 @@ class LoggerController {
     bool changeStateLogging(bool on);
     bool changeDataLogging(bool on);
     bool changeDataLoggingPeriod(int period, int type);
+    bool changeDataReadingPeriod(int period);
 
     // particle command parsing functions
     void setCommandCallback(void (*cb)()); // assign a callback function
@@ -166,7 +167,7 @@ class LoggerController {
     bool parseStateLogging();
     bool parseDataLogging();
     bool parseDataLoggingPeriod();
-    virtual bool isDataLoggingPeriodValid(uint8_t log_type, int log_period); // FIXME
+    bool parseDataReadingPeriod();
     bool parseReset();
 
     // command info to LCD display
@@ -515,6 +516,31 @@ bool LoggerController::changeDataLoggingPeriod(int period, int type) {
   return(changed);
 }
 
+// reading period
+bool LoggerController::changeDataReadingPeriod(int period) {
+
+  // safety check (should never get here)
+  if (!state->data_reader) {
+    Serial.println("ERROR: not a data reader! cannot change reading period.");
+    return(false);
+  }
+
+  bool changed = period != state->data_reading_period;
+
+  if (changed) {
+    state->data_reading_period = period;
+  }
+
+  #ifdef STATE_DEBUG_ON
+    if (changed) Serial.printf("INFO: setting data reading period to %d ms\n", period);
+    else Serial.printf("INFO: data reading period unchanged (%d ms)\n", period);
+  #endif
+
+  if (changed) saveState();
+
+  return(changed);
+}
+
 /* COMMAND PARSING FUNCTIONS */
 
 void LoggerController::setCommandCallback(void (*cb)()) {
@@ -585,10 +611,6 @@ bool LoggerController::parseReset() {
   return(command->isTypeDefined());
 }
 
-bool LoggerController::isDataLoggingPeriodValid(uint8_t log_type, int log_period) {
-  return(true);
-}
-
 bool LoggerController::parseDataLoggingPeriod() {
   if (command->parseVariable(CMD_DATA_LOG_PERIOD)) {
     // parse read period
@@ -615,9 +637,10 @@ bool LoggerController::parseDataLoggingPeriod() {
       }
       // assign read period
       if (!command->isTypeDefined()) {
-        if (isDataLoggingPeriodValid(log_type, log_period))
+        if (log_type == LOG_BY_EVENT || (log_type == LOG_BY_TIME && (log_period * 1000) > state->data_reading_period))
           command->success(changeDataLoggingPeriod(log_period, log_type));
         else
+          // make sure smaller than log period
           command->error(CMD_RET_ERR_LOG_SMALLER_READ, CMD_RET_ERR_LOG_SMALLER_READ_TEXT);
       }
     } else {
@@ -625,6 +648,61 @@ bool LoggerController::parseDataLoggingPeriod() {
       command->errorValue();
     }
     getStateDataLoggingPeriodText(getDS()->data_logging_period, getDS()->data_logging_type, command->data, sizeof(command->data));
+  }
+  return(command->isTypeDefined());
+}
+
+bool LoggerController::parseDataReadingPeriod() {
+  if (command->parseVariable(CMD_DATA_READ_PERIOD)) {
+
+    // parse read period
+    command->extractValue();
+
+    if(!state->data_reader) {
+      // not actually a data reader
+      command->error(CMD_RET_ERR_NOT_A_READER, CMD_RET_ERR_NOT_A_READER_TEXT);
+    } else if (command->parseValue(CMD_DATA_READ_PERIOD_MANUAL)){
+      // manual reads
+      command->success(changeDataReadingPeriod(READ_MANUAL));
+    } else {
+      // specific read period
+      int read_period = atoi(command->value);
+      if (read_period > 0) {
+        command->extractUnits();
+        if (command->parseUnits(CMD_DATA_READ_PERIOD_MS)) {
+          // milli seconds (the base unit)
+          read_period = read_period;
+        } else if (command->parseUnits(CMD_DATA_READ_PERIOD_SEC)) {
+          // seconds
+          read_period = 1000 * read_period;
+        } else if (command->parseUnits(CMD_DATA_READ_PERIOD_MIN)) {
+          // minutes
+          read_period = 1000 * 60 * read_period;
+        } else {
+          // unrecognized units
+          command->errorUnits();
+        }
+        // assign read period
+        if (!command->isTypeDefined()) {
+          if (read_period < state->data_reading_period_min)
+            // make sure bigger than minimum
+            command->error(CMD_RET_ERR_READ_LARGER_MIN, CMD_RET_ERR_READ_LARGER_MIN_TEXT);
+          else if (state->data_logging_type == LOG_BY_TIME && state->data_logging_period * 1000 <= read_period)
+            // make sure smaller than log period
+            command->error(CMD_RET_ERR_LOG_SMALLER_READ, CMD_RET_ERR_LOG_SMALLER_READ_TEXT);
+          else
+            command->success(changeDataReadingPeriod(read_period));
+        }
+      } else {
+        // invalid value
+        command->errorValue();
+      }
+    }
+
+    // include current read period in data
+    if(state->data_reader) {
+      getStateDataReadingPeriodText(state->data_reading_period, command->data, sizeof(command->data));
+    }
   }
   return(command->isTypeDefined());
 }
@@ -678,6 +756,8 @@ void LoggerController::parseCommand() {
     // data logging getting parsed
   } else if (parseDataLoggingPeriod()) {
     // parsing logging period
+  } else if (parseDataReadingPeriod()) {
+    // parsing reading period
   } else if (parseReset()) {
     // reset getting parsed
   } else {
@@ -747,6 +827,21 @@ void LoggerController::assembleDisplayStateInformation() {
         lcd_buffer + i, sizeof(lcd_buffer) - i, true);
     i = strlen(lcd_buffer);
   }
+
+  // data reading period
+  if (state->data_reader) {
+    lcd_buffer[i] = 'R'; 
+    i++;
+    if (state->data_reading_period == READ_MANUAL) {
+      lcd_buffer[i] = 'M';
+      i++;
+    } else {
+      getStateDataReadingPeriodText(state->data_reading_period, 
+        lcd_buffer + i, sizeof(lcd_buffer) - i, true);
+      i = strlen(lcd_buffer);
+    }
+  }
+
   lcd_buffer[i] = 0;
 }
 
@@ -786,6 +881,9 @@ void LoggerController::assembleLoggerStateVariable() {
   getStateStateLoggingText(getDS()->state_logging, pair, sizeof(pair)); addToLoggerStateVariableBuffer(pair);
   getStateDataLoggingText(getDS()->data_logging, pair, sizeof(pair)); addToLoggerStateVariableBuffer(pair);
   getStateDataLoggingPeriodText(getDS()->data_logging_period, getDS()->data_logging_type, pair, sizeof(pair)); addToLoggerStateVariableBuffer(pair);
+  if (state->data_reader) {
+    getStateDataReadingPeriodText(state->data_reading_period, pair, sizeof(pair)); addToLoggerStateVariableBuffer(pair);
+  }
 }
 
 void LoggerController::assembleLoggerComponentsStateVariable() {

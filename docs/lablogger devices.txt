@@ -67,6 +67,7 @@ LoggerController->LoggerController: parseLocked()
 LoggerController->LoggerController: parseStateLogging()
 LoggerController->LoggerController: parseDataLogging()
 LoggerController->LoggerController: parseDataLoggingPeriod()
+LoggerController->LoggerController: parseDataReadingPeriod()
 LoggerController->LoggerController: parseReset()
 LoggerController->LoggerController: parseComponentsCommand()
 activate LoggerController#green
