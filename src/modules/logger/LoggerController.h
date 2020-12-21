@@ -144,7 +144,6 @@ class LoggerController {
     void setDataCallback(void (*cb)()); // assign a callback function
 
     // state management
-    virtual LoggerControllerState* getDS() { return(state); }; // fetch the Logger state pointer
     virtual size_t getStateSize() { return(sizeof(*state)); }
     virtual void loadState(bool reset);
     virtual void loadComponentsState(bool reset);
@@ -191,7 +190,6 @@ class LoggerController {
     // particle variables
     virtual void updateDataInformation(); // FIXME
     virtual void postDataInformation(); // FIXME
-    
 
     // particle webhook publishing
     virtual void logData(); // FIXME
@@ -326,27 +324,27 @@ void LoggerController::initComponents()
 
 bool LoggerController::isTimeForDataLogAndClear() {
 
-  if (getDS()->data_logging_type == LOG_BY_TIME) {
+  if (state->data_logging_type == LOG_BY_TIME) {
     // go by time
-    unsigned long log_period = getDS()->data_logging_period * 1000;
+    unsigned long log_period = state->data_logging_period * 1000;
     if ((millis() - last_data_log) > log_period) {
       #ifdef DATA_DEBUG_ON
         Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
-        Serial.printf("INFO: triggering data log at %s (after %d seconds)\n", date_time_buffer, getDS()->data_logging_period);
+        Serial.printf("INFO: triggering data log at %s (after %d seconds)\n", date_time_buffer, state->data_logging_period);
       #endif
       return(true);
     }
-  } else if (getDS()->data_logging_type == LOG_BY_EVENT) {
+  } else if (state->data_logging_type == LOG_BY_EVENT) {
     // go by read number
-    if (getNumberDataPoints() >= getDS()->data_logging_period) {
+    if (getNumberDataPoints() >= state->data_logging_period) {
       #ifdef DATA_DEBUG_ON
       Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
-      Serial.printf("INFO: triggering data log at %s (after %d reads)\n", date_time_buffer, getDS()->data_logging_period);
+      Serial.printf("INFO: triggering data log at %s (after %d reads)\n", date_time_buffer, state->data_logging_period);
       #endif
       return(true);
     }
   } else {
-    Serial.printf("ERROR: unknown logging type stored in state - this should be impossible! %d\n", getDS()->data_logging_type);
+    Serial.printf("ERROR: unknown logging type stored in state - this should be impossible! %d\n", state->data_logging_type);
   }
   return(false);
 }
@@ -396,7 +394,7 @@ void LoggerController::update() {
     // state and data information
     updateLoggerStateVariable();
     updateDataInformation();
-    if (getDS()->state_logging) {
+    if (state->state_logging) {
       Serial.println("INFO: start-up completed.");
       assembleStartupLog();
       publishStateLog();
@@ -435,10 +433,10 @@ void LoggerController::setNameCallback(void (*cb)()) {
 
 // locking
 bool LoggerController::changeLocked(bool on) {
-  bool changed = on != getDS()->locked;
+  bool changed = on != state->locked;
 
   if (changed) {
-    getDS()->locked = on;
+    state->locked = on;
   }
 
   #ifdef STATE_DEBUG_ON
@@ -455,10 +453,10 @@ bool LoggerController::changeLocked(bool on) {
 
 // state log
 bool LoggerController::changeStateLogging (bool on) {
-  bool changed = on != getDS()->state_logging;
+  bool changed = on != state->state_logging;
 
   if (changed) {
-    getDS()->state_logging = on;
+    state->state_logging = on;
     override_state_log = true; // always log this event no matter what
   }
 
@@ -476,10 +474,10 @@ bool LoggerController::changeStateLogging (bool on) {
 
 // data log
 bool LoggerController::changeDataLogging (bool on) {
-  bool changed = on != getDS()->data_logging;
+  bool changed = on != state->data_logging;
 
   if (changed) {
-    getDS()->data_logging = on;
+    state->data_logging = on;
   }
 
   #ifdef STATE_DEBUG_ON
@@ -499,11 +497,11 @@ bool LoggerController::changeDataLogging (bool on) {
 
 // logging period
 bool LoggerController::changeDataLoggingPeriod(int period, int type) {
-  bool changed = period != getDS()->data_logging_period | type != getDS()->data_logging_type;
+  bool changed = period != state->data_logging_period | type != state->data_logging_type;
 
   if (changed) {
-    getDS()->data_logging_period = period;
-    getDS()->data_logging_type = type;
+    state->data_logging_period = period;
+    state->data_logging_type = type;
   }
 
   #ifdef STATE_DEBUG_ON
@@ -557,8 +555,8 @@ bool LoggerController::parseLocked() {
     } else if (command->parseValue(CMD_LOCK_OFF)) {
       command->success(changeLocked(false));
     }
-    getStateLockedText(getDS()->locked, command->data, sizeof(command->data));
-  } else if (getDS()->locked) {
+    getStateLockedText(state->locked, command->data, sizeof(command->data));
+  } else if (state->locked) {
     // Logger is locked --> no other commands allowed
     command->errorLocked();
   }
@@ -574,7 +572,7 @@ bool LoggerController::parseStateLogging() {
     } else if (command->parseValue(CMD_STATE_LOG_OFF)) {
       command->success(changeStateLogging(false));
     }
-    getStateStateLoggingText(getDS()->state_logging, command->data, sizeof(command->data));
+    getStateStateLoggingText(state->state_logging, command->data, sizeof(command->data));
   }
   return(command->isTypeDefined());
 }
@@ -588,7 +586,7 @@ bool LoggerController::parseDataLogging() {
     } else if (command->parseValue(CMD_DATA_LOG_OFF)) {
       command->success(changeDataLogging(false));
     }
-    getStateDataLoggingText(getDS()->data_logging, command->data, sizeof(command->data));
+    getStateDataLoggingText(state->data_logging, command->data, sizeof(command->data));
   }
   return(command->isTypeDefined());
 }
@@ -601,7 +599,7 @@ bool LoggerController::parseReset() {
       command->success(true);
       getStateStringText(CMD_RESET, CMD_RESET_DATA, command->data, sizeof(command->data), PATTERN_KV_JSON_QUOTED, false);
     } else  if (command->parseValue(CMD_RESET_STATE)) {
-      getDS()->version = 0; // force reset of state on next startup
+      state->version = 0; // force reset of state on next startup
       saveState();
       command->success(true);
       getStateStringText(CMD_RESET, CMD_RESET_STATE, command->data, sizeof(command->data), PATTERN_KV_JSON_QUOTED, false);
@@ -647,7 +645,7 @@ bool LoggerController::parseDataLoggingPeriod() {
       // invalid value
       command->errorValue();
     }
-    getStateDataLoggingPeriodText(getDS()->data_logging_period, getDS()->data_logging_type, command->data, sizeof(command->data));
+    getStateDataLoggingPeriodText(state->data_logging_period, state->data_logging_type, command->data, sizeof(command->data));
   }
   return(command->isTypeDefined());
 }
@@ -727,7 +725,7 @@ int LoggerController::receiveCommand(String command_string) {
     Serial.println("INFO: webhook debugging is on --> always assemble state log and publish to variable");
     override_state_log = true;
   #endif
-  if (getDS()->state_logging | override_state_log) {
+  if (state->state_logging | override_state_log) {
     assembleStateLog();
     publishStateLog();
   }
@@ -810,20 +808,20 @@ void LoggerController::assembleDisplayStateInformation() {
     lcd_buffer[i] = '!';
   }
   i++;
-  if (getDS()->locked) {
+  if (state->locked) {
     lcd_buffer[i] = 'L';
     i++;
   }
-  if (getDS()->state_logging) {
+  if (state->state_logging) {
     // state logging
     lcd_buffer[i] = 'S';
     i++;
   }
-  if (getDS()->data_logging) {
+  if (state->data_logging) {
     // data logging
     lcd_buffer[i] = 'D';
     i++;
-    getStateDataLoggingPeriodText(getDS()->data_logging_period, getDS()->data_logging_type,
+    getStateDataLoggingPeriodText(state->data_logging_period, state->data_logging_type,
         lcd_buffer + i, sizeof(lcd_buffer) - i, true);
     i = strlen(lcd_buffer);
   }
@@ -877,10 +875,10 @@ void LoggerController::updateDisplayComponentsStateInformation() {
 
 void LoggerController::assembleLoggerStateVariable() {
   char pair[60];
-  getStateLockedText(getDS()->locked, pair, sizeof(pair)); addToLoggerStateVariableBuffer(pair);
-  getStateStateLoggingText(getDS()->state_logging, pair, sizeof(pair)); addToLoggerStateVariableBuffer(pair);
-  getStateDataLoggingText(getDS()->data_logging, pair, sizeof(pair)); addToLoggerStateVariableBuffer(pair);
-  getStateDataLoggingPeriodText(getDS()->data_logging_period, getDS()->data_logging_type, pair, sizeof(pair)); addToLoggerStateVariableBuffer(pair);
+  getStateLockedText(state->locked, pair, sizeof(pair)); addToLoggerStateVariableBuffer(pair);
+  getStateStateLoggingText(state->state_logging, pair, sizeof(pair)); addToLoggerStateVariableBuffer(pair);
+  getStateDataLoggingText(state->data_logging, pair, sizeof(pair)); addToLoggerStateVariableBuffer(pair);
+  getStateDataLoggingPeriodText(state->data_logging_period, state->data_logging_type, pair, sizeof(pair)); addToLoggerStateVariableBuffer(pair);
   if (state->data_reader) {
     getStateDataReadingPeriodText(state->data_reading_period, pair, sizeof(pair)); addToLoggerStateVariableBuffer(pair);
   }
@@ -983,7 +981,7 @@ void LoggerController::logData() {
     Serial.println("INFO: webhook debugging is on --> always assemble data log and publish to variable");
     override_data_log = true;
   #endif
-  if (getDS()->data_logging | override_data_log) {
+  if (state->data_logging | override_data_log) {
       last_data_log_index = -1;
       while (assembleDataLog()) publishDataLog();
   } else {
@@ -1073,7 +1071,7 @@ void LoggerController::addToDataLog(char* info) {
 bool LoggerController::publishDataLog() {
 
   #ifdef CLOUD_DEBUG_ON
-    if (!getDS()->data_logging) Serial.println("WARNING: publishing data log despite data logging turned off");
+    if (!state->data_logging) Serial.println("WARNING: publishing data log despite data logging turned off");
     Serial.printf("INFO: publishing data log '%s' until data index '%d' to event '%s'... ", data_log, last_data_log_index, DATA_LOG_WEBHOOK);
     #ifdef WEBHOOKS_DEBUG_ON
       Serial.println();
