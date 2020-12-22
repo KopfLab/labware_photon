@@ -51,10 +51,12 @@ class LoggerController {
     // mac address
     byte mac_address[6];
 
-    // state
+    // state info
     const size_t eeprom_start = 0;
     size_t eeprom_location = 0;
-    LoggerControllerState* state;
+
+    // data indices
+    uint8_t data_idx = 0;
 
   protected:
 
@@ -83,9 +85,8 @@ class LoggerController {
     char data_log[DATA_LOG_MAX_CHAR];
     char data_log_buffer[DATA_LOG_MAX_CHAR-10];
 
-    // data logging (if used in derived class)
+    // data logging tracker
     unsigned long last_data_log;
-    int last_data_log_index;
 
   public:
 
@@ -95,6 +96,7 @@ class LoggerController {
     // public variables
     char name[20] = "";
     LoggerDisplay* lcd;
+    LoggerControllerState* state;
     LoggerCommand* command = new LoggerCommand();
     std::vector<LoggerData> data;
     std::vector<LoggerComponent*> components;
@@ -112,6 +114,7 @@ class LoggerController {
     void addComponent(LoggerComponent* component) {
       component->setEEPROMStart(eeprom_location);
       eeprom_location = eeprom_location + component->getStateSize();
+      data_idx = component->setupDataVector(data_idx);
       if (eeprom_location >= EEPROM_MAX) {
         Serial.printf("ERROR: component '%s' state would exceed EEPROM size, cannot add component.\n", component->id);
       } else {
@@ -125,7 +128,7 @@ class LoggerController {
     virtual void initComponents();
 
     // update (loop)
-    void update(); // to be run during loop() - FIXME
+    void update();
 
     // reset
     bool wasReset() { reset; }; // whether controller was started in reset mode
@@ -135,10 +138,8 @@ class LoggerController {
     void setNameCallback(void (*cb)()); // assign a callback function
 
     // data information
-    virtual int getNumberDataPoints(); // FIXME
     virtual bool isTimeForDataLogAndClear(); // whether it's time for a data reset and log (if logging is on) // FIXME
     virtual void clearData(bool all = false); // clear data fields // FIXME
-    virtual void resetData(); // reset data completely // FIXME
     virtual void assembleDataInformation(); // FIXME
     void addToDataInformation(char* info);
     void setDataCallback(void (*cb)()); // assign a callback function
@@ -191,15 +192,17 @@ class LoggerController {
     virtual void updateDataInformation(); // FIXME
     virtual void postDataInformation(); // FIXME
 
-    // particle webhook publishing
-    virtual void logData(); // FIXME
-    virtual bool assembleDataLog(); // FIXME
-    virtual bool assembleDataLog(bool gobal_time_offset); // FIXME
-    void addToDataLog(char* info);
-    virtual bool publishDataLog(); // FIXME
-    virtual void assembleStartupLog(); // FIXME
-    virtual void assembleStateLog(); // FIXME
-    virtual bool publishStateLog(); // FIXME
+    // particle webhook data log
+    virtual void logData(); 
+    virtual void resetDataLog();
+    virtual bool addToDataLogBuffer(char* info);
+    virtual bool finalizeDataLog(bool use_common_time, unsigned long common_time = 0);
+    virtual bool publishDataLog();
+
+    // particle webhook state log
+    virtual void assembleStartupLog(); 
+    virtual void assembleStateLog(); 
+    virtual bool publishStateLog(); 
 
 };
 
@@ -309,11 +312,6 @@ void LoggerController::init() {
   last_data_log = 0;
 }
 
-int LoggerController::getNumberDataPoints() {
-  // default is that the first data type is representative
-  return(data[0].getN());
-}
-
 void LoggerController::initComponents() 
 {
   for(components_iter = components.begin(); components_iter != components.end(); components_iter++) 
@@ -321,6 +319,8 @@ void LoggerController::initComponents()
     (*components_iter)->init();
   }
 }
+
+/* DATA UPDATES */
 
 bool LoggerController::isTimeForDataLogAndClear() {
 
@@ -335,14 +335,18 @@ bool LoggerController::isTimeForDataLogAndClear() {
       return(true);
     }
   } else if (state->data_logging_type == LOG_BY_EVENT) {
+    /*
+    // not implemented! this needs to be handled by each component individually so requires a mechanism for components to trigger a specific partial data log
     // go by read number
-    if (getNumberDataPoints() >= state->data_logging_period) {
+    if (data[0].getN() >= state->data_logging_period) {
       #ifdef DATA_DEBUG_ON
       Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
       Serial.printf("INFO: triggering data log at %s (after %d reads)\n", date_time_buffer, state->data_logging_period);
       #endif
       return(true);
     }
+    */
+    Serial.println("ERROR: LOG_BY_EVENT data logging type is not yet implemented!");
   } else {
     Serial.printf("ERROR: unknown logging type stored in state - this should be impossible! %d\n", state->data_logging_type);
   }
@@ -386,9 +390,6 @@ void LoggerController::update() {
 		cloud_connection_started = true;
 	}
 
-  // lcd update
-  lcd->update();
-
   // startup complete
   if (Particle.connected() && !startup_logged && name_handler_succeeded) {
     // state and data information
@@ -412,6 +413,15 @@ void LoggerController::update() {
     logData();
     clearData(false);
   }
+
+  // components update
+  for(components_iter = components.begin(); components_iter != components.end(); components_iter++) {
+     (*components_iter)->update();
+  }
+
+  // lcd update
+  lcd->update();
+
 }
 
 /* Logger NAME */
@@ -489,8 +499,8 @@ bool LoggerController::changeDataLogging (bool on) {
 
   if (changed) saveState();
 
-  // make sure data is reset
-  if (changed && on) resetData();
+  // make sure all data is cleared
+  if (changed && on) clearData(true);
 
   return(changed);
 }
@@ -595,7 +605,7 @@ bool LoggerController::parseReset() {
   if (command->parseVariable(CMD_RESET)) {
     command->extractValue();
     if (command->parseValue(CMD_RESET_DATA)) {
-      resetData();
+      clearData(true); // clear all data
       command->success(true);
       getStateStringText(CMD_RESET, CMD_RESET_DATA, command->data, sizeof(command->data), PATTERN_KV_JSON_QUOTED, false);
     } else  if (command->parseValue(CMD_RESET_STATE)) {
@@ -914,19 +924,16 @@ void LoggerController::postLoggerStateVariable() {
   }
 }
 
-/* DATA INFORMATION */
+/* DATA RESET */
 
 void LoggerController::clearData(bool all) {
-  #ifdef DATA_DEBUG_ON
-    Serial.println(Time.format(Time.now(), "INFO: clearing data at %Y-%m-%d %H:%M:%S %Z"));
-  #endif
-  for (int i=0; i<data.size(); i++) data[i].clear(all);
+  // clear data for components
+  for(components_iter = components.begin(); components_iter != components.end(); components_iter++) {
+     (*components_iter)->clearData(all);
+  }
 }
 
-void LoggerController::resetData() {
-  // overwrite for additional reset operations
-  clearData(true);
-}
+/* DATA INFORMATION */
 
 void LoggerController::updateDataInformation() {
   #ifdef CLOUD_DEBUG_ON
@@ -972,7 +979,7 @@ void LoggerController::setDataCallback(void (*cb)()) {
   data_callback = cb;
 }
 
-/***** DATA LOG & WEBHOOK CALLS *******/
+/***** DATA LOG *****/
 
 void LoggerController::logData() {
   // publish data log
@@ -982,8 +989,10 @@ void LoggerController::logData() {
     override_data_log = true;
   #endif
   if (state->data_logging | override_data_log) {
-      last_data_log_index = -1;
-      while (assembleDataLog()) publishDataLog();
+      // log data for components
+      for(components_iter = components.begin(); components_iter != components.end(); components_iter++) {
+        (*components_iter)->logData();
+      }
   } else {
     #ifdef CLOUD_DEBUG_ON
       Serial.println("INFO: data log is turned off --> continue without logging");
@@ -991,88 +1000,55 @@ void LoggerController::logData() {
   }
 }
 
-bool LoggerController::assembleDataLog() { return(assembleDataLog(true)); }
-
-bool LoggerController::assembleDataLog(bool global_time_offset) {
-
-  // first reporting index
-  int i = last_data_log_index + 1;
-
-  // check if we're already done with all data
-  if (i == data.size()) return(false);
-
-  // check first next data (is there at least one with data?)
-  bool something_to_report = false;
-  int total_string_length = 0;
-  for (; i < data.size(); i++) {
-    if(data[i].assembleLog(!global_time_offset)) {
-      // found data that has something to report
-      something_to_report = true;
-      total_string_length += strlen(data[i].json);
-      last_data_log_index = i;
-      // reset buffers
-      data_log[0] = 0;
-      data_log_buffer[0] = 0;
-      addToDataLog(data[i].json);
-      break;
-    }
-  }
-
-  // nothing to report
-  if (!something_to_report) return(false);
-
-  // global time
-  unsigned long global_time = millis() - (unsigned long) data[i].getDataTime();
-
-  // characters reserved for rest of data log
-  int cutoff = sizeof(data_log) - 50;
-
-  // all data that fits
-  for(i = i + 1; i < data.size(); i++) {
-    if(data[i].assembleLog(!global_time_offset)) {
-      if ( (total_string_length + strlen(data[i].json)) < cutoff) {
-        // still got space
-        total_string_length += strlen(data[i].json);
-        last_data_log_index = i;
-        addToDataLog(data[i].json);
-      } else {
-        // nope, nothing more available - stop here
-        break;
-      }
-    }
-  }
-
-  // data
-  int buffer_size;
-  if (global_time_offset) {
-    // id = Logger name, to = time offset (global), d = structured data
-    buffer_size = snprintf(data_log, sizeof(data_log), "{\"id\":\"%s\",\"to\":%lu,\"d\":[%s]}", name, global_time, data_log_buffer);
-  } else {
-    buffer_size = snprintf(data_log, sizeof(data_log), "{\"id\":\"%s\",\"d\":[%s]}", name, data_log_buffer);
-  }
-  if (buffer_size < 0 || buffer_size >= sizeof(data_log)) {
-    return(false);
-    Serial.println("ERROR: data log buffer not large enough for data log - this should NOT be possible to happen");
-    lcd->printLineTemp(1, "ERR: datalog too big");
-  }
-
-  return(true);
+void LoggerController::resetDataLog() {
+  data_log[0] = 0;
+  data_log_buffer[0] = 0;
 }
 
-void LoggerController::addToDataLog(char* info) {
+bool LoggerController::addToDataLogBuffer(char* info) {
+
+  // characters reserved for rest of data log
+  const uid_t reserve = 50;
+  if (strlen(data_log_buffer) + strlen(info) + reserve >= sizeof(data_log)) {
+    // not enough space in the data log to add more to the buffer
+    return(false);
+  }
+
+  // still enough space
   if (data_log_buffer[0] == 0) {
+    // buffer empty, start from scract
     strncpy(data_log_buffer, info, sizeof(data_log_buffer));
   } else {
+    // concatenate existing buffer with new info
     snprintf(data_log_buffer, sizeof(data_log_buffer),
         "%s,%s", data_log_buffer, info);
   }
+  return(true);
+}
+
+bool LoggerController::finalizeDataLog(bool use_common_time, unsigned long common_time) {
+  // data
+  int buffer_size;
+  if (use_common_time) {
+    // id = Logger name, to = time offset (global), d = structured data
+    buffer_size = snprintf(data_log, sizeof(data_log), "{\"id\":\"%s\",\"to\":%lu,\"d\":[%s]}", name, common_time, data_log_buffer);
+  } else {
+    // indivudal time
+    buffer_size = snprintf(data_log, sizeof(data_log), "{\"id\":\"%s\",\"d\":[%s]}", name, data_log_buffer);
+  }
+  if (buffer_size < 0 || buffer_size >= sizeof(data_log)) {
+    Serial.println("ERROR: data log buffer not large enough for data log - this should NOT be possible to happen");
+    lcd->printLineTemp(1, "ERR: datalog too big");
+    return(false);
+  }
+  return(true);
 }
 
 bool LoggerController::publishDataLog() {
 
   #ifdef CLOUD_DEBUG_ON
     if (!state->data_logging) Serial.println("WARNING: publishing data log despite data logging turned off");
-    Serial.printf("INFO: publishing data log '%s' until data index '%d' to event '%s'... ", data_log, last_data_log_index, DATA_LOG_WEBHOOK);
+    Serial.printf("INFO: publishing data log '%s' to event '%s'... ", data_log, DATA_LOG_WEBHOOK);
     #ifdef WEBHOOKS_DEBUG_ON
       Serial.println();
     #endif
@@ -1101,6 +1077,8 @@ bool LoggerController::publishDataLog() {
     return(success);
   #endif
 }
+
+/***** STATE LOG ******/
 
 void LoggerController::assembleStartupLog() {
   // id = Logger name, t = state log type, s = state change, m = message, n = notes

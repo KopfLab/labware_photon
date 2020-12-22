@@ -35,9 +35,9 @@ class ExampleLoggerComponent : public LoggerComponent
   public:
     
     // constructor
-    ExampleLoggerComponent (const char *id, LoggerController *ctrl, ExampleState *state) : LoggerComponent(id, ctrl), state(state) {}
+    ExampleLoggerComponent (const char *id, LoggerController *ctrl, ExampleState *state) : LoggerComponent(id, ctrl, false), state(state) {}
 
-    /* state restoration */
+    /* state persistance */
     virtual size_t getStateSize() { return(sizeof(*state)); }
 
     virtual void saveState() { 
@@ -103,6 +103,13 @@ class ExampleLoggerComponent : public LoggerComponent
 
       return(changed);
     }
+
+    /* state display */
+    virtual void updateDisplayStateInformation() {
+      getStateSettingText(state->setting, lcd_buffer, sizeof(lcd_buffer), true);
+      ctrl->lcd->printLine(2, lcd_buffer);
+    };
+
 
     /* state variable */
     virtual void assembleLoggerStateVariable() {
