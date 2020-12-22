@@ -25,9 +25,8 @@ void LoggerController::setDataUpdateCallback(void (*cb)()) {
   data_update_callback = cb;
 }
 
-/* COMPONENTS */
+/*** setup ***/
 
-// add component NEW
 void LoggerController::addComponent(LoggerComponent* component) {
     component->setEEPROMStart(eeprom_location);
     eeprom_location = eeprom_location + component->getStateSize();
@@ -39,58 +38,6 @@ void LoggerController::addComponent(LoggerComponent* component) {
     components.push_back(component);
     }
 }
-
-/* STATE MANAGEMENT */
-
-void LoggerController::loadState(bool reset)
-{
-  if (!reset)
-  {
-    Serial.printf("INFO: trying to restore state from memory for controller '%s'\n", version);
-    restoreState();
-  }
-  else
-  {
-    Serial.printf("INFO: resetting state for controller '%s' back to default values\n", version);
-    saveState();
-  }
-};
-
-void LoggerController::loadComponentsState(bool reset)
-{
-  for(components_iter = components.begin(); components_iter != components.end(); components_iter++) 
-  {
-    (*components_iter)->loadState(reset);
-  }
-}
-
-void LoggerController::saveState()
-{
-  EEPROM.put(eeprom_start, *state);
-#ifdef STATE_DEBUG_ON
-  Serial.printf("INFO: controller '%s' state saved in memory (if any updates were necessary)\n", version);
-#endif
-};
-
-bool LoggerController::restoreState()
-{
-  LoggerControllerState *saved_state = new LoggerControllerState();
-  EEPROM.get(eeprom_start, *saved_state);
-  bool recoverable = saved_state->version == state->version;
-  if (recoverable)
-  {
-    EEPROM.get(eeprom_start, *state);
-    Serial.printf("INFO: successfully restored controller state from memory (state version %d)\n", state->version);
-  }
-  else
-  {
-    Serial.printf("INFO: could not restore state from memory (found state version %d instead of %d), sticking with initial default\n", saved_state->version, state->version);
-    saveState();
-  }
-  return (recoverable);
-};
-
-/* INIT */
 
 void LoggerController::init() {
   // define pins
@@ -154,40 +101,7 @@ void LoggerController::initComponents()
   }
 }
 
-/* DATA UPDATES */
-
-bool LoggerController::isTimeForDataLogAndClear() {
-
-  if (state->data_logging_type == LOG_BY_TIME) {
-    // go by time
-    unsigned long log_period = state->data_logging_period * 1000;
-    if ((millis() - last_data_log) > log_period) {
-      #ifdef DATA_DEBUG_ON
-        Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
-        Serial.printf("INFO: triggering data log at %s (after %d seconds)\n", date_time_buffer, state->data_logging_period);
-      #endif
-      return(true);
-    }
-  } else if (state->data_logging_type == LOG_BY_EVENT) {
-    /*
-    // not implemented! this needs to be handled by each component individually so requires a mechanism for components to trigger a specific partial data log
-    // go by read number
-    if (data[0].getN() >= state->data_logging_period) {
-      #ifdef DATA_DEBUG_ON
-      Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
-      Serial.printf("INFO: triggering data log at %s (after %d reads)\n", date_time_buffer, state->data_logging_period);
-      #endif
-      return(true);
-    }
-    */
-    Serial.println("ERROR: LOG_BY_EVENT data logging type is not yet implemented!");
-  } else {
-    Serial.printf("ERROR: unknown logging type stored in state - this should be impossible! %d\n", state->data_logging_type);
-  }
-  return(false);
-}
-
-/* UPDATE */
+/*** loop ***/
 
 void LoggerController::update() {
 
@@ -260,7 +174,7 @@ void LoggerController::update() {
 
 }
 
-/* Logger NAME */
+/*** logger name capture ***/
 
 void LoggerController::captureName(const char *topic, const char *data) {
   // store name and also assign it to Logger information
@@ -271,117 +185,123 @@ void LoggerController::captureName(const char *topic, const char *data) {
   if (name_callback) name_callback();
 }
 
-/* Logger STATE CHANGE FUNCTIONS */
+/*** state management ***/
 
-// locking
-bool LoggerController::changeLocked(bool on) {
-  bool changed = on != state->locked;
-
-  if (changed) {
-    state->locked = on;
+void LoggerController::loadState(bool reset)
+{
+  if (!reset)
+  {
+    Serial.printf("INFO: trying to restore state from memory for controller '%s'\n", version);
+    restoreState();
   }
+  else
+  {
+    Serial.printf("INFO: resetting state for controller '%s' back to default values\n", version);
+    saveState();
+  }
+};
 
-  #ifdef STATE_DEBUG_ON
-    if (changed)
-      on ? Serial.println("INFO: locking Logger") : Serial.println("INFO: unlocking Logger");
-    else
-      on ? Serial.println("INFO: Logger already locked") : Serial.println("INFO: Logger already unlocked");
-  #endif
-
-  if (changed) saveState();
-
-  return(changed);
+void LoggerController::loadComponentsState(bool reset)
+{
+  for(components_iter = components.begin(); components_iter != components.end(); components_iter++) 
+  {
+    (*components_iter)->loadState(reset);
+  }
 }
 
-// state log
-bool LoggerController::changeStateLogging (bool on) {
-  bool changed = on != state->state_logging;
+void LoggerController::saveState()
+{
+  EEPROM.put(eeprom_start, *state);
+#ifdef STATE_DEBUG_ON
+  Serial.printf("INFO: controller '%s' state saved in memory (if any updates were necessary)\n", version);
+#endif
+};
 
-  if (changed) {
-    state->state_logging = on;
-    override_state_log = true; // always log this event no matter what
+bool LoggerController::restoreState()
+{
+  LoggerControllerState *saved_state = new LoggerControllerState();
+  EEPROM.get(eeprom_start, *saved_state);
+  bool recoverable = saved_state->version == state->version;
+  if (recoverable)
+  {
+    EEPROM.get(eeprom_start, *state);
+    Serial.printf("INFO: successfully restored controller state from memory (state version %d)\n", state->version);
+  }
+  else
+  {
+    Serial.printf("INFO: could not restore state from memory (found state version %d instead of %d), sticking with initial default\n", saved_state->version, state->version);
+    saveState();
+  }
+  return (recoverable);
+};
+
+/*** command parsing ***/
+
+int LoggerController::receiveCommand(String command_string) {
+
+  // load, parse and finalize command
+  command->load(command_string);
+  command->extractVariable();
+  parseCommand();
+
+  // mark error if type still undefined
+  if (!command->isTypeDefined()) command->errorCommand();
+
+  // lcd info
+  updateDisplayCommandInformation();
+
+  // assemble and publish log
+  #ifdef WEBHOOKS_DEBUG_ON
+    Serial.println("INFO: webhook debugging is on --> always assemble state log and publish to variable");
+    override_state_log = true;
+  #endif
+  if (state->state_logging | override_state_log) {
+    assembleStateLog();
+    publishStateLog();
+  }
+  override_state_log = false;
+
+  // state information
+  if (command->hasStateChanged()) {
+    updateStateVariable();
   }
 
-  #ifdef STATE_DEBUG_ON
-    if (changed)
-      on ? Serial.println("INFO: state logging turned on") : Serial.println("INFO: state logging turned off");
-    else
-      on ? Serial.println("INFO: state logging already on") : Serial.println("INFO: state logging already off");
-  #endif
+  // command reporting callback
+  if (command_callback) command_callback();
 
-  if (changed) saveState();
-
-  return(changed);
+  // return value
+  return(command->ret_val);
 }
 
-// data log
-bool LoggerController::changeDataLogging (bool on) {
-  bool changed = on != state->data_logging;
+void LoggerController::parseCommand() {
 
-  if (changed) {
-    state->data_logging = on;
+  // decision tree
+  if (parseLocked()) {
+    // locked is getting parsed
+  } else if (parseStateLogging()) {
+    // state logging getting parsed
+  } else if (parseDataLogging()) {
+    // data logging getting parsed
+  } else if (parseDataLoggingPeriod()) {
+    // parsing logging period
+  } else if (parseDataReadingPeriod()) {
+    // parsing reading period
+  } else if (parseReset()) {
+    // reset getting parsed
+  } else {
+    parseComponentsCommand();
   }
 
-  #ifdef STATE_DEBUG_ON
-    if (changed)
-      on ? Serial.println("INFO: data logging turned on") : Serial.println("INFO: data logging turned off");
-    else
-      on ? Serial.println("INFO: data logging already on") : Serial.println("INFO: data logging already off");
-  #endif
-
-  if (changed) saveState();
-
-  // make sure all data is cleared
-  if (changed && on) clearData(true);
-
-  return(changed);
 }
 
-// logging period
-bool LoggerController::changeDataLoggingPeriod(int period, int type) {
-  bool changed = period != state->data_logging_period | type != state->data_logging_type;
-
-  if (changed) {
-    state->data_logging_period = period;
-    state->data_logging_type = type;
+void LoggerController::parseComponentsCommand() {
+  bool success = false;
+  for(components_iter = components.begin(); components_iter != components.end(); components_iter++) 
+  {
+     success = (*components_iter)->parseCommand(command);
+     if (success) break;
   }
-
-  #ifdef STATE_DEBUG_ON
-    if (changed) Serial.printf("INFO: setting data logging period to %d %s\n", period, type == LOG_BY_TIME ? "seconds" : "reads");
-    else Serial.printf("INFO: data logging period unchanged (%d)\n", type == LOG_BY_TIME ? "seconds" : "reads");
-  #endif
-
-  if (changed) saveState();
-
-  return(changed);
 }
-
-// reading period
-bool LoggerController::changeDataReadingPeriod(int period) {
-
-  // safety check (should never get here)
-  if (!state->data_reader) {
-    Serial.println("ERROR: not a data reader! cannot change reading period.");
-    return(false);
-  }
-
-  bool changed = period != state->data_reading_period;
-
-  if (changed) {
-    state->data_reading_period = period;
-  }
-
-  #ifdef STATE_DEBUG_ON
-    if (changed) Serial.printf("INFO: setting data reading period to %d ms\n", period);
-    else Serial.printf("INFO: data reading period unchanged (%d ms)\n", period);
-  #endif
-
-  if (changed) saveState();
-
-  return(changed);
-}
-
-/* COMMAND PARSING FUNCTIONS */
 
 bool LoggerController::parseLocked() {
   // decision tree
@@ -543,75 +463,117 @@ bool LoggerController::parseDataReadingPeriod() {
   return(command->isTypeDefined());
 }
 
-/****** WEB COMMAND PROCESSING *******/
+/*** state changes ***/
 
-int LoggerController::receiveCommand(String command_string) {
+// locking
+bool LoggerController::changeLocked(bool on) {
+  bool changed = on != state->locked;
 
-  // load, parse and finalize command
-  command->load(command_string);
-  command->extractVariable();
-  parseCommand();
+  if (changed) {
+    state->locked = on;
+  }
 
-  // mark error if type still undefined
-  if (!command->isTypeDefined()) command->errorCommand();
-
-  // lcd info
-  updateDisplayCommandInformation();
-
-  // assemble and publish log
-  #ifdef WEBHOOKS_DEBUG_ON
-    Serial.println("INFO: webhook debugging is on --> always assemble state log and publish to variable");
-    override_state_log = true;
+  #ifdef STATE_DEBUG_ON
+    if (changed)
+      on ? Serial.println("INFO: locking Logger") : Serial.println("INFO: unlocking Logger");
+    else
+      on ? Serial.println("INFO: Logger already locked") : Serial.println("INFO: Logger already unlocked");
   #endif
-  if (state->state_logging | override_state_log) {
-    assembleStateLog();
-    publishStateLog();
-  }
-  override_state_log = false;
 
-  // state information
-  if (command->hasStateChanged()) {
-    updateStateVariable();
-  }
+  if (changed) saveState();
 
-  // command reporting callback
-  if (command_callback) command_callback();
-
-  // return value
-  return(command->ret_val);
+  return(changed);
 }
 
-void LoggerController::parseCommand() {
+// state log
+bool LoggerController::changeStateLogging (bool on) {
+  bool changed = on != state->state_logging;
 
-  // decision tree
-  if (parseLocked()) {
-    // locked is getting parsed
-  } else if (parseStateLogging()) {
-    // state logging getting parsed
-  } else if (parseDataLogging()) {
-    // data logging getting parsed
-  } else if (parseDataLoggingPeriod()) {
-    // parsing logging period
-  } else if (parseDataReadingPeriod()) {
-    // parsing reading period
-  } else if (parseReset()) {
-    // reset getting parsed
-  } else {
-    parseComponentsCommand();
+  if (changed) {
+    state->state_logging = on;
+    override_state_log = true; // always log this event no matter what
   }
 
+  #ifdef STATE_DEBUG_ON
+    if (changed)
+      on ? Serial.println("INFO: state logging turned on") : Serial.println("INFO: state logging turned off");
+    else
+      on ? Serial.println("INFO: state logging already on") : Serial.println("INFO: state logging already off");
+  #endif
+
+  if (changed) saveState();
+
+  return(changed);
 }
 
-void LoggerController::parseComponentsCommand() {
-  bool success = false;
-  for(components_iter = components.begin(); components_iter != components.end(); components_iter++) 
-  {
-     success = (*components_iter)->parseCommand(command);
-     if (success) break;
+// data log
+bool LoggerController::changeDataLogging (bool on) {
+  bool changed = on != state->data_logging;
+
+  if (changed) {
+    state->data_logging = on;
   }
+
+  #ifdef STATE_DEBUG_ON
+    if (changed)
+      on ? Serial.println("INFO: data logging turned on") : Serial.println("INFO: data logging turned off");
+    else
+      on ? Serial.println("INFO: data logging already on") : Serial.println("INFO: data logging already off");
+  #endif
+
+  if (changed) saveState();
+
+  // make sure all data is cleared
+  if (changed && on) clearData(true);
+
+  return(changed);
 }
 
-/* COMMAND DISPLAY INFORMATION */
+// logging period
+bool LoggerController::changeDataLoggingPeriod(int period, int type) {
+  bool changed = period != state->data_logging_period | type != state->data_logging_type;
+
+  if (changed) {
+    state->data_logging_period = period;
+    state->data_logging_type = type;
+  }
+
+  #ifdef STATE_DEBUG_ON
+    if (changed) Serial.printf("INFO: setting data logging period to %d %s\n", period, type == LOG_BY_TIME ? "seconds" : "reads");
+    else Serial.printf("INFO: data logging period unchanged (%d)\n", type == LOG_BY_TIME ? "seconds" : "reads");
+  #endif
+
+  if (changed) saveState();
+
+  return(changed);
+}
+
+// reading period
+bool LoggerController::changeDataReadingPeriod(int period) {
+
+  // safety check (should never get here)
+  if (!state->data_reader) {
+    Serial.println("ERROR: not a data reader! cannot change reading period.");
+    return(false);
+  }
+
+  bool changed = period != state->data_reading_period;
+
+  if (changed) {
+    state->data_reading_period = period;
+  }
+
+  #ifdef STATE_DEBUG_ON
+    if (changed) Serial.printf("INFO: setting data reading period to %d ms\n", period);
+    else Serial.printf("INFO: data reading period unchanged (%d ms)\n", period);
+  #endif
+
+  if (changed) saveState();
+
+  return(changed);
+}
+
+/*** command info to display ***/
 
 void LoggerController::updateDisplayCommandInformation() {
   assembleDisplayCommandInformation();
@@ -630,7 +592,7 @@ void LoggerController::showDisplayCommandInformation() {
   lcd->printLineTemp(1, lcd_buffer);
 }
 
-/* STATE DISPLAY INFORMATION */
+/*** state info to LCD display ***/
 
 void LoggerController::updateDisplayStateInformation() {
   lcd_buffer[0] = 0; // reset buffer
@@ -694,7 +656,7 @@ void LoggerController::updateDisplayComponentsStateInformation() {
   }
 }
 
-/* STATE INFORMATION */
+/*** logger state variable ***/
 
 void LoggerController::updateStateVariable() {
   #ifdef CLOUD_DEBUG_ON
@@ -753,16 +715,50 @@ void LoggerController::postStateVariable() {
   }
 }
 
-/* DATA RESET */
+/*** particle webhook state log ***/
 
-void LoggerController::clearData(bool all) {
-  // clear data for components
-  for(components_iter = components.begin(); components_iter != components.end(); components_iter++) {
-     (*components_iter)->clearData(all);
+void LoggerController::assembleStartupLog() {
+  // id = Logger name, t = state log type, s = state change, m = message, n = notes
+  snprintf(state_log, sizeof(state_log), "{\"id\":\"%s\",\"t\":\"startup\",\"s\":[{\"k\":\"startup\",\"v\":\"complete\"}],\"m\":\"\",\"n\":\"\"}", name);
+}
+
+void LoggerController::assembleStateLog() {
+  state_log[0] = 0;
+  if (command->data[0] == 0) strcpy(command->data, "{}"); // empty data entry
+  // id = Logger name, t = state log type, s = state change, m = message, n = notes
+  int buffer_size = snprintf(state_log, sizeof(state_log),
+     "{\"id\":\"%s\",\"t\":\"%s\",\"s\":[%s],\"m\":\"%s\",\"n\":\"%s\"}",
+     name, command->type, command->data, command->msg, command->notes);
+  if (buffer_size < 0 || buffer_size >= sizeof(state_log)) {
+    Serial.println("ERROR: state log buffer not large enough for state log");
+    lcd->printLineTemp(1, "ERR: statelog too big");
+    // FIXME: implement better size checks!!, i.e. split up call --> malformatted JSON will crash the webhook
   }
 }
 
-/* DATA INFORMATION */
+bool LoggerController::publishStateLog() {
+  #ifdef CLOUD_DEBUG_ON
+    Serial.print("INFO: publishing state log " + String(state_log) + " to event '" + String(STATE_LOG_WEBHOOK) + "'... ");
+    #ifdef WEBHOOKS_DEBUG_ON
+      Serial.println();
+    #endif
+  #endif
+
+  #ifdef WEBHOOKS_DEBUG_ON
+    Serial.println("WARNING: state log NOT sent because in WEBHOOKS_DEBUG_ON mode.");
+  #else
+    bool success = Particle.connected() && Particle.publish(STATE_LOG_WEBHOOK, state_log, PRIVATE, WITH_ACK);
+
+    #ifdef CLOUD_DEBUG_ON
+      if (success) Serial.println("successful.");
+      else Serial.println("failed!");
+    #endif
+
+    return(success);
+  #endif
+}
+
+/*** logger data variable ***/
 
 void LoggerController::updateDataVariable() {
   #ifdef CLOUD_DEBUG_ON
@@ -804,7 +800,45 @@ void LoggerController::postDataVariable() {
     date_time_buffer, data_information_buffer);
 }
 
-/***** DATA LOG *****/
+/*** particle webhook data log ***/
+
+bool LoggerController::isTimeForDataLogAndClear() {
+
+  if (state->data_logging_type == LOG_BY_TIME) {
+    // go by time
+    unsigned long log_period = state->data_logging_period * 1000;
+    if ((millis() - last_data_log) > log_period) {
+      #ifdef DATA_DEBUG_ON
+        Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
+        Serial.printf("INFO: triggering data log at %s (after %d seconds)\n", date_time_buffer, state->data_logging_period);
+      #endif
+      return(true);
+    }
+  } else if (state->data_logging_type == LOG_BY_EVENT) {
+    /*
+    // not implemented! this needs to be handled by each component individually so requires a mechanism for components to trigger a specific partial data log
+    // go by read number
+    if (data[0].getN() >= state->data_logging_period) {
+      #ifdef DATA_DEBUG_ON
+      Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
+      Serial.printf("INFO: triggering data log at %s (after %d reads)\n", date_time_buffer, state->data_logging_period);
+      #endif
+      return(true);
+    }
+    */
+    Serial.println("ERROR: LOG_BY_EVENT data logging type is not yet implemented!");
+  } else {
+    Serial.printf("ERROR: unknown logging type stored in state - this should be impossible! %d\n", state->data_logging_type);
+  }
+  return(false);
+}
+
+void LoggerController::clearData(bool all) {
+  // clear data for components
+  for(components_iter = components.begin(); components_iter != components.end(); components_iter++) {
+     (*components_iter)->clearData(all);
+  }
+}
 
 void LoggerController::logData() {
   // publish data log
@@ -898,49 +932,6 @@ bool LoggerController::publishDataLog() {
     (success) ?
         lcd->printLineTemp(1, "INFO: data log sent") :
         lcd->printLineTemp(1, "ERR: data log error");
-
-    return(success);
-  #endif
-}
-
-/***** STATE LOG ******/
-
-void LoggerController::assembleStartupLog() {
-  // id = Logger name, t = state log type, s = state change, m = message, n = notes
-  snprintf(state_log, sizeof(state_log), "{\"id\":\"%s\",\"t\":\"startup\",\"s\":[{\"k\":\"startup\",\"v\":\"complete\"}],\"m\":\"\",\"n\":\"\"}", name);
-}
-
-void LoggerController::assembleStateLog() {
-  state_log[0] = 0;
-  if (command->data[0] == 0) strcpy(command->data, "{}"); // empty data entry
-  // id = Logger name, t = state log type, s = state change, m = message, n = notes
-  int buffer_size = snprintf(state_log, sizeof(state_log),
-     "{\"id\":\"%s\",\"t\":\"%s\",\"s\":[%s],\"m\":\"%s\",\"n\":\"%s\"}",
-     name, command->type, command->data, command->msg, command->notes);
-  if (buffer_size < 0 || buffer_size >= sizeof(state_log)) {
-    Serial.println("ERROR: state log buffer not large enough for state log");
-    lcd->printLineTemp(1, "ERR: statelog too big");
-    // FIXME: implement better size checks!!, i.e. split up call --> malformatted JSON will crash the webhook
-  }
-}
-
-bool LoggerController::publishStateLog() {
-  #ifdef CLOUD_DEBUG_ON
-    Serial.print("INFO: publishing state log " + String(state_log) + " to event '" + String(STATE_LOG_WEBHOOK) + "'... ");
-    #ifdef WEBHOOKS_DEBUG_ON
-      Serial.println();
-    #endif
-  #endif
-
-  #ifdef WEBHOOKS_DEBUG_ON
-    Serial.println("WARNING: state log NOT sent because in WEBHOOKS_DEBUG_ON mode.");
-  #else
-    bool success = Particle.connected() && Particle.publish(STATE_LOG_WEBHOOK, state_log, PRIVATE, WITH_ACK);
-
-    #ifdef CLOUD_DEBUG_ON
-      if (success) Serial.println("successful.");
-      else Serial.println("failed!");
-    #endif
 
     return(success);
   #endif

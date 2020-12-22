@@ -131,13 +131,6 @@ class LoggerController {
     virtual void saveState();
     virtual bool restoreState();
 
-    /*** state changes ***/
-    bool changeLocked(bool on);
-    bool changeStateLogging(bool on);
-    bool changeDataLogging(bool on);
-    bool changeDataLoggingPeriod(int period, int type);
-    bool changeDataReadingPeriod(int period);
-
     /*** command parsing ***/
     int receiveCommand (String command); // receive cloud command
     virtual void parseCommand (); // parse a cloud command
@@ -148,6 +141,13 @@ class LoggerController {
     bool parseDataLoggingPeriod();
     bool parseDataReadingPeriod();
     bool parseReset();
+
+    /*** state changes ***/
+    bool changeLocked(bool on);
+    bool changeStateLogging(bool on);
+    bool changeDataLogging(bool on);
+    bool changeDataLoggingPeriod(int period, int type);
+    bool changeDataReadingPeriod(int period);
 
     /*** command info to display ***/
     virtual void updateDisplayCommandInformation();
