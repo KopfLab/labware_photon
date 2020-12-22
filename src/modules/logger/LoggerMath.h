@@ -6,7 +6,7 @@
 // find first decimals
 // @return positive = decimals, negative = integers
 // @note these functions are not currenly used
-int find_first_decimals (double number) {
+static int find_first_decimals (double number) {
     if (number == 0.0) return (10); // what to do with this rare case? round to 10 decimals
     else return(-floor(log10(fabs(number)))); // could do this faster than with the log with a while if this is a problem
 }
@@ -15,7 +15,7 @@ int find_first_decimals (double number) {
 // @param signif = number of significant digits, 1 by default
 // @param decimals_only = always round integers to 1
 // @param limit = highest number of decimals that should be used
-int find_signif_decimals (double number, uint signif = 1, bool decimals_only = false, int limit = 10) {
+static int find_signif_decimals (double number, uint signif = 1, bool decimals_only = false, int limit = 10) {
     int decimals = find_first_decimals (number) + signif - 1;
     if (decimals_only && decimals < 0) decimals = 0;
     if (decimals > limit) decimals = limit;
@@ -23,13 +23,13 @@ int find_signif_decimals (double number, uint signif = 1, bool decimals_only = f
 }
 
 // round a number to the specified decimals
-double round_to_decimals (double number, int decimals) {
+static double round_to_decimals (double number, int decimals) {
     double factor = pow(10.0, decimals);
     return(round(number * factor) / factor);
 }
 
 // print a number to the specified decimals
-void print_to_decimals (char* target, int size, double number, int decimals) {
+static void print_to_decimals (char* target, int size, double number, int decimals) {
 
     // round
     double rounded_number = round_to_decimals(number, decimals);
@@ -42,7 +42,7 @@ void print_to_decimals (char* target, int size, double number, int decimals) {
 }
 
 // print a number to the specific significan digits
-void print_to_signif (char* target, int size, double number, int signif) {
+static void print_to_signif (char* target, int size, double number, int signif) {
     print_to_decimals(target, size, number, find_signif_decimals(number, signif));
 }
 
