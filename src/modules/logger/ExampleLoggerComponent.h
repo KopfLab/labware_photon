@@ -46,6 +46,7 @@ class ExampleLoggerComponent : public LoggerComponent
         Serial.printf("INFO: component '%s' state saved in memory (if any updates were necessary)\n", id);
       #endif
     }; 
+
     virtual bool restoreState() {
       ExampleState *saved_state = new ExampleState();
       EEPROM.get(eeprom_start, *saved_state);
@@ -112,9 +113,9 @@ class ExampleLoggerComponent : public LoggerComponent
 
 
     /* state variable */
-    virtual void assembleLoggerStateVariable() {
+    virtual void assembleStateVariable() {
       char pair[60];
-      getStateSettingText(state->setting, pair, sizeof(pair)); ctrl->addToLoggerStateVariableBuffer(pair);
+      getStateSettingText(state->setting, pair, sizeof(pair)); ctrl->addToStateVariableBuffer(pair);
     };
 
 };

@@ -59,7 +59,10 @@ class LoggerComponent
     virtual void updateDisplayStateInformation();
 
     // state variable
-    virtual void assembleLoggerStateVariable();
+    virtual void assembleStateVariable();
+
+    // data variable
+    virtual void assembleDataVariable();
 
     /* data */
     // setup data vector - override in derived clases, has to return the new index

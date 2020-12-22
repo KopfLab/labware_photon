@@ -129,6 +129,14 @@ void LoggerComponent::updateDisplayStateInformation() {
 };
 
 // state variable
-void LoggerComponent::assembleLoggerStateVariable() {
+void LoggerComponent::assembleStateVariable() {
 
 };
+
+// data variable
+void LoggerComponent::assembleDataVariable() {
+  for (int i=0; i<data.size(); i++) {
+    data[i].assembleInfo();
+    ctrl->addToDataVariableBuffer(data[i].json);
+  }
+}

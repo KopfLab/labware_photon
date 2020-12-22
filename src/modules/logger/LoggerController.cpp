@@ -2,10 +2,28 @@
 #include "LoggerController.h"
 #include "LoggerComponent.h"
 
-// EEPROM variabls
+// EEPROM variables
 #define STATE_ADDRESS    0 // EEPROM storage location
 #define EEPROM_START    0 // EEPROM storage start
 const size_t EEPROM_MAX = EEPROM.length();
+
+/*** callbacks ***/
+
+void LoggerController::setNameCallback(void (*cb)()) {
+  name_callback = cb;
+}
+
+void LoggerController::setCommandCallback(void (*cb)()) {
+  command_callback = cb;
+}
+
+void LoggerController::setStateUpdateCallback(void (*cb)()) {
+  state_update_callback = cb;
+}
+
+void LoggerController::setDataUpdateCallback(void (*cb)()) {
+  data_update_callback = cb;
+}
 
 /* COMPONENTS */
 
@@ -173,70 +191,72 @@ bool LoggerController::isTimeForDataLogAndClear() {
 
 void LoggerController::update() {
 
-  // cloud connection
-	if (Particle.connected()) {
-		if (!cloud_connected) {
-      // connection freshly made
-      WiFi.macAddress(mac_address);
-      Serial.printf("INFO: MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n", 
-        mac_address[0], mac_address[1], mac_address[2], mac_address[3], mac_address[4], mac_address[5]);
-      Serial.println(Time.format(Time.now(), "INFO: cloud connection established at %H:%M:%S %d.%m.%Y"));
-      cloud_connected = true;
-      lcd->printLine(2, ""); // clear "connect wifi" message
-      updateDisplayStateInformation();
-      updateDisplayComponentsStateInformation();
-      // name capture
-      if (!name_handler_registered){
-        name_handler_registered = Particle.publish("spark/device/name", PRIVATE);
-        if (name_handler_registered) Serial.println("INFO: name handler registered");
-      }
-		}
-		Particle.process();
-	} else if (cloud_connected) {
-		// should be connected but isn't --> reconnect
-		Serial.println(Time.format(Time.now(), "INFO: lost cloud connection at %H:%M:%S %d.%m.%Y"));
-		cloud_connection_started = false;
-		cloud_connected = false;
-	} else if (!cloud_connection_started) {
-		// start cloud connection
-		Serial.println(Time.format(Time.now(), "INFO: initiate cloud connection at %H:%M:%S %d.%m.%Y"));
-    lcd->printLine(2, "Connect WiFi...");
-    updateDisplayStateInformation(); // not components, preserve connect wifi message
-		Particle.connect();
-		cloud_connection_started = true;
-	}
+    // cloud connection
+    if (Particle.connected()) {
+        if (!cloud_connected) {
+            // connection freshly made
+            WiFi.macAddress(mac_address);
+            Serial.printf("INFO: MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n", 
+            mac_address[0], mac_address[1], mac_address[2], mac_address[3], mac_address[4], mac_address[5]);
+            Serial.println(Time.format(Time.now(), "INFO: cloud connection established at %H:%M:%S %d.%m.%Y"));
+            cloud_connected = true;
+            lcd->printLine(2, ""); // clear "connect wifi" message
 
-  // startup complete
-  if (Particle.connected() && !startup_logged && name_handler_succeeded) {
-    // state and data information
-    updateLoggerStateVariable();
-    updateDataInformation();
-    if (state->state_logging) {
-      Serial.println("INFO: start-up completed.");
-      assembleStartupLog();
-      publishStateLog();
-    } else {
-      Serial.println("INFO: start-up completed (not logged).");
+            // update display
+            updateDisplayStateInformation();
+            updateDisplayComponentsStateInformation();
+            if (state_update_callback) state_update_callback();
+
+            // name capture
+            if (!name_handler_registered){
+                name_handler_registered = Particle.publish("spark/device/name", PRIVATE);
+                if (name_handler_registered) Serial.println("INFO: name handler registered");
+            }
+        }
+        Particle.process();
+    } else if (cloud_connected) {
+        // should be connected but isn't --> reconnect
+        Serial.println(Time.format(Time.now(), "INFO: lost cloud connection at %H:%M:%S %d.%m.%Y"));
+        cloud_connection_started = false;
+        cloud_connected = false;
+    } else if (!cloud_connection_started) {
+        // start cloud connection
+        Serial.println(Time.format(Time.now(), "INFO: initiate cloud connection at %H:%M:%S %d.%m.%Y"));
+        lcd->printLine(2, "Connect WiFi...");
+        updateDisplayStateInformation(); // not components, preserve connect wifi message
+        Particle.connect();
+        cloud_connection_started = true;
     }
-    startup_logged = true;
-  }
 
-  // data reset
-  if (isTimeForDataLogAndClear()) {
+    // startup complete once name handler succeeds (could be some time after initial particle connect)
+    if (Particle.connected() && !startup_logged && name_handler_succeeded) {
+        // update state and data information now that name is available
+        updateStateVariable();
+        updateDataVariable();
+        if (state->state_logging) {
+        Serial.println("INFO: start-up completed.");
+        assembleStartupLog();
+        publishStateLog();
+        } else {
+        Serial.println("INFO: start-up completed (not logged).");
+        }
+        startup_logged = true;
+    }
 
-    // make note for last data log
-    last_data_log = millis();
-    logData();
-    clearData(false);
-  }
+    // components update
+    for(components_iter = components.begin(); components_iter != components.end(); components_iter++) {
+        (*components_iter)->update();
+    }
 
-  // components update
-  for(components_iter = components.begin(); components_iter != components.end(); components_iter++) {
-     (*components_iter)->update();
-  }
+    // lcd update
+    lcd->update();
 
-  // lcd update
-  lcd->update();
+    // time to log data?
+    if (isTimeForDataLogAndClear()) {
+        last_data_log = millis();
+        logData();
+        clearData(false);
+    }
 
 }
 
@@ -249,10 +269,6 @@ void LoggerController::captureName(const char *topic, const char *data) {
   Serial.println("INFO: logger name '" + String(name) + "'");
   lcd->printLine(1, name);
   if (name_callback) name_callback();
-}
-
-void LoggerController::setNameCallback(void (*cb)()) {
-  name_callback = cb;
 }
 
 /* Logger STATE CHANGE FUNCTIONS */
@@ -366,10 +382,6 @@ bool LoggerController::changeDataReadingPeriod(int period) {
 }
 
 /* COMMAND PARSING FUNCTIONS */
-
-void LoggerController::setCommandCallback(void (*cb)()) {
-  command_callback = cb;
-}
 
 bool LoggerController::parseLocked() {
   // decision tree
@@ -559,7 +571,7 @@ int LoggerController::receiveCommand(String command_string) {
 
   // state information
   if (command->hasStateChanged()) {
-    updateLoggerStateVariable();
+    updateStateVariable();
   }
 
   // command reporting callback
@@ -675,23 +687,6 @@ void LoggerController::showDisplayStateInformation() {
   lcd->printLineRight(1, lcd_buffer, strlen(lcd_buffer) + 1);
 }
 
-/* STATE INFORMATION */
-
-void LoggerController::updateLoggerStateVariable() {
-  #ifdef CLOUD_DEBUG_ON
-    Serial.print("INFO: updating state variable: ");
-  #endif
-  updateDisplayStateInformation();
-  updateDisplayComponentsStateInformation();
-  state_variable_buffer[0] = 0; // reset buffer
-  assembleLoggerStateVariable();
-  assembleLoggerComponentsStateVariable();
-  postLoggerStateVariable();
-  #ifdef CLOUD_DEBUG_ON
-    Serial.println(state_variable);
-  #endif
-}
-
 void LoggerController::updateDisplayComponentsStateInformation() {
   for(components_iter = components.begin(); components_iter != components.end(); components_iter++) 
   {
@@ -699,25 +694,43 @@ void LoggerController::updateDisplayComponentsStateInformation() {
   }
 }
 
-void LoggerController::assembleLoggerStateVariable() {
+/* STATE INFORMATION */
+
+void LoggerController::updateStateVariable() {
+  #ifdef CLOUD_DEBUG_ON
+    Serial.print("INFO: updating state variable: ");
+  #endif
+  updateDisplayStateInformation();
+  updateDisplayComponentsStateInformation();
+  if (state_update_callback) state_update_callback();
+  state_variable_buffer[0] = 0; // reset buffer
+  assembleStateVariable();
+  assembleComponentsStateVariable();
+  postStateVariable();
+  #ifdef CLOUD_DEBUG_ON
+    Serial.println(state_variable);
+  #endif
+}
+
+void LoggerController::assembleStateVariable() {
   char pair[60];
-  getStateLockedText(state->locked, pair, sizeof(pair)); addToLoggerStateVariableBuffer(pair);
-  getStateStateLoggingText(state->state_logging, pair, sizeof(pair)); addToLoggerStateVariableBuffer(pair);
-  getStateDataLoggingText(state->data_logging, pair, sizeof(pair)); addToLoggerStateVariableBuffer(pair);
-  getStateDataLoggingPeriodText(state->data_logging_period, state->data_logging_type, pair, sizeof(pair)); addToLoggerStateVariableBuffer(pair);
+  getStateLockedText(state->locked, pair, sizeof(pair)); addToStateVariableBuffer(pair);
+  getStateStateLoggingText(state->state_logging, pair, sizeof(pair)); addToStateVariableBuffer(pair);
+  getStateDataLoggingText(state->data_logging, pair, sizeof(pair)); addToStateVariableBuffer(pair);
+  getStateDataLoggingPeriodText(state->data_logging_period, state->data_logging_type, pair, sizeof(pair)); addToStateVariableBuffer(pair);
   if (state->data_reader) {
-    getStateDataReadingPeriodText(state->data_reading_period, pair, sizeof(pair)); addToLoggerStateVariableBuffer(pair);
+    getStateDataReadingPeriodText(state->data_reading_period, pair, sizeof(pair)); addToStateVariableBuffer(pair);
   }
 }
 
-void LoggerController::assembleLoggerComponentsStateVariable() {
+void LoggerController::assembleComponentsStateVariable() {
   for(components_iter = components.begin(); components_iter != components.end(); components_iter++) 
   {
-     (*components_iter)->assembleLoggerStateVariable();
+     (*components_iter)->assembleStateVariable();
   }
 }
 
-void LoggerController::addToLoggerStateVariableBuffer(char* info) {
+void LoggerController::addToStateVariableBuffer(char* info) {
   if (state_variable_buffer[0] == 0) {
     strncpy(state_variable_buffer, info, sizeof(state_variable_buffer));
   } else {
@@ -726,7 +739,7 @@ void LoggerController::addToLoggerStateVariableBuffer(char* info) {
   }
 }
 
-void LoggerController::postLoggerStateVariable() {
+void LoggerController::postStateVariable() {
   if (Particle.connected()) {
     Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
     // dt = datetime, s = state information
@@ -751,31 +764,31 @@ void LoggerController::clearData(bool all) {
 
 /* DATA INFORMATION */
 
-void LoggerController::updateDataInformation() {
+void LoggerController::updateDataVariable() {
   #ifdef CLOUD_DEBUG_ON
     Serial.print("INFO: updating data information: ");
   #endif
+  if (data_update_callback) data_update_callback();
   data_information_buffer[0] = 0; // reset buffer
-  assembleDataInformation();
+  assembleComponentsDataVariable();
   if (Particle.connected()) {
-    postDataInformation();
+    postDataVariable();
   } else {
     Serial.println("ERROR: particle not (yet) connected.");
   }
   #ifdef CLOUD_DEBUG_ON
     Serial.println(data_information);
   #endif
-  if (data_callback) data_callback();
 }
 
-void LoggerController::postDataInformation() {
-  Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
-  // dt = datetime, d = structured data
-  snprintf(data_information, sizeof(data_information), "{\"dt\":\"%s\",\"d\":[%s]}",
-    date_time_buffer, data_information_buffer);
+void LoggerController::assembleComponentsDataVariable() {
+  for(components_iter = components.begin(); components_iter != components.end(); components_iter++) 
+  {
+     (*components_iter)->assembleDataVariable();
+  }
 }
 
-void LoggerController::addToDataInformation(char* info) {
+void LoggerController::addToDataVariableBuffer(char* info) {
   if (data_information_buffer[0] == 0) {
     strncpy(data_information_buffer, info, sizeof(data_information_buffer));
   } else {
@@ -784,15 +797,11 @@ void LoggerController::addToDataInformation(char* info) {
   }
 }
 
-void LoggerController::assembleDataInformation() {
-  for (int i=0; i<data.size(); i++) {
-    data[i].assembleInfo();
-    addToDataInformation(data[i].json);
-  }
-}
-
-void LoggerController::setDataCallback(void (*cb)()) {
-  data_callback = cb;
+void LoggerController::postDataVariable() {
+  Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
+  // dt = datetime, d = structured data
+  snprintf(data_information, sizeof(data_information), "{\"dt\":\"%s\",\"d\":[%s]}",
+    date_time_buffer, data_information_buffer);
 }
 
 /***** DATA LOG *****/

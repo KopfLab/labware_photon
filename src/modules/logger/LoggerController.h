@@ -65,7 +65,8 @@ class LoggerController {
     // call backs
     void (*name_callback)() = 0;
     void (*command_callback)() = 0;
-    void (*data_callback)() = 0;
+    void (*state_update_callback)() = 0;
+    void (*data_update_callback)() = 0;
 
     // buffer for date time
     char date_time_buffer[25];
@@ -98,7 +99,7 @@ class LoggerController {
     std::vector<LoggerComponent*> components;
     std::vector<LoggerComponent*>::iterator components_iter;
 
-    // constructor
+    /*** constructors ***/
     LoggerController (const char *version, int reset_pin) : LoggerController(version, reset_pin, new LoggerDisplay()) {}
     LoggerController (const char *version, int reset_pin, LoggerDisplay* lcd) : LoggerController(version, reset_pin, lcd, new LoggerControllerState()) {}
     LoggerController (const char *version, int reset_pin, LoggerControllerState *state) : LoggerController(version, reset_pin, new LoggerDisplay(), state) {}
@@ -106,46 +107,38 @@ class LoggerController {
       eeprom_location = eeprom_start + sizeof(*state);
     }
 
-    // add component NEW
-    void addComponent(LoggerComponent* component);
+    /*** callbacks ***/
+    void setNameCallback(void (*cb)()); // callback executed after name retrieved from cloud
+    void setCommandCallback(void (*cb)()); // callback executed after a command is received and processed
+    void setStateUpdateCallback(void (*cb)()); // callback executed when state variable is updated
+    void setDataUpdateCallback(void (*cb)()); // callback executed when data variable is updated
 
-    // init (setup)
+    /*** setup ***/
+    void addComponent(LoggerComponent* component);
     void init(); 
     virtual void initComponents();
 
-    // update (loop)
+    /*** loop ***/
     void update();
 
-    // reset
-    bool wasReset() { reset; }; // whether controller was started in reset mode
-
-    // Logger name
+    /*** logger name capture ***/
     void captureName(const char *topic, const char *data);
-    void setNameCallback(void (*cb)()); // assign a callback function
 
-    // data information
-    virtual bool isTimeForDataLogAndClear(); // whether it's time for a data reset and log (if logging is on) // FIXME
-    virtual void clearData(bool all = false); // clear data fields // FIXME
-    virtual void assembleDataInformation(); // FIXME
-    void addToDataInformation(char* info);
-    void setDataCallback(void (*cb)()); // assign a callback function
-
-    // state management
+    /*** state management ***/
     virtual size_t getStateSize() { return(sizeof(*state)); }
     virtual void loadState(bool reset);
     virtual void loadComponentsState(bool reset);
     virtual void saveState();
     virtual bool restoreState();
 
-    // state change functions
+    /*** state changes ***/
     bool changeLocked(bool on);
     bool changeStateLogging(bool on);
     bool changeDataLogging(bool on);
     bool changeDataLoggingPeriod(int period, int type);
     bool changeDataReadingPeriod(int period);
 
-    // particle command parsing functions
-    void setCommandCallback(void (*cb)()); // assign a callback function
+    /*** command parsing ***/
     int receiveCommand (String command); // receive cloud command
     virtual void parseCommand (); // parse a cloud command
     virtual void parseComponentsCommand(); // parse a cloud command in the components
@@ -156,38 +149,42 @@ class LoggerController {
     bool parseDataReadingPeriod();
     bool parseReset();
 
-    // command info to LCD display
+    /*** command info to display ***/
     virtual void updateDisplayCommandInformation();
     virtual void assembleDisplayCommandInformation();
     virtual void showDisplayCommandInformation();
 
-    // state info to LCD display
+    /*** state info to LCD display ***/
     virtual void updateDisplayStateInformation();
-    virtual void updateDisplayComponentsStateInformation();
     virtual void assembleDisplayStateInformation();
     virtual void showDisplayStateInformation();
+    virtual void updateDisplayComponentsStateInformation();
 
-    // logger state variable
-    virtual void updateLoggerStateVariable();
-    virtual void assembleLoggerStateVariable();
-    virtual void assembleLoggerComponentsStateVariable();
-    void addToLoggerStateVariableBuffer(char* info);
-    virtual void postLoggerStateVariable();
+    /*** logger state variable ***/
+    virtual void updateStateVariable();
+    virtual void assembleStateVariable();
+    virtual void assembleComponentsStateVariable();
+    void addToStateVariableBuffer(char* info);
+    virtual void postStateVariable();
 
-    // particle variables
-    virtual void updateDataInformation(); // FIXME
-    virtual void postDataInformation(); // FIXME
+    /*** particle webhook state log ***/
+    virtual void assembleStartupLog(); 
+    virtual void assembleStateLog(); 
+    virtual bool publishStateLog(); 
 
-    // particle webhook data log
+    /*** logger data variable ***/
+    virtual void updateDataVariable();
+    virtual void assembleComponentsDataVariable();
+    void addToDataVariableBuffer(char* info);
+    virtual void postDataVariable();
+
+    /*** particle webhook data log ***/
+    virtual bool isTimeForDataLogAndClear(); // whether it's time for data clear and log (if logging is on)
+    virtual void clearData(bool all = false); // clear data fields
     virtual void logData(); 
     virtual void resetDataLog();
     virtual bool addToDataLogBuffer(char* info);
     virtual bool finalizeDataLog(bool use_common_time, unsigned long common_time = 0);
     virtual bool publishDataLog();
-
-    // particle webhook state log
-    virtual void assembleStartupLog(); 
-    virtual void assembleStateLog(); 
-    virtual bool publishStateLog(); 
 
 };
