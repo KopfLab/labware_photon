@@ -36,42 +36,40 @@ class LoggerComponent
     // data
     std::vector<LoggerData> data;
 
-    // constructor
+    /*** constructors ***/
     LoggerComponent (const char *id, LoggerController *ctrl, bool data_have_same_time_offset) : id(id), ctrl(ctrl), data_have_same_time_offset(data_have_same_time_offset) {}
 
-    /* state management */
+    /*** setup ***/
+    virtual uint8_t setupDataVector(uint8_t start_idx); // setup data vector - override in derived clases, has to return the new index
+    virtual void init();
+
+    /*** loop ***/
+    void update();
+
+    /*** state management ***/
     void setEEPROMStart(size_t start);
     virtual size_t getStateSize();
     virtual void loadState(bool reset = false);
     virtual bool restoreState();
     virtual void saveState();
 
-    // initialization
-    virtual void init();
-
-    // update
-    virtual void update();
-
-    // commands
+    /*** command parsing ***/
     virtual bool parseCommand(LoggerCommand *command);
 
-    // state display
+    /*** state changes ***/
+    // implement in derived classes
+
+    /*** state info to LCD display ***/
     virtual void updateDisplayStateInformation();
 
-    // state variable
+    /*** logger state variable ***/
     virtual void assembleStateVariable();
 
-    // data variable
+    /*** logger data variable ***/
     virtual void assembleDataVariable();
 
-    /* data */
-    // setup data vector - override in derived clases, has to return the new index
-    virtual uint8_t setupDataVector(uint8_t start_idx);
-    // clear collecetd data
-    // @param all whether to clear all data or keep persistant data intact
-    virtual void clearData(bool all);
-
-    /* data logging */
+    /*** particle webhook data log ***/
+    virtual void clearData(bool all); // clear collected data // @param "all" whether to clear all data or keep persistant data intact
     virtual void logData();
     virtual bool assembleDataLog();
 
