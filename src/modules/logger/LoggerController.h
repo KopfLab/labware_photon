@@ -11,7 +11,7 @@
 #include <vector>
 #include "LoggerControllerState.h"
 #include "LoggerInfo.h"
-#include "LoggerCommands.h"
+#include "LoggerCommand.h"
 #include "LoggerData.h"
 #include "LoggerDisplay.h"
 #include "LoggerComponent.h"

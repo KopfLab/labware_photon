@@ -7,7 +7,7 @@
  */
 
 #pragma once
-#include "LoggerCommands.h"
+#include "LoggerCommand.h"
 #include "LoggerInfo.h"
 
 // log types

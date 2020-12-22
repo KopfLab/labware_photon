@@ -1,6 +1,6 @@
 #pragma once
 #include <vector>
-#include "LoggerCommands.h"
+#include "LoggerCommand.h"
 #include "LoggerData.h"
 
 // declare controller to include as member
