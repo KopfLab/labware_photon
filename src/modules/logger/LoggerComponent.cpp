@@ -1,5 +1,6 @@
 #include "application.h"
 #include "LoggerComponent.h"
+#include "LoggerController.h"
 
 // setup data vector - override in derived clases, has to return the new index
 uint8_t LoggerComponent::setupDataVector(uint8_t start_idx) { 
@@ -25,7 +26,7 @@ void LoggerComponent::logData() {
     #ifdef CLOUD_DEBUG_ON
         Serial.printf("INFO: assembled data log from index %d to %d\n", first_data_log_index, last_data_log_index);
     #endif
-    //ctrl->publishDataLog();//FIXME
+        ctrl->publishDataLog();
     }
 };
 
@@ -42,46 +43,46 @@ bool LoggerComponent::assembleDataLog() {
     // check first next data (is there at least one with data?)
     bool something_to_report = false;
     for (; i < data.size(); i++) {
-    if(data[i].getN() > 0) {
-        // found data that has something to report
-        something_to_report = true;
-        break;
-    }
+        if(data[i].getN() > 0) {
+            // found data that has something to report
+            something_to_report = true;
+            break;
+        }
     }
 
     // nothing to report
     if (!something_to_report) return(false);
 
     // reset the log & buffers
-    //ctrl->resetDataLog();//FIXME
+    ctrl->resetDataLog();
 
     // all data that fits
-    /*for(i = i + 1; i < data.size(); i++) {
-    if(data[i].assembleLog(!data_have_same_time_offset)) {
-        if (ctrl->addToDataLogBuffer(data[i].json)) {//FIXME
-        // successfully added to buffer
-        last_data_log_index = i;
-        } else {
-        // no more space - stop here for this log
-        break;
+    for(i = i + 1; i < data.size(); i++) {
+        if(data[i].assembleLog(!data_have_same_time_offset)) {
+            if (ctrl->addToDataLogBuffer(data[i].json)) {
+            // successfully added to buffer
+            last_data_log_index = i;
+            } else {
+            // no more space - stop here for this log
+            break;
+            }
         }
     }
-    }*/
 
     // finalize data log
-    /*if (data_have_same_time_offset) {
-    unsigned long common_time = millis() - (unsigned long) data[first_data_log_index].getDataTime();
-    return(ctrl->finalizeDataLog(true, common_time));//FIXME
+    if (data_have_same_time_offset) {
+        unsigned long common_time = millis() - (unsigned long) data[first_data_log_index].getDataTime();
+        return(ctrl->finalizeDataLog(true, common_time));
     } else {
-    return(ctrl->finalizeDataLog(false));
-    }*/
+        return(ctrl->finalizeDataLog(false));
+    }
     return(true);
-};
+}
 
 /* state management */
 void LoggerComponent::setEEPROMStart(size_t start) { 
     eeprom_start = start; 
-};
+}
 
 size_t LoggerComponent::getStateSize() { 
     return(0); 
@@ -129,5 +130,5 @@ void LoggerComponent::updateDisplayStateInformation() {
 
 // state variable
 void LoggerComponent::assembleLoggerStateVariable() {
-    
+
 };

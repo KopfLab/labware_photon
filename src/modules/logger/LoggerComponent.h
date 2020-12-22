@@ -3,7 +3,7 @@
 #include "LoggerCommand.h"
 #include "LoggerData.h"
 
-// declare controller to include as member
+// forward declaration for controller
 class LoggerController;
 
 // component class
@@ -39,17 +39,6 @@ class LoggerComponent
     // constructor
     LoggerComponent (const char *id, LoggerController *ctrl, bool data_have_same_time_offset) : id(id), ctrl(ctrl), data_have_same_time_offset(data_have_same_time_offset) {}
 
-    /* data */
-    // setup data vector - override in derived clases, has to return the new index
-    virtual uint8_t setupDataVector(uint8_t start_idx);
-    // clear collecetd data
-    // @param all whether to clear all data or keep persistant data intact
-    virtual void clearData(bool all);
-
-    /* data logging */
-    virtual void logData();
-    virtual bool assembleDataLog();
-
     /* state management */
     void setEEPROMStart(size_t start);
     virtual size_t getStateSize();
@@ -71,5 +60,16 @@ class LoggerComponent
 
     // state variable
     virtual void assembleLoggerStateVariable();
+
+    /* data */
+    // setup data vector - override in derived clases, has to return the new index
+    virtual uint8_t setupDataVector(uint8_t start_idx);
+    // clear collecetd data
+    // @param all whether to clear all data or keep persistant data intact
+    virtual void clearData(bool all);
+
+    /* data logging */
+    virtual void logData();
+    virtual bool assembleDataLog();
 
 };
