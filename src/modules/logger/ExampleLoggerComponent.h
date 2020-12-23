@@ -26,11 +26,11 @@ class ExampleLoggerComponent : public LoggerComponent
   public:
     
     /*** constructors ***/
-    ExampleLoggerComponent (const char *id, LoggerController *ctrl, ExampleState *state) : LoggerComponent(id, ctrl, false), state(state) {}
+    ExampleLoggerComponent (const char *id, LoggerController *ctrl, ExampleState *state) : LoggerComponent(id, ctrl, true, false), state(state) {}
 
     /*** setup ***/
     virtual uint8_t setupDataVector(uint8_t start_idx);
-    virtual void init();
+    void init();
 
     /*** state management ***/
     virtual size_t getStateSize();
