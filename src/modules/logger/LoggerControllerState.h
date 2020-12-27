@@ -8,7 +8,7 @@
 
 #pragma once
 #include "LoggerCommand.h"
-#include "LoggerConstants.h"
+#include "LoggerUtils.h"
 
 // log types
 #define LOG_BY_TIME    0 // log period is a time in seconds

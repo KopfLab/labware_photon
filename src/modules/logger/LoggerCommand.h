@@ -1,6 +1,10 @@
 #pragma once
 #include "application.h"
-#include "LoggerConstants.h"
+#include "LoggerUtils.h"
+
+// important constants
+#define CMD_MAX_CHAR          63  // spark.functions are limited to 63 char long call
+
 
 // return codes:
 //  -  0 : success without warning

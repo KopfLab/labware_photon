@@ -1,25 +1,6 @@
 #pragma once
 #include "LoggerMath.h"
 
-/**** general parameters and constants for Logger cloud interaction ****/
-
-// spark cloud constants
-#define CMD_ROOT              "device" // command root (i.e. registered particle call function)
-#define CMD_MAX_CHAR          63  // spark.functions are limited to 63 char long call
-
-#define STATE_INFO_VARIABLE   "state" // name of the particle exposed state variable
-#define STATE_INFO_MAX_CHAR   600 // how long is the state information maximally
-
-#define STATE_LOG_WEBHOOK     "state_log"  // name of the webhook to Logger state log
-#define STATE_LOG_MAX_CHAR    255  // spark.publish is limited to 255 chars of data
-
-#define DATA_INFO_VARIABLE    "data" // name of the particle exposed data variable
-#define DATA_INFO_MAX_CHAR    600 // how long is the data information maximally
-
-#define DATA_LOG_WEBHOOK      "data_log"  // name of the webhook to Logger data log
-#define DATA_LOG_MAX_CHAR     255  // spark.publish is limited to 255 chars of data
-
-
 /**** helper functions for textual translations of state values ****/
 
 // NOTE: size is always passed as safety precaution to not overallocate the target
