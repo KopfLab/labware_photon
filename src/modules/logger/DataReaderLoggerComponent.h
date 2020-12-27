@@ -12,7 +12,7 @@
 
 
 /* component */
-class LoggerComponentDataReader : public LoggerComponent
+class DataReaderLoggerComponent : public LoggerComponent
 {
 
   protected:
@@ -24,7 +24,7 @@ class LoggerComponentDataReader : public LoggerComponent
   public:
 
     /*** constructors ***/
-    LoggerComponentDataReader (const char *id, LoggerController *ctrl, bool data_have_same_time_offset) : LoggerComponent(id, ctrl, data_have_same_time_offset) {}
+    DataReaderLoggerComponent (const char *id, LoggerController *ctrl, bool data_have_same_time_offset) : LoggerComponent(id, ctrl, data_have_same_time_offset) {}
 
     /*** loop ***/
     void update();

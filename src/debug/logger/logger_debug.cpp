@@ -13,8 +13,8 @@
 // keep track of installed version
 #include "LoggerController.h"
 #include "LoggerComponent.h"
-#include "LoggerComponentDataReader.h"
-#include "LoggerComponentSerialReader.h"
+#include "DataReaderLoggerComponent.h"
+#include "SerialReaderLoggerComponent.h"
 #include "ExampleLoggerComponent.h"
 
 // default instances

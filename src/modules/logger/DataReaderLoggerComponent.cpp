@@ -1,9 +1,9 @@
 #include "application.h"
-#include "LoggerComponentDataReader.h"
+#include "DataReaderLoggerComponent.h"
 
 /*** loop ***/
 
-void LoggerComponentDataReader::update() {
+void DataReaderLoggerComponent::update() {
     
     // only run if the whole controller is set up as data reader
     if (ctrl->state->data_reader) {
@@ -34,11 +34,11 @@ void LoggerComponentDataReader::update() {
 
 /*** read data ***/
 
-bool LoggerComponentDataReader::isManualDataReader() {
+bool DataReaderLoggerComponent::isManualDataReader() {
     return(ctrl->state->data_reading_period == READ_MANUAL);
 }
 
-void LoggerComponentDataReader::startDataRead() {
+void DataReaderLoggerComponent::startDataRead() {
     #ifdef DATA_DEBUG_ON
         (isManualDataReader()) ?
             Serial.printf("INFO: starting data read for component '%s' (manual mode)", id) :
@@ -49,11 +49,11 @@ void LoggerComponentDataReader::startDataRead() {
     data_read_status = DATA_READ_WAITING;
 }
 
-void LoggerComponentDataReader::readData() {
+void DataReaderLoggerComponent::readData() {
     data_read_status = DATA_READ_COMPLETE;
 }
 
-void LoggerComponentDataReader::handleDataReadError() {
+void DataReaderLoggerComponent::handleDataReadError() {
     #ifdef DATA_DEBUG_ON
         Serial.printf("ERROR: component '%s' encountered an error trying to read data at ", id);
         Serial.println(Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z"));
@@ -62,7 +62,7 @@ void LoggerComponentDataReader::handleDataReadError() {
     data_read_status = DATA_READ_IDLE;
 }
 
-void LoggerComponentDataReader::handleDataReadTimeout() {
+void DataReaderLoggerComponent::handleDataReadTimeout() {
     #ifdef DATA_DEBUG_ON
         Serial.printf("INFO: data reading period exceeded for component '%s' at ", id);
         Serial.println(Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z"));
@@ -71,7 +71,7 @@ void LoggerComponentDataReader::handleDataReadTimeout() {
     data_read_status = DATA_READ_IDLE;
 }
 
-void LoggerComponentDataReader::finishDataRead() {
+void DataReaderLoggerComponent::finishDataRead() {
     #ifdef DATA_DEBUG_ON
         Serial.printf("INFO: finished data read for component '%s' at ", id);
         Serial.println(Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z"));

@@ -1,5 +1,5 @@
 #pragma once
-#include "LoggerComponentDataReader.h"
+#include "DataReaderLoggerComponent.h"
 
 /* commands */
 #define CMD_SETTING           "setting" // Logger "setting yay/nay [notes]" : turns setting on/off
@@ -15,7 +15,7 @@ struct ExampleState {
 };
 
 /* component */
-class ExampleLoggerComponent : public LoggerComponentDataReader
+class ExampleLoggerComponent : public DataReaderLoggerComponent
 {
 
   private:
@@ -25,7 +25,7 @@ class ExampleLoggerComponent : public LoggerComponentDataReader
   public:
     
     /*** constructors ***/
-    ExampleLoggerComponent (const char *id, LoggerController *ctrl, ExampleState *state) : LoggerComponentDataReader(id, ctrl, true), state(state) {}
+    ExampleLoggerComponent (const char *id, LoggerController *ctrl, ExampleState *state) : DataReaderLoggerComponent(id, ctrl, true), state(state) {}
 
     /*** setup ***/
     virtual uint8_t setupDataVector(uint8_t start_idx);

@@ -1,8 +1,8 @@
 #pragma once
-#include "LoggerComponentDataReader.h"
+#include "DataReaderLoggerComponent.h"
 
 /* component */
-class LoggerComponentSerialReader : public LoggerComponentDataReader
+class SerialReaderLoggerComponent : public DataReaderLoggerComponent
 {
 
   protected:
@@ -11,7 +11,7 @@ class LoggerComponentSerialReader : public LoggerComponentDataReader
   public:
 
     /*** constructors ***/
-    LoggerComponentSerialReader (const char *id, LoggerController *ctrl, bool data_have_same_time_offset) : LoggerComponentDataReader(id, ctrl, data_have_same_time_offset) {}
+    SerialReaderLoggerComponent (const char *id, LoggerController *ctrl, bool data_have_same_time_offset) : DataReaderLoggerComponent(id, ctrl, data_have_same_time_offset) {}
 
     /*** read data ***/
     virtual void startDataRead();
