@@ -2,11 +2,12 @@
 #include "StepperState.h"
 #include "StepperConfig.h"
 #include "StepperCommands.h"
+#include "LoggerComponent.h"
 #include "LoggerController.h"
 #include <AccelStepper.h>
 
 // stepper controller class
-class StepperController : public LoggerController {
+class LoggerComponentStepper : public LoggerComponent {
 
   private:
 
@@ -32,10 +33,10 @@ class StepperController : public LoggerController {
 
   public:
 
-    // constructors
-    StepperController() {};
+    /*** constructors ***/
+    LoggerComponentStepper (const char *id, LoggerController *ctrl, StepperState* state, StepperBoard* board, StepperDriver* driver, StepperMotor* motor) : LoggerComponent(id, ctrl, false) {}
 
-    StepperController (int reset_pin, LoggerDisplay* lcd, StepperBoard* board, StepperDriver* driver, StepperMotor* motor, StepperState* state) :
+    StepperController (int reset_pin, LoggerDisplay* lcd) :
       LoggerController(reset_pin, lcd), board(board), driver(driver), motor(motor), state(state) {
         construct();
     };
