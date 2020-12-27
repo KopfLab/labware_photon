@@ -43,13 +43,18 @@ bool ExampleLoggerComponent::restoreState() {
     EEPROM.get(eeprom_start, *saved_state);
     bool recoverable = saved_state->version == state->version;
     if(recoverable) {
-    EEPROM.get(eeprom_start, *state);
-    Serial.printf("INFO: successfully restored component state from memory (state version %d)\n", state->version);
+        EEPROM.get(eeprom_start, *state);
+        Serial.printf("INFO: successfully restored component state from memory (state version %d)\n", state->version);
     } else {
-    Serial.printf("INFO: could not restore state from memory (found state version %d instead of %d), sticking with initial default\n", saved_state->version, state->version);
-    saveState();
+        Serial.printf("INFO: could not restore state from memory (found state version %d instead of %d), sticking with initial default\n", saved_state->version, state->version);
+        saveState();
     }
     return(recoverable);
+}
+
+void ExampleLoggerComponent::resetState() {
+    state->version = 0; // force reset of state on restart
+    saveState();
 }
 
 /*** command parsing ***/

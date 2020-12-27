@@ -162,10 +162,15 @@ void LoggerController::update() {
         // update state and data information now that name is available
         updateStateVariable();
         updateDataVariable();
+
+#ifdef CLOUD_DEBUG_ON
+    Serial.print("WTF IS COING ON ");
+  #endif
+
         if (state->state_logging) {
-        Serial.println("INFO: start-up completed.");
-        assembleStartupLog();
-        publishStateLog();
+          Serial.println("INFO: start-up completed.");
+          assembleStartupLog();
+          publishStateLog();
         } else {
         Serial.println("INFO: start-up completed (not logged).");
         }
@@ -259,6 +264,15 @@ bool LoggerController::restoreState()
   }
   return (recoverable);
 };
+
+void LoggerController::resetState() {
+  state->version = 0; // force reset of state on restart
+  saveState();
+  for(components_iter = components.begin(); components_iter != components.end(); components_iter++) 
+  {
+    (*components_iter)->resetState();
+  }
+}
 
 /*** command parsing ***/
 
@@ -384,11 +398,12 @@ bool LoggerController::parseReset() {
       command->success(true);
       getStateStringText(CMD_RESET, CMD_RESET_DATA, command->data, sizeof(command->data), PATTERN_KV_JSON_QUOTED, false);
     } else  if (command->parseValue(CMD_RESET_STATE)) {
-      state->version = 0; // force reset of state on next startup
-      saveState();
+      resetState();
       command->success(true);
       getStateStringText(CMD_RESET, CMD_RESET_STATE, command->data, sizeof(command->data), PATTERN_KV_JSON_QUOTED, false);
-      command->setLogMsg("reset state on next startup");
+      command->setLogMsg("restarting system...");
+      trigger_reset = RESET_STATE;
+      reset_timer_start = millis();
     }
   }
   return(command->isTypeDefined());
@@ -757,8 +772,17 @@ void LoggerController::postStateVariable() {
 /*** particle webhook state log ***/
 
 void LoggerController::assembleStartupLog() {
+  // include restart details in startup log message
+  char msg[50];
+  msg[0] = 0;
+  if (past_reset == RESET_RESTART) {
+    strncpy(msg, "after user-requested restart", sizeof(msg) - 1);
+  } else if (past_reset == RESET_STATE) {
+    strncpy(msg, "for user-requested state reset", sizeof(msg) - 1);
+  }
+  msg[sizeof(msg)-1] = 0;
   // id = Logger name, t = state log type, s = state change, m = message, n = notes
-  snprintf(state_log, sizeof(state_log), "{\"id\":\"%s\",\"t\":\"startup\",\"s\":[{\"k\":\"startup\",\"v\":\"complete\"}],\"m\":\"\",\"n\":\"\"}", name);
+  snprintf(state_log, sizeof(state_log), "{\"id\":\"%s\",\"t\":\"startup\",\"s\":[{\"k\":\"startup\",\"v\":\"complete\"}],\"m\":\"%s\",\"n\":\"\"}", name, msg);
 }
 
 void LoggerController::assembleStateLog() {
@@ -777,7 +801,7 @@ void LoggerController::assembleStateLog() {
 
 bool LoggerController::publishStateLog() {
   #ifdef CLOUD_DEBUG_ON
-    Serial.print("INFO: publishing state log " + String(state_log) + " to event '" + String(STATE_LOG_WEBHOOK) + "'... ");
+    Serial.printf("INFO: publishing state log %s to event '%s'...", state_log, STATE_LOG_WEBHOOK);
     #ifdef WEBHOOKS_DEBUG_ON
       Serial.println();
     #endif

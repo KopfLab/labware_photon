@@ -13,7 +13,6 @@ class LoggerComponentSerialReader : public LoggerComponentDataReader
     /*** constructors ***/
     LoggerComponentSerialReader (const char *id, LoggerController *ctrl, bool data_have_same_time_offset) : LoggerComponentDataReader(id, ctrl, data_have_same_time_offset) {}
 
-
     /*** read data ***/
     virtual void startDataRead();
     virtual void readData();

@@ -40,18 +40,19 @@ class LoggerComponent
     LoggerComponent (const char *id, LoggerController *ctrl, bool data_have_same_time_offset) : id(id), ctrl(ctrl), data_have_same_time_offset(data_have_same_time_offset) {}
 
     /*** setup ***/
-    virtual uint8_t setupDataVector(uint8_t start_idx); // setup data vector - override in derived clases, has to return the new index
-    virtual void init();
+    uint8_t setupDataVector(uint8_t start_idx); // setup data vector - override in derived clases, has to return the new index
+    void init();
 
     /*** loop ***/
     void update();
 
     /*** state management ***/
     void setEEPROMStart(size_t start);
-    virtual size_t getStateSize();
+    size_t getStateSize();
     virtual void loadState(bool reset = false);
-    virtual bool restoreState();
     virtual void saveState();
+    virtual bool restoreState();
+    virtual void resetState();
 
     /*** command parsing ***/
     virtual bool parseCommand(LoggerCommand *command);

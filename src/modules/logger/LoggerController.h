@@ -142,6 +142,7 @@ class LoggerController {
     virtual void loadComponentsState(bool reset);
     virtual void saveState();
     virtual bool restoreState();
+    virtual void resetState();
 
     /*** command parsing ***/
     int receiveCommand (String command); // receive cloud command

@@ -30,7 +30,7 @@ size_t LoggerComponent::getStateSize() {
 }
 
 void LoggerComponent::loadState(bool reset) {
-    if (getStateSize() > 0) {
+  if (getStateSize() > 0) {
     if (!reset){
         Serial.printf("INFO: trying to restore state from memory for component '%s'\n", id);
         restoreState();
@@ -38,14 +38,18 @@ void LoggerComponent::loadState(bool reset) {
         Serial.printf("INFO: resetting state for component '%s' back to default values\n", id);
         saveState();
     }
-    }
+  }
+};
+
+void LoggerComponent::saveState(){ 
+
 };
 
 bool LoggerComponent::restoreState(){ 
     return(false); 
 };
 
-void LoggerComponent::saveState(){ 
+void LoggerComponent::resetState() {
 
 };
 

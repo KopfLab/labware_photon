@@ -33,8 +33,9 @@ class ExampleLoggerComponent : public LoggerComponentDataReader
 
     /*** state management ***/
     virtual size_t getStateSize();
-    virtual bool restoreState();
     virtual void saveState();
+    virtual bool restoreState();
+    virtual void resetState();
 
     /*** command parsing ***/
     virtual bool parseCommand(LoggerCommand *command);
