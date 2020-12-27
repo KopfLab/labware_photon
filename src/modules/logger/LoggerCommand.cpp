@@ -1,4 +1,5 @@
 #include "LoggerCommand.h"
+#include "LoggerController.h"
 
 /****** COMMAND PARSING *******/
 
