@@ -46,6 +46,10 @@ void LoggerController::init() {
   // initialize
   Serial.printf("INFO: initializing controller '%s'...\n", version);
 
+  // starting application watchdog
+  Serial.println("INFO: starting application watchdog");
+  wd = new ApplicationWatchdog(60s, System.reset, 1536);
+
   // lcd
   lcd->init();
   lcd->printLine(1, version);

@@ -23,6 +23,9 @@ class LoggerController {
 
   private:
 
+    // application watchdog
+    ApplicationWatchdog *wd;
+
     // reset PIN
     const int reset_pin;
     #ifdef STATE_RESET
