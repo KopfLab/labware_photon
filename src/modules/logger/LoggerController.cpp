@@ -46,7 +46,18 @@ void LoggerController::init() {
   // initialize
   Serial.printf("INFO: initializing controller '%s'...\n", version);
 
-  // starting application watchdog
+  // capturing system reset information
+  if (System.resetReason() == RESET_REASON_USER) {
+      past_reset = System.resetReasonData();
+      if (past_reset == RESET_RESTART) {
+        Serial.println("INFO: restarting per user request");
+      } else if (past_reset == RESET_STATE) {
+        Serial.println("INFO: restarting for state reset");
+      }
+  }
+
+  // starting application watchdog and reset
+  System.enableFeature(FEATURE_RESET_INFO);
   Serial.println("INFO: starting application watchdog");
   wd = new ApplicationWatchdog(60s, System.reset, 1536);
 
@@ -176,6 +187,16 @@ void LoggerController::update() {
         clearData(false);
     }
 
+    // restart
+    if (trigger_reset != RESET_UNDEF) {
+      if (millis() - reset_timer_start > reset_delay) {
+        System.reset(trigger_reset, RESET_NO_WAIT);
+      }
+      float countdown = ((float) (reset_delay - (millis() - reset_timer_start))) / 1000;
+      snprintf(lcd_buffer, sizeof(lcd_buffer), "%.0fs to restart...", countdown);
+      lcd->printLineTemp(1, lcd_buffer);
+    }
+
 }
 
 /*** logger name capture ***/
@@ -292,6 +313,8 @@ void LoggerController::parseCommand() {
     // parsing reading period
   } else if (parseReset()) {
     // reset getting parsed
+  } else if (parseRestart()) {
+    // restart getting parsed
   } else {
     parseComponentsCommand();
   }
@@ -367,6 +390,18 @@ bool LoggerController::parseReset() {
       getStateStringText(CMD_RESET, CMD_RESET_STATE, command->data, sizeof(command->data), PATTERN_KV_JSON_QUOTED, false);
       command->setLogMsg("reset state on next startup");
     }
+  }
+  return(command->isTypeDefined());
+}
+
+bool LoggerController::parseRestart() {
+  if (command->parseVariable(CMD_RESTART)) {
+    command->success(true);
+    getInfoValue(command->data, sizeof(command->data), CMD_RESTART);
+    command->setLogMsg("restarting system...");
+    trigger_reset = RESET_RESTART;
+    reset_timer_start = millis();
+    
   }
   return(command->isTypeDefined());
 }

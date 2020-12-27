@@ -15,6 +15,11 @@
 #include "LoggerData.h"
 #include "LoggerDisplay.h"
 
+// reset codes
+#define RESET_UNDEF    1
+#define RESET_RESTART  2
+#define RESET_STATE    3
+
 // forward declaration for component
 class LoggerComponent;
 
@@ -23,7 +28,11 @@ class LoggerController {
 
   private:
 
-    // application watchdog
+    // system reset & application watchdog
+    const int reset_delay = 5000; // in ms - how long to delay the reset
+    unsigned long reset_timer_start = 0; // start of the reset timer
+    uint32_t trigger_reset = RESET_UNDEF; // what kind of reset to trigger
+    uint32_t past_reset = RESET_UNDEF; // what kind of reset was triggered
     ApplicationWatchdog *wd;
 
     // reset PIN
@@ -144,6 +153,7 @@ class LoggerController {
     bool parseDataLoggingPeriod();
     bool parseDataReadingPeriod();
     bool parseReset();
+    bool parseRestart();
 
     /*** state changes ***/
     bool changeLocked(bool on);
