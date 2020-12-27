@@ -21,7 +21,7 @@ class LoggerDisplay
 {
 private:
 	// i2c addresses typically used for LCDs
-	const uint8_t i2c_addrs[2] = {0x3f, 0x27};
+	const uint8_t i2c_addrs[3] = {0x3f, 0x27, 0x23};
 	uint8_t lcd_addr;
 
 	// lcd exists?
