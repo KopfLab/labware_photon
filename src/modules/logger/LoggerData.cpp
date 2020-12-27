@@ -1,6 +1,6 @@
 #include "application.h"
 #include "LoggerData.h"
-#include "LoggerInfo.h"
+#include "LoggerConstants.h"
 
 /** CLEARING **/
 

@@ -1,9 +1,9 @@
 #pragma once
 #include "LoggerMath.h"
 
-/**** general parameters and constants for Logger cloude interaction ****/
+/**** general parameters and constants for Logger cloud interaction ****/
 
-// command from spark cloud
+// spark cloud constants
 #define CMD_ROOT              "device" // command root (i.e. registered particle call function)
 #define CMD_MAX_CHAR          63  // spark.functions are limited to 63 char long call
 
@@ -24,7 +24,7 @@
 
 // NOTE: size is always passed as safety precaution to not overallocate the target
 // sizeof(target) would not work because it's a pointer (always size 4)
-// NOTE: consider implementing better sigma catching for overlong key/value pairs
+// NOTE: consider implementing better error catching for overlong key/value pairs
 
 // formatting patterns
 #define PATTERN_IKVSUNT_JSON      "{\"i\":%d,\"k\":\"%s\",\"v\":%s,\"s\":%s,\"u\":\"%s\",\"n\":%d,\"to\":%lu}"

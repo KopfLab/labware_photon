@@ -10,7 +10,7 @@
 #pragma once
 #include <vector>
 #include "LoggerControllerState.h"
-#include "LoggerInfo.h"
+#include "LoggerConstants.h"
 #include "LoggerCommand.h"
 #include "LoggerData.h"
 #include "LoggerDisplay.h"

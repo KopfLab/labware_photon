@@ -1,6 +1,6 @@
 #pragma once
 #include "application.h"
-#include "LoggerInfo.h"
+#include "LoggerConstants.h"
 
 // return codes:
 //  -  0 : success without warning
