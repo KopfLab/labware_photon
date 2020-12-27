@@ -34,12 +34,11 @@ class LoggerComponentStepper : public LoggerComponent {
   public:
 
     /*** constructors ***/
-    LoggerComponentStepper (const char *id, LoggerController *ctrl, StepperState* state, StepperBoard* board, StepperDriver* driver, StepperMotor* motor) : LoggerComponent(id, ctrl, false) {}
+    LoggerComponentStepper (const char *id, LoggerController *ctrl, StepperState* state, StepperBoard* board, StepperDriver* driver, StepperMotor* motor) : LoggerComponent(id, ctrl, false), state(state), board(board), driver(driver), motor(motor) {}
 
-    StepperController (int reset_pin, LoggerDisplay* lcd) :
-      LoggerController(reset_pin, lcd), board(board), driver(driver), motor(motor), state(state) {
-        construct();
-    };
+    /*** setup ***/
+    uint8_t setupDataVector(uint8_t start_idx);
+    void init();
 
     // methods
     void init(); // to be run during setup()
