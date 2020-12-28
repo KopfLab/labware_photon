@@ -11,9 +11,25 @@ activecolor LoggerComponent#pink
 participant LoggerDisplay#lightblue
 activecolor LoggerDisplay#lightblue
 participant LoggerCommand#yellow
+participant LoggerData#turquoise
 
-# init
+# setup
 note over main.cpp: setup
+main.cpp-->LoggerController: debugCloud()
+main.cpp-->LoggerController: debugWebhooks()
+main.cpp-->LoggerController: debugState()
+main.cpp-->LoggerController: debugData()
+main.cpp-->LoggerController: debugDisplay()
+main.cpp-->LoggerController: forceReset()
+main.cpp-->LoggerController: setNameCallback()
+main.cpp-->LoggerController: setCommandCallback()
+main.cpp-->LoggerController: setStateUpdateCallback()
+main.cpp-->LoggerController: setDataUpdateCallback()
+main.cpp->LoggerController: addComponent()
+activate LoggerController
+LoggerController->LoggerComponent: getStateSize()
+LoggerController->LoggerComponent: setupDataVector()
+deactivateafter LoggerController
 main.cpp->LoggerController: init()
 activate LoggerController
 
@@ -44,17 +60,16 @@ activate Particle
 note right of LoggerController: last_datalog = 0
 deactivateafter LoggerController
 
+# loop events
+note over main.cpp: loop
+
 # name handler
 LoggerController<-Particle: captureName()
 activate LoggerController
 deactivateafter Particle
 LoggerController->LoggerDisplay: printLine(1, name)
-LoggerController->LoggerController: name_callback()
+LoggerController-->LoggerController: name_callback()
 deactivateafter LoggerController
-
-# update
-note over main.cpp: loop
-main.cpp->LoggerController: update()
 
 # command parsing
 LoggerController<-Particle: receiveCommand
@@ -64,19 +79,47 @@ LoggerController->LoggerCommand: extractVariable()
 LoggerController->LoggerController: parseCommand()
 activate LoggerController#red
 LoggerController->LoggerController: parseLocked()
+activate LoggerController#green
+LoggerController->LoggerCommand: parseVariable()
+LoggerController->LoggerCommand: extractValue()
+LoggerController->LoggerCommand: parseValue()
+LoggerController->LoggerController: changeLocked()
+LoggerController->LoggerCommand: success() / error()
+deactivateafter LoggerController
 LoggerController->LoggerController: parseStateLogging()
 LoggerController->LoggerController: parseDataLogging()
 LoggerController->LoggerController: parseDataLoggingPeriod()
 LoggerController->LoggerController: parseDataReadingPeriod()
 LoggerController->LoggerController: parseReset()
+activate LoggerController#green
+group #ff00ff if reset data
+LoggerController->LoggerController: clearData(all = true)
+activate LoggerController#blue
+LoggerController->LoggerComponent: clearData(all = true)
+activate LoggerComponent
+LoggerComponent->LoggerData: clear(all = true)
+deactivateafter LoggerComponent
+deactivateafter LoggerController
+end
+group #ff00ff if reset state
+note right of LoggerController: trigger_reset = RESET_STATE
+end
+deactivateafter LoggerController
+LoggerController->LoggerController: parseRestart()
+activate LoggerController#green
+note right of LoggerController: trigger_reset = RESET_RESTART
+deactivateafter LoggerController
 LoggerController->LoggerController: parseComponentsCommand()
 activate LoggerController#green
-LoggerController->LoggerComponent: parseCommand()
+LoggerController->LoggerComponent: parseCommand(command)
+activate LoggerComponent
+LoggerComponent->LoggerCommand:
+deactivateafter LoggerComponent
 deactivateafter LoggerController
 deactivateafter LoggerController
 
-group #ff00ff if command->isTypeDefined()
-LoggerController-->LoggerCommand: errorCommand()
+group #ff00ff if !command->isTypeDefined()
+LoggerController->LoggerCommand: errorCommand()
 end
 LoggerController->LoggerController: updateDisplayCommandInformation()
 activate LoggerController#red
@@ -95,7 +138,7 @@ parallel off
 end
 
 group #ff00ff if command->hasStateChanged()
-LoggerController->LoggerController: updateLoggerStateVariable()
+LoggerController->LoggerController: updateStateVariable()
 activate LoggerController#red
 LoggerController->LoggerController: updateDisplayStateInformation()
 activate LoggerController#green
@@ -112,24 +155,112 @@ activate LoggerComponent
 LoggerComponent->LoggerDisplay: printLine()
 deactivateafter LoggerComponent
 deactivateafter LoggerController
-LoggerController->LoggerController: assembleLoggerStateVariable()
-LoggerController->LoggerController: assembleLoggerComponentStateVariable()
+LoggerController-->LoggerController: state_update_callback()
+LoggerController->LoggerController: assembleStateVariable()
+LoggerController->LoggerController: assembleComponentStateVariable()
 activate LoggerController#green
-LoggerController->LoggerComponent: assembleLoggerStateVariable()
+LoggerController->LoggerComponent: assembleStateVariable()
 activate LoggerComponent
-LoggerController<-LoggerComponent: addToLoggerStateVariableBuffer()
+LoggerController<-LoggerComponent: addToStateVariableBuffer()
 deactivateafter LoggerComponent
 deactivateafter LoggerController
 parallel
-LoggerController->LoggerController: postLoggerStateVariable()
+LoggerController->LoggerController: postStateVariable()
 Particle<-LoggerController: state_variable
 parallel off
 deactivateafter LoggerController
 end
 
-LoggerController->LoggerController: command_callback()
+LoggerController-->LoggerController: command_callback()
 parallel
 LoggerController<-LoggerCommand: ret_val
 Particle<-LoggerController: ret_val
 parallel off
 deactivateafter LoggerController
+
+# update
+main.cpp->LoggerController: update()
+activate LoggerController
+group #ff00ff if Particle.connected() && !cloud_connected
+LoggerController->LoggerController: updateDisplayStateInformation()
+LoggerController->LoggerController: updateDisplayComponentsStateInformation()
+LoggerController-->LoggerController: state_update_callback()
+note right of LoggerController: cloud_connected = true
+end
+
+group #ff00ff if trigger_reset != RESET_UNDEF
+LoggerController->LoggerController: System.reset(trigger_reset)
+end
+
+group #ff00ff if Particle.connected() && named_handler_succeeded && !startup_logged
+LoggerController->LoggerController: updateStateVariable()
+LoggerController->LoggerController: updateDataInformation()
+LoggerController->LoggerController: assembleStartupLog()
+LoggerController->LoggerController: publishStateLog()
+note right of LoggerController: startup_logged = true
+end
+
+LoggerController->LoggerComponent: update()
+
+LoggerController->LoggerDisplay: update()
+
+# log and clear data
+group #ff00ff if isTimeForDataLogAndClear()
+note right of LoggerController: last_data_log = millis()
+LoggerController->LoggerController: logData()
+activate LoggerController#red
+group #00ffff if state->data_logging
+LoggerController->LoggerComponent: logData()
+activate LoggerComponent
+LoggerComponent->LoggerComponent: while assembleDataLog()
+activate LoggerComponent#red
+LoggerController<-LoggerComponent: resetDataLog()
+LoggerComponent->LoggerData: assembleLog()
+LoggerController<-LoggerComponent: addToDataLogBuffer()
+LoggerController<-LoggerComponent: finalizeDataLog()
+parallel
+LoggerController<-LoggerComponent: publishDataLog()
+Particle<-LoggerController: publish("data_log")
+parallel off
+deactivate LoggerComponent
+deactivateafter LoggerComponent
+end
+deactivateafter LoggerController
+LoggerController->LoggerController: clearData(all = false);
+activate LoggerController#red
+LoggerController->LoggerComponent: clearData(all = false);
+activate LoggerComponent
+LoggerComponent->LoggerData: clear(all = false)
+deactivateafter LoggerComponent
+deactivateafter LoggerController
+end
+deactivateafter LoggerController
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
