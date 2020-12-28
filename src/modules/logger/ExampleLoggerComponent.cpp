@@ -33,9 +33,9 @@ size_t ExampleLoggerComponent::getStateSize() {
 
 void ExampleLoggerComponent::saveState() { 
     EEPROM.put(eeprom_start, *state);
-    #ifdef STATE_DEBUG_ON
-    Serial.printf("INFO: component '%s' state saved in memory (if any updates were necessary)\n", id);
-    #endif
+    if (ctrl->debug_state) {
+        Serial.printf("DEBUG: component '%s' state saved in memory (if any updates were necessary)\n", id);
+    }
 } 
 
 bool ExampleLoggerComponent::restoreState() {
@@ -84,12 +84,12 @@ bool ExampleLoggerComponent::changeStateSetting (bool on) {
 
     if (changed) state->setting = on;
     
-    #ifdef STATE_DEBUG_ON
-    if (changed)
-        on ? Serial.println("INFO: setting turned on") : Serial.println("INFO: setting turned off");
-    else
-        on ? Serial.println("INFO: setting already on") : Serial.println("INFO: setting already off");
-    #endif
+    if (ctrl->debug_state) {
+        if (changed)
+            on ? Serial.println("DEBUG: setting turned yay") : Serial.println("DEBUG: setting turned nay");
+        else
+            on ? Serial.println("DEBUG: setting already yay") : Serial.println("DEBUG: setting already nay");
+    }
 
     if (changed) saveState();
 

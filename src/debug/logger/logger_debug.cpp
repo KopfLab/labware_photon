@@ -69,6 +69,13 @@ void setup() {
   Serial.begin(9600);
   delay(1000);
 
+  // debug modes
+  //controller->debugDisplay();
+  //controller->debugData();
+  //controller->debugState();
+  //controller->debugCloud();
+  //controller->debugWebhooks();
+
   // lcd temporary messages
   lcd->setTempTextShowTime(3); // how many seconds temp time
 

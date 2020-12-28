@@ -86,10 +86,10 @@ void LoggerComponent::assembleDataVariable() {
 /*** particle webhook data log ***/
 
 void LoggerComponent::clearData(bool all) {
-    #ifdef DATA_DEBUG_ON
-    Serial.printf("INFO: clearing component '%s' data at ", id);
-    Serial.println(Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z"));
-    #endif
+    if (ctrl->debug_data) {
+        Serial.printf("DEBUG: clearing component '%s' data at ", id);
+        Serial.println(Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z"));
+    }
     for (int i=0; i<data.size(); i++) data[i].clear(all);
 };
 
@@ -97,9 +97,9 @@ void LoggerComponent::logData() {
     last_data_log_index = -1;
     // chunked data logging
     while (assembleDataLog()) {
-        #ifdef CLOUD_DEBUG_ON
-        Serial.printf("INFO: assembled data log for component '%s' from index %d to %d\n", id, first_data_log_index, last_data_log_index);
-        #endif
+        if (ctrl->debug_cloud) {
+            Serial.printf("DEBUG: assembled data log for component '%s' from index %d to %d\n", id, first_data_log_index, last_data_log_index);
+        }
         ctrl->publishDataLog();
     }
 };

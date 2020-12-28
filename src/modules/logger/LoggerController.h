@@ -1,12 +1,3 @@
-// debugging codes (define in main script to enable)
-// - CLOUD_DEBUG_ON     // use to enable info messages about cloud variables
-// - WEBHOOKS_DEBUG_ON // use to avoid cloud messages from getting sent
-// - STATE_DEBUG_ON     // use to enable info messages about state changes
-// - DATA_DEBUG_ON      // use to enable info messages about data changes
-// - SERIAL_DEBUG_ON    // use to enable info messages about serial data
-// - LCD_DEBUG_ON       // see LoggerDisplay.h
-// - STATE_RESET        // use to force a state reset on startup
-
 #pragma once
 #include <vector>
 #include "LoggerCommand.h"
@@ -105,6 +96,7 @@
 #define RESET_UNDEF    1
 #define RESET_RESTART  2
 #define RESET_STATE    3
+#define RESET_WATCHDOG 4
 
 /*** state ***/
 
@@ -153,16 +145,10 @@ class LoggerController {
     uint32_t past_reset = RESET_UNDEF; // what kind of reset was triggered
     ApplicationWatchdog *wd;
 
-    // reset PIN
+    // reset
     const int reset_pin;
-    #ifdef STATE_RESET
-      // force state reset
-      bool reset = true;
-    #else
-      // no reset on startup
-      bool reset = false;
-    #endif
-
+    bool reset = false;
+    
     // state log exceptions
     bool override_state_log = false;
 
@@ -204,8 +190,8 @@ class LoggerController {
     // buffer and information variables
     char state_variable[STATE_INFO_MAX_CHAR];
     char state_variable_buffer[STATE_INFO_MAX_CHAR-50];
-    char data_information[DATA_INFO_MAX_CHAR];
-    char data_information_buffer[DATA_INFO_MAX_CHAR-50];
+    char data_variable[DATA_INFO_MAX_CHAR];
+    char data_variable_buffer[DATA_INFO_MAX_CHAR-50];
 
     // buffers for log events
     char state_log[STATE_LOG_MAX_CHAR];
@@ -216,6 +202,12 @@ class LoggerController {
     unsigned long last_data_log;
 
   public:
+
+    // debug flags
+    bool debug_cloud = false;
+    bool debug_webhooks = false;
+    bool debug_state = false;
+    bool debug_data = false;
 
     // controller version
     const char *version;
@@ -235,6 +227,14 @@ class LoggerController {
     LoggerController (const char *version, int reset_pin, LoggerDisplay* lcd, LoggerControllerState *state) : version(version), reset_pin(reset_pin), lcd(lcd), state(state) {
       eeprom_location = eeprom_start + sizeof(*state);
     }
+
+    /*** debugs ***/
+    void debugCloud();
+    void debugWebhooks();
+    void debugState();
+    void debugData();
+    void debugDisplay();
+    void forceReset();
 
     /*** callbacks ***/
     void setNameCallback(void (*cb)()); // callback executed after name retrieved from cloud

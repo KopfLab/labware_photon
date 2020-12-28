@@ -4,6 +4,9 @@
 // Logger data for spark cloud
 struct LoggerData {
 
+  // debug
+  bool debug_data = false;
+
   // data information
   char variable[25]; // the name of the data variable
   int idx; // the index of the data
@@ -40,6 +43,9 @@ struct LoggerData {
   LoggerData(int idx, int d) : LoggerData(idx) { setDecimals(d); }
   LoggerData(int idx, char* var, int d) : LoggerData(idx, var) { setDecimals(d); }
   LoggerData(int idx, char* var, char* units, int d) : LoggerData(idx, var, units) { setDecimals(d); }
+
+  // debug
+  void debug();
 
   // clearing
   void clear(bool all = false);

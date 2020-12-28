@@ -48,7 +48,7 @@ class LoggerComponent
 
     /*** state management ***/
     void setEEPROMStart(size_t start);
-    size_t getStateSize();
+    virtual size_t getStateSize();
     virtual void loadState(bool reset = false);
     virtual void saveState();
     virtual bool restoreState();

@@ -39,12 +39,12 @@ bool DataReaderLoggerComponent::isManualDataReader() {
 }
 
 void DataReaderLoggerComponent::startDataRead() {
-    #ifdef DATA_DEBUG_ON
+    if (ctrl->debug_data) {
         (isManualDataReader()) ?
             Serial.printf("INFO: starting data read for component '%s' (manual mode)", id) :
             Serial.printf("INFO: starting data read for component '%s' ", id);
         Serial.println(Time.format(Time.now(), "at %Y-%m-%d %H:%M:%S %Z\n"));
-    #endif
+    }
     data_read_start = millis();
     data_read_status = DATA_READ_WAITING;
 }
@@ -54,27 +54,27 @@ void DataReaderLoggerComponent::readData() {
 }
 
 void DataReaderLoggerComponent::handleDataReadError() {
-    #ifdef DATA_DEBUG_ON
+    if (ctrl->debug_data) {
         Serial.printf("ERROR: component '%s' encountered an error trying to read data at ", id);
         Serial.println(Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z"));
-    #endif
+    }
     // go back to idle
     data_read_status = DATA_READ_IDLE;
 }
 
 void DataReaderLoggerComponent::handleDataReadTimeout() {
-    #ifdef DATA_DEBUG_ON
+    if (ctrl->debug_data) {
         Serial.printf("INFO: data reading period exceeded for component '%s' at ", id);
         Serial.println(Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z"));
-    #endif
+    }
     // go back to idle
     data_read_status = DATA_READ_IDLE;
 }
 
 void DataReaderLoggerComponent::finishDataRead() {
-    #ifdef DATA_DEBUG_ON
+    if (ctrl->debug_data) {
         Serial.printf("INFO: finished data read for component '%s' at ", id);
         Serial.println(Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z"));
-    #endif
+    }
     data_read_status = DATA_READ_IDLE;
 }

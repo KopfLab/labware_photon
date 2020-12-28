@@ -13,13 +13,14 @@
 // buffers
 #define LCD_MAX_SIZE     80 // maximum number of characters on LCD
 
-// debug mode (comment in to get Serial debug messages)
-// #define LCD_DEBUG_ON
-
 // Display class handles displaying information
 class LoggerDisplay
 {
 private:
+
+	// debug flag
+	bool debug_display = false;
+
 	// i2c addresses typically used for LCDs
 	const uint8_t i2c_addrs[3] = {0x3f, 0x27, 0x23};
 	uint8_t lcd_addr;
@@ -67,6 +68,9 @@ public:
 			Serial.println("ERROR: LCD size larger than text buffers, you must adjust LCD_MAX_SIZE or prepare for unexpected behaviour!!!");
 		}
 	}
+
+	// turn debug on
+	void debug();
 
 	// initialize the display
 	void init();

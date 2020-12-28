@@ -2,6 +2,12 @@
 #include "LoggerData.h"
 #include "LoggerUtils.h"
 
+/** DEBUG **/
+
+void LoggerData::debug() {
+  debug_data = true;
+}
+
 /** CLEARING **/
 
 void LoggerData::clear(bool all) {
@@ -109,15 +115,16 @@ void LoggerData::saveNewestValue(bool average) {
     //Serial.printf("value add: %3.10f, datatime add: %lu\nvalue    : %3.10f, datatime    : %lu, stdev  : %.10f\n",
     //  newest_value, newest_data_time, getValue(), getDataTime(), getStdDev());
 
-    #ifdef DATA_DEBUG_ON
+    if (debug_data) {
       (average) ?
-        Serial.print("INFO: new average value saved for ") :
-        Serial.print("INFO: single value saved for ");
+        Serial.print("DEBUG: new average value saved for ") :
+        Serial.print("DEBUG: single value saved for ");
       (getN() > 1) ?
         getDataDoubleWithSigmaText(idx, variable, getValue(), getStdDev(), units, getN(), json, sizeof(json), PATTERN_IKVSUN_SIMPLE, decimals) :
         getDataDoubleText(idx, variable, getValue(), units, json, sizeof(json), PATTERN_IKVU_SIMPLE, decimals);
       Serial.printf("%s (data time = %Lu ms)\n", json, getDataTime());
-    #endif
+    }
+    
   } else {
     Serial.printf("WARNING: newest value for %d (%s) not valid and therefore not saved\n", idx, variable);
   }

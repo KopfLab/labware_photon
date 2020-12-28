@@ -1,6 +1,10 @@
 #include "application.h"
 #include "LoggerDisplay.h"
 
+void LoggerDisplay::debug() {
+	debug_display = true;
+}
+
 void LoggerDisplay::init()
 {
 
@@ -127,10 +131,11 @@ void LoggerDisplay::print(const char c[], bool temp)
 				strncpy(update, c + needs_update, i - needs_update);
 				update[i - needs_update] = 0; // make sure it's 0-pointer terminated
 
-#ifdef LCD_DEBUG_ON
-				Serial.printf(" - part '%s' (%d to %d, length %d)  sent to lcd on line %d, col %d\n",
-							  update, needs_update + 1, i, length, line_now, col_init + needs_update);
-#endif
+				if (debug_display) {
+					Serial.printf(
+						" - part '%s' (%d to %d, length %d)  sent to lcd on line %d, col %d\n",
+						update, needs_update + 1, i, length, line_now, col_init + needs_update);
+				}
 
 				// update lcd
 				moveToPos(line_now, col_init + needs_update);
@@ -158,9 +163,10 @@ void LoggerDisplay::print(const char c[], bool temp)
 			// temporary message --> start counter and store memory info
 			temp_text = true;
 			temp_text_show_start = millis();
-#ifdef LCD_DEBUG_ON
-			Serial.printf(" - flagging positions %d to %d as TEMPORARY\n", pos_now, pos_now + length - 1);
-#endif
+			if (debug_display) {
+				Serial.printf(" - flagging positions %d to %d as TEMPORARY\n", pos_now, pos_now + length - 1);
+			}
+
 			for (uint8_t i = pos_now; i < pos_now + length; i++)
 			{
 				temp_pos[i] = true;
@@ -172,9 +178,9 @@ void LoggerDisplay::print(const char c[], bool temp)
 			strncpy(memory + pos_now, c, length);
 		}
 
-#ifdef LCD_DEBUG_ON
-		Serial.printf(" - finished (new cursor location = line %d, col %d), text buffer:\n[1]%s[%d]\n", line_now, col_now, buffer, strlen(buffer));
-#endif
+		if (debug_display) {
+			Serial.printf(" - finished (new cursor location = line %d, col %d), text buffer:\n[1]%s[%d]\n", line_now, col_now, buffer, strlen(buffer));
+		}
 	}
 }
 
@@ -228,14 +234,14 @@ void LoggerDisplay::printLine(uint8_t line, const char text[], uint8_t start, ui
 		// make sure 0 pointer at the end
 		full_text[length] = 0;
 
-#ifdef LCD_DEBUG_ON
-		if (align == LCD_ALIGN_LEFT)
-			Serial.printf("Info @ %Lu: printing%s '%s' LEFT on line %u (%u to %u)\n",
-						  millis(), (temp ? " TEMPORARY" : ""), full_text, line, start, end);
-		else if (align == LCD_ALIGN_RIGHT)
-			Serial.printf("Info @ %Lu: printing%s '%s' RIGHT on line %u (%u to %u)\n",
-						  millis(), (temp ? " TEMPORARY" : ""), full_text, line, start, end);
-#endif
+		if (debug_display) {
+			if (align == LCD_ALIGN_LEFT)
+				Serial.printf("Info @ %Lu: printing%s '%s' LEFT on line %u (%u to %u)\n",
+							millis(), (temp ? " TEMPORARY" : ""), full_text, line, start, end);
+			else if (align == LCD_ALIGN_RIGHT)
+				Serial.printf("Info @ %Lu: printing%s '%s' RIGHT on line %u (%u to %u)\n",
+							millis(), (temp ? " TEMPORARY" : ""), full_text, line, start, end);
+		}
 
 		// send to print
 		print(full_text, temp);
@@ -290,21 +296,21 @@ void LoggerDisplay::clearTempText()
 	int needs_revert = -1;
 	uint16_t pos, i;
 
-#ifdef LCD_DEBUG_ON
-	Serial.printf("Info @ %Lu: clearing temp messages...\n", millis());
-	for (uint8_t line = 1; line <= lines; line++)
-	{
-		for (uint8_t col = 1; col <= cols; col++)
+	if (debug_display) {
+		Serial.printf("Info @ %Lu: clearing temp messages...\n", millis());
+		for (uint8_t line = 1; line <= lines; line++)
 		{
-			pos = getPos(line, col);
-			if (col == 1)
-				Serial.printf("[%2d]", pos + 1);
-			Serial.printf("%s", (temp_pos[pos]) ? "T" : "F");
-			if (col == cols)
-				Serial.printf("[%2d]\n", pos + 1);
+			for (uint8_t col = 1; col <= cols; col++)
+			{
+				pos = getPos(line, col);
+				if (col == 1)
+					Serial.printf("[%2d]", pos + 1);
+				Serial.printf("%s", (temp_pos[pos]) ? "T" : "F");
+				if (col == cols)
+					Serial.printf("[%2d]\n", pos + 1);
+			}
 		}
 	}
-#endif
 
 	// find temp text on each row
 	for (uint8_t line = 1; line <= lines; line++)
@@ -318,10 +324,10 @@ void LoggerDisplay::clearTempText()
 				strncpy(revert, memory + needs_revert, pos - needs_revert);
 				revert[pos - needs_revert] = 0; // make sure it's 0-pointer terminated
 
-#ifdef LCD_DEBUG_ON
-				Serial.printf(" - reverting line %d, col %d to %d to '%s'\n",
-							  line, col - (pos - needs_revert), col - 1, revert);
-#endif
+				if (debug_display) {
+					Serial.printf(" - reverting line %d, col %d to %d to '%s'\n",
+								line, col - (pos - needs_revert), col - 1, revert);
+				}
 
 				// reset affected temp text
 				for (i = needs_revert; i < pos; i++)

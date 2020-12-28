@@ -20,31 +20,31 @@ static void getStateLockedText(bool locked, char* target, int size, bool value_o
 }
 
 // state logging
-static void getStateStateLoggingText(bool state_logging, char* target, int size, char* pattern, bool include_key = true) {
-  #ifdef WEBHOOKS_DEBUG_ON
+static void getStateStateLoggingText(bool state_logging, char* target, int size, char* pattern, bool include_key = true, bool debug_webhooks = false) {
+  if (debug_webhooks) {
     getStateStringText(CMD_STATE_LOG, "debug", target, size, pattern, include_key);
-  #else
+  } else {
     getStateBooleanText(CMD_STATE_LOG, state_logging, CMD_STATE_LOG_ON, CMD_STATE_LOG_OFF, target, size, pattern, include_key);
-  #endif
+  }
 }
 
-static void getStateStateLoggingText(bool state_logging, char* target, int size, bool value_only = false) {
-  if (value_only) getStateStateLoggingText(state_logging, target, size, PATTERN_V_SIMPLE, false);
-  else getStateStateLoggingText(state_logging, target, size, PATTERN_KV_JSON_QUOTED, true);
+static void getStateStateLoggingText(bool state_logging, char* target, int size, bool value_only = false, bool debug_webhooks = false) {
+  if (value_only) getStateStateLoggingText(state_logging, target, size, PATTERN_V_SIMPLE, false, debug_webhooks);
+  else getStateStateLoggingText(state_logging, target, size, PATTERN_KV_JSON_QUOTED, true, debug_webhooks);
 }
 
 // data logging
-static void getStateDataLoggingText(bool data_logging, char* target, int size, char* pattern, bool include_key = true) {
-  #ifdef WEBHOOKS_DEBUG_ON
+static void getStateDataLoggingText(bool data_logging, char* target, int size, char* pattern, bool include_key = true, bool debug_webhooks = false) {
+  if (debug_webhooks) {
     getStateStringText(CMD_DATA_LOG, "debug", target, size, pattern, include_key);
-  #else
+  } else {
     getStateBooleanText(CMD_DATA_LOG, data_logging, CMD_DATA_LOG_ON, CMD_DATA_LOG_OFF, target, size, pattern, include_key);
-  #endif
+  }
 }
 
-static void getStateDataLoggingText(bool data_logging, char* target, int size, bool value_only = false) {
-  if (value_only) getStateDataLoggingText(data_logging, target, size, PATTERN_V_SIMPLE, false);
-  else getStateDataLoggingText(data_logging, target, size, PATTERN_KV_JSON_QUOTED, true);
+static void getStateDataLoggingText(bool data_logging, char* target, int size, bool value_only = false, bool debug_webhooks = false) {
+  if (value_only) getStateDataLoggingText(data_logging, target, size, PATTERN_V_SIMPLE, false, debug_webhooks);
+  else getStateDataLoggingText(data_logging, target, size, PATTERN_KV_JSON_QUOTED, true, debug_webhooks);
 }
 
 // data logging period (any pattern)
@@ -119,6 +119,38 @@ static void getStateDataReadingPeriodText(int reading_period, char* target, int 
   }
 }
 
+/*** watchdog ***/
+
+static void watchdogHandler() {
+  System.reset(RESET_WATCHDOG, RESET_NO_WAIT);
+}
+
+/*** debugs ***/
+
+void LoggerController::debugCloud(){
+  debug_cloud = true;
+}
+
+void LoggerController::debugWebhooks(){
+  debug_webhooks = true;
+}
+
+void LoggerController::debugState(){
+  debug_state = true;
+}
+
+void LoggerController::debugData(){
+  debug_data = true;
+}
+
+void LoggerController::debugDisplay() {
+  lcd->debug();
+}
+
+void LoggerController::forceReset() {
+  reset = true;
+}
+
 /*** callbacks ***/
 
 void LoggerController::setNameCallback(void (*cb)()) {
@@ -143,11 +175,16 @@ void LoggerController::addComponent(LoggerComponent* component) {
     component->setEEPROMStart(eeprom_location);
     eeprom_location = eeprom_location + component->getStateSize();
     data_idx = component->setupDataVector(data_idx);
+    if (debug_data) {
+      for(int i = 0; i < component->data.size(); i++) {
+        component->data[i].debug();
+      }
+    }
     if (eeprom_location >= EEPROM_MAX) {
-    Serial.printf("ERROR: component '%s' state would exceed EEPROM size, cannot add component.\n", component->id);
+      Serial.printf("ERROR: component '%s' state would exceed EEPROM size, cannot add component.\n", component->id);
     } else {
-    Serial.printf("INFO: adding component '%s' to the controller.\n", component->id);
-    components.push_back(component);
+      Serial.printf("INFO: adding component '%s' to the controller.\n", component->id);
+      components.push_back(component);
     }
 }
 
@@ -165,13 +202,15 @@ void LoggerController::init() {
         Serial.println("INFO: restarting per user request");
       } else if (past_reset == RESET_STATE) {
         Serial.println("INFO: restarting for state reset");
+      } else if (past_reset == RESET_WATCHDOG) {
+        Serial.println("WARNING: restarting because of watchdog");
       }
   }
 
-  // starting application watchdog and reset
+  // starting application watchdog
   System.enableFeature(FEATURE_RESET_INFO);
   Serial.println("INFO: starting application watchdog");
-  wd = new ApplicationWatchdog(60s, System.reset, 1536);
+  wd = new ApplicationWatchdog(60s, watchdogHandler, 1536);
 
   // lcd
   lcd->init();
@@ -197,8 +236,8 @@ void LoggerController::init() {
   // state and log variables
   strcpy(state_variable, "{}");
   state_variable[2] = 0;
-  strcpy(data_information, "{}");
-  data_information[2] = 0;
+  strcpy(data_variable, "{}");
+  data_variable[2] = 0;
   strcpy(state_log, "{}");
   state_log[2] = 0;
   strcpy(data_log, "{}");
@@ -209,12 +248,12 @@ void LoggerController::init() {
   Particle.subscribe("spark/", &LoggerController::captureName, this, MY_DEVICES);
   Particle.function(CMD_ROOT, &LoggerController::receiveCommand, this);
   Particle.variable(STATE_INFO_VARIABLE, state_variable);
-  Particle.variable(DATA_INFO_VARIABLE, data_information);
-  #ifdef WEBHOOKS_DEBUG_ON
+  Particle.variable(DATA_INFO_VARIABLE, data_variable);
+  if (debug_webhooks) {
     // report logs in variables instead of webhooks
     Particle.variable(STATE_LOG_WEBHOOK, state_log);
     Particle.variable(DATA_LOG_WEBHOOK, data_log);
-  #endif
+  }
 
   // data log
   last_data_log = 0;
@@ -274,10 +313,6 @@ void LoggerController::update() {
         // update state and data information now that name is available
         updateStateVariable();
         updateDataVariable();
-
-#ifdef CLOUD_DEBUG_ON
-    Serial.print("WTF IS COING ON ");
-  #endif
 
         if (state->state_logging) {
           Serial.println("INFO: start-up completed.");
@@ -354,9 +389,9 @@ void LoggerController::loadComponentsState(bool reset)
 void LoggerController::saveState()
 {
   EEPROM.put(eeprom_start, *state);
-#ifdef STATE_DEBUG_ON
-  Serial.printf("INFO: controller '%s' state saved in memory (if any updates were necessary)\n", version);
-#endif
+  if (debug_state) {
+    Serial.printf("DEBUG: controller '%s' state saved in memory (if any updates were necessary)\n", version);
+  }
 };
 
 bool LoggerController::restoreState()
@@ -402,10 +437,10 @@ int LoggerController::receiveCommand(String command_string) {
   updateDisplayCommandInformation();
 
   // assemble and publish log
-  #ifdef WEBHOOKS_DEBUG_ON
-    Serial.println("INFO: webhook debugging is on --> always assemble state log and publish to variable");
+  if (debug_webhooks) {
+    Serial.printlnf("DEBUG: webhook debugging is on --> always assemble state log and publish to variable '%s'\n", STATE_LOG_WEBHOOK);
     override_state_log = true;
-  #endif
+  }
   if (state->state_logging | override_state_log) {
     assembleStateLog();
     publishStateLog();
@@ -483,7 +518,7 @@ bool LoggerController::parseStateLogging() {
     } else if (command->parseValue(CMD_STATE_LOG_OFF)) {
       command->success(changeStateLogging(false));
     }
-    getStateStateLoggingText(state->state_logging, command->data, sizeof(command->data));
+    getStateStateLoggingText(state->state_logging, command->data, sizeof(command->data), false, debug_webhooks);
   }
   return(command->isTypeDefined());
 }
@@ -497,7 +532,7 @@ bool LoggerController::parseDataLogging() {
     } else if (command->parseValue(CMD_DATA_LOG_OFF)) {
       command->success(changeDataLogging(false));
     }
-    getStateDataLoggingText(state->data_logging, command->data, sizeof(command->data));
+    getStateDataLoggingText(state->data_logging, command->data, sizeof(command->data), false, debug_webhooks);
   }
   return(command->isTypeDefined());
 }
@@ -639,12 +674,12 @@ bool LoggerController::changeLocked(bool on) {
     state->locked = on;
   }
 
-  #ifdef STATE_DEBUG_ON
+  if (debug_state) {
     if (changed)
-      on ? Serial.println("INFO: locking Logger") : Serial.println("INFO: unlocking Logger");
+      on ? Serial.println("DEBUG: locking Logger") : Serial.println("DEBUG: unlocking Logger");
     else
-      on ? Serial.println("INFO: Logger already locked") : Serial.println("INFO: Logger already unlocked");
-  #endif
+      on ? Serial.println("DEBUG: Logger already locked") : Serial.println("DEBUG: Logger already unlocked");
+  }
 
   if (changed) saveState();
 
@@ -660,12 +695,12 @@ bool LoggerController::changeStateLogging (bool on) {
     override_state_log = true; // always log this event no matter what
   }
 
-  #ifdef STATE_DEBUG_ON
+  if (debug_state) {
     if (changed)
-      on ? Serial.println("INFO: state logging turned on") : Serial.println("INFO: state logging turned off");
+      on ? Serial.println("DEBUG: state logging turned on") : Serial.println("DEBUG: state logging turned off");
     else
-      on ? Serial.println("INFO: state logging already on") : Serial.println("INFO: state logging already off");
-  #endif
+      on ? Serial.println("DEBUG: state logging already on") : Serial.println("DEBUG: state logging already off");
+  }
 
   if (changed) saveState();
 
@@ -680,12 +715,12 @@ bool LoggerController::changeDataLogging (bool on) {
     state->data_logging = on;
   }
 
-  #ifdef STATE_DEBUG_ON
+  if (debug_state) {
     if (changed)
-      on ? Serial.println("INFO: data logging turned on") : Serial.println("INFO: data logging turned off");
+      on ? Serial.println("DEBUG: data logging turned on") : Serial.println("DEBUG: data logging turned off");
     else
-      on ? Serial.println("INFO: data logging already on") : Serial.println("INFO: data logging already off");
-  #endif
+      on ? Serial.println("DEBUG: data logging already on") : Serial.println("DEBUG: data logging already off");
+  }
 
   if (changed) saveState();
 
@@ -704,10 +739,10 @@ bool LoggerController::changeDataLoggingPeriod(int period, int type) {
     state->data_logging_type = type;
   }
 
-  #ifdef STATE_DEBUG_ON
-    if (changed) Serial.printf("INFO: setting data logging period to %d %s\n", period, type == LOG_BY_TIME ? "seconds" : "reads");
-    else Serial.printf("INFO: data logging period unchanged (%d)\n", type == LOG_BY_TIME ? "seconds" : "reads");
-  #endif
+  if (debug_state) {
+    if (changed) Serial.printf("DEBUG: setting data logging period to %d %s\n", period, type == LOG_BY_TIME ? "seconds" : "reads");
+    else Serial.printf("DEBUG: data logging period unchanged (%d)\n", type == LOG_BY_TIME ? "seconds" : "reads");
+  }
 
   if (changed) saveState();
 
@@ -729,10 +764,10 @@ bool LoggerController::changeDataReadingPeriod(int period) {
     state->data_reading_period = period;
   }
 
-  #ifdef STATE_DEBUG_ON
-    if (changed) Serial.printf("INFO: setting data reading period to %d ms\n", period);
-    else Serial.printf("INFO: data reading period unchanged (%d ms)\n", period);
-  #endif
+  if (debug_state) {
+    if (changed) Serial.printf("DEBUG: setting data reading period to %d ms\n", period);
+    else Serial.printf("DEBUG: data reading period unchanged (%d ms)\n", period);
+  }
 
   if (changed) saveState();
 
@@ -825,9 +860,6 @@ void LoggerController::updateDisplayComponentsStateInformation() {
 /*** logger state variable ***/
 
 void LoggerController::updateStateVariable() {
-  #ifdef CLOUD_DEBUG_ON
-    Serial.print("INFO: updating state variable: ");
-  #endif
   updateDisplayStateInformation();
   updateDisplayComponentsStateInformation();
   if (state_update_callback) state_update_callback();
@@ -835,16 +867,16 @@ void LoggerController::updateStateVariable() {
   assembleStateVariable();
   assembleComponentsStateVariable();
   postStateVariable();
-  #ifdef CLOUD_DEBUG_ON
-    Serial.println(state_variable);
-  #endif
+  if (debug_cloud) {
+    Serial.printf("DEBUG: updated state variable: %s\n", state_variable);
+  }
 }
 
 void LoggerController::assembleStateVariable() {
   char pair[60];
   getStateLockedText(state->locked, pair, sizeof(pair)); addToStateVariableBuffer(pair);
-  getStateStateLoggingText(state->state_logging, pair, sizeof(pair)); addToStateVariableBuffer(pair);
-  getStateDataLoggingText(state->data_logging, pair, sizeof(pair)); addToStateVariableBuffer(pair);
+  getStateStateLoggingText(state->state_logging, pair, sizeof(pair), false, debug_webhooks); addToStateVariableBuffer(pair);
+  getStateDataLoggingText(state->data_logging, pair, sizeof(pair), false, debug_webhooks); addToStateVariableBuffer(pair);
   getStateDataLoggingPeriodText(state->data_logging_period, state->data_logging_type, pair, sizeof(pair)); addToStateVariableBuffer(pair);
   if (state->data_reader) {
     getStateDataReadingPeriodText(state->data_reading_period, pair, sizeof(pair)); addToStateVariableBuffer(pair);
@@ -891,6 +923,8 @@ void LoggerController::assembleStartupLog() {
     strncpy(msg, "after user-requested restart", sizeof(msg) - 1);
   } else if (past_reset == RESET_STATE) {
     strncpy(msg, "for user-requested state reset", sizeof(msg) - 1);
+  } else if (past_reset == RESET_WATCHDOG) {
+    strncpy(msg, "triggered by application watchdog", sizeof(msg) - 1);
   }
   msg[sizeof(msg)-1] = 0;
   // id = Logger name, t = state log type, s = state change, m = message, n = notes
@@ -912,44 +946,42 @@ void LoggerController::assembleStateLog() {
 }
 
 bool LoggerController::publishStateLog() {
-  #ifdef CLOUD_DEBUG_ON
-    Serial.printf("INFO: publishing state log %s to event '%s'...", state_log, STATE_LOG_WEBHOOK);
-    #ifdef WEBHOOKS_DEBUG_ON
+  if (debug_cloud) {
+    Serial.printf("DEBUG: publishing state log %s to event '%s'... ", state_log, STATE_LOG_WEBHOOK);
+    if (debug_webhooks) {
       Serial.println();
-    #endif
-  #endif
+    }
+  }
 
-  #ifdef WEBHOOKS_DEBUG_ON
+  if (debug_webhooks) {
     Serial.println("WARNING: state log NOT sent because in WEBHOOKS_DEBUG_ON mode.");
-  #else
+    return(false);
+  } else {
     bool success = Particle.connected() && Particle.publish(STATE_LOG_WEBHOOK, state_log, PRIVATE, WITH_ACK);
 
-    #ifdef CLOUD_DEBUG_ON
+    if (debug_cloud) {
       if (success) Serial.println("successful.");
       else Serial.println("failed!");
-    #endif
+    }
 
     return(success);
-  #endif
+  }
 }
 
 /*** logger data variable ***/
 
 void LoggerController::updateDataVariable() {
-  #ifdef CLOUD_DEBUG_ON
-    Serial.print("INFO: updating data information: ");
-  #endif
   if (data_update_callback) data_update_callback();
-  data_information_buffer[0] = 0; // reset buffer
+  data_variable_buffer[0] = 0; // reset buffer
   assembleComponentsDataVariable();
   if (Particle.connected()) {
     postDataVariable();
   } else {
     Serial.println("ERROR: particle not (yet) connected.");
   }
-  #ifdef CLOUD_DEBUG_ON
-    Serial.println(data_information);
-  #endif
+  if (debug_cloud) {
+    Serial.printf("DEBUG: updated data variable: %s\n", data_variable);
+  }
 }
 
 void LoggerController::assembleComponentsDataVariable() {
@@ -960,19 +992,19 @@ void LoggerController::assembleComponentsDataVariable() {
 }
 
 void LoggerController::addToDataVariableBuffer(char* info) {
-  if (data_information_buffer[0] == 0) {
-    strncpy(data_information_buffer, info, sizeof(data_information_buffer));
+  if (data_variable_buffer[0] == 0) {
+    strncpy(data_variable_buffer, info, sizeof(data_variable_buffer));
   } else {
-    snprintf(data_information_buffer, sizeof(data_information_buffer),
-        "%s,%s", data_information_buffer, info);
+    snprintf(data_variable_buffer, sizeof(data_variable_buffer),
+        "%s,%s", data_variable_buffer, info);
   }
 }
 
 void LoggerController::postDataVariable() {
   Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
   // dt = datetime, d = structured data
-  snprintf(data_information, sizeof(data_information), "{\"dt\":\"%s\",\"d\":[%s]}",
-    date_time_buffer, data_information_buffer);
+  snprintf(data_variable, sizeof(data_variable), "{\"dt\":\"%s\",\"d\":[%s]}",
+    date_time_buffer, data_variable_buffer);
 }
 
 /*** particle webhook data log ***/
@@ -983,10 +1015,10 @@ bool LoggerController::isTimeForDataLogAndClear() {
     // go by time
     unsigned long log_period = state->data_logging_period * 1000;
     if ((millis() - last_data_log) > log_period) {
-      #ifdef DATA_DEBUG_ON
+      if (debug_data) {
         Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
-        Serial.printf("INFO: triggering data log at %s (after %d seconds)\n", date_time_buffer, state->data_logging_period);
-      #endif
+        Serial.printf("DEBUG: triggering data log at %s (after %d seconds)\n", date_time_buffer, state->data_logging_period);
+      }
       return(true);
     }
   } else if (state->data_logging_type == LOG_BY_EVENT) {
@@ -994,10 +1026,10 @@ bool LoggerController::isTimeForDataLogAndClear() {
     // not implemented! this needs to be handled by each component individually so requires a mechanism for components to trigger a specific partial data log
     // go by read number
     if (data[0].getN() >= state->data_logging_period) {
-      #ifdef DATA_DEBUG_ON
+      if (debug_data) {
       Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
       Serial.printf("INFO: triggering data log at %s (after %d reads)\n", date_time_buffer, state->data_logging_period);
-      #endif
+      }
       return(true);
     }
     */
@@ -1018,19 +1050,19 @@ void LoggerController::clearData(bool all) {
 void LoggerController::logData() {
   // publish data log
   bool override_data_log = false;
-  #ifdef WEBHOOKS_DEBUG_ON
-    Serial.println("INFO: webhook debugging is on --> always assemble data log and publish to variable");
+  if (debug_webhooks) {
+    Serial.printf("DEBUG: webhook debugging is on --> always assemble data log and publish to variable '%s'\n", DATA_LOG_WEBHOOK);
     override_data_log = true;
-  #endif
+  }
   if (state->data_logging | override_data_log) {
       // log data for components
       for(components_iter = components.begin(); components_iter != components.end(); components_iter++) {
         (*components_iter)->logData();
       }
   } else {
-    #ifdef CLOUD_DEBUG_ON
-      Serial.println("INFO: data log is turned off --> continue without logging");
-    #endif
+    if (debug_cloud) {
+      Serial.println("DEBUG: data log is turned off --> continue without logging");
+    }
   }
 }
 
@@ -1080,34 +1112,34 @@ bool LoggerController::finalizeDataLog(bool use_common_time, unsigned long commo
 
 bool LoggerController::publishDataLog() {
 
-  #ifdef CLOUD_DEBUG_ON
+  if (debug_cloud) {
     if (!state->data_logging) Serial.println("WARNING: publishing data log despite data logging turned off");
-    Serial.printf("INFO: publishing data log '%s' to event '%s'... ", data_log, DATA_LOG_WEBHOOK);
-    #ifdef WEBHOOKS_DEBUG_ON
+    Serial.printf("DEBUG: publishing data log '%s' to event '%s'... ", data_log, DATA_LOG_WEBHOOK);
+    if (debug_webhooks) {
       Serial.println();
-    #endif
-  #endif
+    }
+  }
 
   if (strlen(data_log) == 0) {
     Serial.println("WARNING: no data log sent because there is none.");
     return(false);
   }
 
-  #ifdef WEBHOOKS_DEBUG_ON
+  if (debug_webhooks) {
     Serial.println("WARNING: data log NOT sent because in WEBHOOKS_DEBUG_ON mode.");
     return(false);
-  #else
+  } else {
     bool success = Particle.connected() && Particle.publish(DATA_LOG_WEBHOOK, data_log, PRIVATE, WITH_ACK);
 
-    #ifdef CLOUD_DEBUG_ON
+    if (debug_cloud) {
       if (success) Serial.println("successful.");
       else Serial.println("failed!");
-    #endif
+    }
 
     (success) ?
         lcd->printLineTemp(1, "INFO: data log sent") :
         lcd->printLineTemp(1, "ERR: data log error");
 
     return(success);
-  #endif
+  }
 }
