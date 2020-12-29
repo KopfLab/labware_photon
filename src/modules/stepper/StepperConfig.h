@@ -1,6 +1,45 @@
 #pragma once
 
-// board
+/*** state ***/
+
+#define DIR_CW           1
+#define DIR_CC          -1
+#define STATUS_ON        1
+#define STATUS_OFF       2
+#define STATUS_HOLD      3
+#define STATUS_MANUAL    4
+#define STATUS_ROTATE    5
+#define STATUS_TRIGGER   6 // TODO: implement signal triggering mode
+#define STEP_FLOW_UNDEF -1
+#define STATE_ADDRESS    0 // EEPROM storage location
+
+struct StepperState {
+  int direction; // DIR_CW or DIR_CC
+  bool ms_auto; // whether microstepping is in automatic mode or not
+  int ms_index; // the index of the currently active microstep mode
+  int ms_mode; // stores the actual ms_mode that is active (just for convenience)
+  int status; // STATUS_ON, OFF, HOLD
+  float rpm; // speed in rotations / minute (actual speed in steps/s depends on microstepping mode)
+  uint8_t version = 3;
+
+  StepperState() {};
+  // construct StepperState in autostepping mode
+  StepperState(int direction, int status, float rpm) :
+    direction(direction), ms_auto(true), ms_index(-1), status(status), rpm(rpm) {};
+  // construct StepperState with specific ms mode
+  StepperState(int direction, int status, float rpm, int ms_index) :
+    direction(direction), ms_auto(false), ms_index(ms_index), status(status), rpm(rpm){};
+};
+
+// state info (note: long label may not be necessary)
+struct StepperStateInfo {
+   int value;
+   char *short_label;
+   char *long_label;
+};
+
+/*** controller board ***/
+
 struct StepperBoard {
   const int dir; // direction
   const int step; // step
@@ -13,7 +52,8 @@ struct StepperBoard {
     dir(dir), step(step), enable(enable), ms1(ms1), ms2(ms2), ms3(ms3), max_speed(max_speed) {};
 };
 
-// microstep mode structure (driver chip specific)
+/*** microstep modes ***/
+
 struct MicrostepMode {
   int mode; // the mode for the ms mode
   bool ms1; // HIGH or LOW for ms1
@@ -25,8 +65,8 @@ struct MicrostepMode {
     mode(mode), ms1(ms1), ms2(ms2), ms3(ms3), rpm_limit(-1) {}
 };
 
+/*** stepper driver ***/
 
-// driver
 struct StepperDriver {
   const bool dir_cw; // is clockwise LOW or HIGH?
   const bool step_on; // is a step made on LOW or HIGH?
@@ -92,7 +132,8 @@ struct StepperDriver {
 
 };
 
-// motor
+/*** stepper motor ***/
+
 struct StepperMotor {
   const int steps; // numer of steps / rotation
   const double gearing; // the gearing (if any, otherwise should be 1)
@@ -102,6 +143,8 @@ struct StepperMotor {
 };
 
 /****** pre-configured options **********/
+
+#ifdef NEVER
 
 StepperBoard PHOTON_STEPPER_BOARD (
   /* dir */         D2,
@@ -164,3 +207,5 @@ StepperMotor STPM35 (
   /* steps */       48,  // 48 steps/rotation, 7.5 degree step angle
   /* gearing */      1
 );
+
+#endif

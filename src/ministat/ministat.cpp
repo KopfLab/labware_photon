@@ -1,108 +1,110 @@
 #pragma SPARK_NO_PREPROCESSOR // disable spark preprocssor to avoid issues with callbacks
+
 #include "application.h"
+#include "LoggerController.h"
+#include "StepperLoggerComponent.h"
 
-// debugging options
-#define CLOUD_DEBUG_ON
-//#define WEBHOOKS_DEBUG_ON
-#define STATE_DEBUG_ON
-//#define DATA_DEBUG_ON
-//#define SERIAL_DEBUG_ON
-//#define LCD_DEBUG_ON
-#define STEPPER_DEBUG_ON
-//#define STATE_RESET // FIXME auto state reset
+// display
+LoggerDisplay* lcd = new LoggerDisplay(16, 2);
 
-// keep track of installed version
-#define STATE_VERSION    4 // change whenver StepperState structure changes
-#define DEVICE_VERSION  "ms 0.1.0" // update with every code update
+// controller state
+LoggerControllerState* controller_state = new LoggerControllerState(
+  /* locked */                    false,
+  /* state_logging */             true,
+  /* data_logging */              false,
+  /* data_logging_period */       3600, // in seconds
+  /* data_logging_type */         LOG_BY_TIME
+);
 
-// M800 controller
-#include "StepperController.h"
-
-// lcd
-//DeviceDisplay* lcd = &LCD_20x4;
-DeviceDisplay LCD_16x2_27 (0x27, 16, 2);
-DeviceDisplay* lcd = &LCD_16x2_27;
+// controller
+LoggerController* controller = new LoggerController(
+  /* version */           "ms 0.2",
+  /* reset pin */         A5,
+  /* lcd screen */        lcd,
+  /* pointer to state */  controller_state
+);
 
 // board
-StepperBoard* board = &PHOTON_STEPPER_BOARD;
-
-// driver
-//StepperDriver* driver = &DRV8825;
-StepperDriver* driver = &DRV8834;
-
-// motor
-//StepperMotor* motor = &WM114ST;
-StepperMotor* motor = &STPM35;
-
-// initial state
-#ifdef NOPE // fixme: this is for pump stepper
-StepperState* state = new StepperState(
-  /* locked */                    false,
-  /* state_logging */             true,
-  /* data_logging */              false,
-  /* data_logging_period */       3600, // in seconds
-  /* data_logging_type */         LOG_BY_TIME, // log by time
-  /* direction */                 DIR_CW, // start clockwise
-  /* status */                    STATUS_OFF, // start off
-  /* rpm */                       1 // start speed [rpm]
-  // no specification of microstepping mode = automatic mode
+StepperBoard* board = new StepperBoard(
+  /* dir */         D2,
+  /* step */        D3,
+  /* enable */      D7,
+  /* ms1 */         D6,
+  /* ms2 */         D5,
+  /* ms3 */         D4,
+  /* max steps/s */ 500 // very conservative to make sure motor doesn't lock
 );
-#endif
 
-// initial state
-StepperState* state = new StepperState(
-  /* locked */                    false,
-  /* state_logging */             true,
-  /* data_logging */              false,
-  /* data_logging_period */       3600, // in seconds
-  /* data_logging_type */         LOG_BY_TIME, // log by time
+// microstep modes (DRV8825 chip)
+const int DRV8834_MICROSTEP_MODES_N = 2;
+MicrostepMode DRV8834_MICROSTEP_MODES[DRV8834_MICROSTEP_MODES_N] =
+  {
+    /* n_steps, M0, M1, (CONFIG) */
+    {1,  LOW,  LOW,  LOW},  // full step
+    {2,  HIGH, LOW,  LOW}   // half step
+    // can technically also do 4, 8, 16, 32 but since using it to drive
+    // relatively fast rotations for stirring and want the torque
+  };
+
+// driver (DRV8825 chip)
+StepperDriver* driver = new StepperDriver(
+  /* dir cw */      HIGH,
+  /* step on */     HIGH,
+  /* enable on */   HIGH,
+  /* modes */       DRV8834_MICROSTEP_MODES,
+  /* modes_n */     DRV8834_MICROSTEP_MODES_N
+);
+
+// motor (STPM35)
+StepperMotor* motor = new StepperMotor(
+  /* steps */       48,  // 48 steps/rotation, 7.5 degree step angle
+  /* gearing */      1
+);
+
+// stepper state
+StepperState* stepper_state = new StepperState(
   /* direction */                 DIR_CW, // start clockwise
   /* status */                    STATUS_OFF, // start off
   /* rpm */                       100 // start speed [rpm]
   // no specification of microstepping mode = automatic mode
 );
 
-// controller
-StepperController* stirrer = new StepperController(
-  /* reset pin */         A5,
-  /* lcd screen */        lcd,
-  /* pointer to board */  board,
-  /* pointer to driver */ driver,
-  /* pointer to motor */  motor,
-  /* pointer to state */  state
+// stepper component
+StepperLoggerComponent* stirrer = new StepperLoggerComponent(
+  /* component name */        "stirrer", 
+  /* pointer to controller */ controller,
+  /* pointer to state */      stepper_state,
+  /* pointer to board */      board,
+  /* pointer to driver */     driver,
+  /* pointer to motor */      motor
 );
 
-// using system threading to improve timely stepper stepping
+// manual wifi management
 SYSTEM_THREAD(ENABLED);
-SYSTEM_MODE(SEMI_AUTOMATIC);
+SYSTEM_MODE(MANUAL);
 
 void setup() {
 
+  // turn wifi module on
+  WiFi.on();
+
   // serial
   Serial.begin(9600);
+  delay(1000);
+
+  // debug modes
+  stirrer->debug();
 
   // lcd temporary messages
   lcd->setTempTextShowTime(3); // how many seconds temp time
 
-  // controller
-  stirrer->init();
+  // add components
+  controller->addComponent(stirrer);
 
+  // controller
+  controller->init();
 }
 
 void loop() {
-  stirrer->update();
+  controller->update();
 }
-
-
-/*
-// maybe test this more
-// might need a system where every line of LCD screen gets stored in a String
-// and then only updated in the separate threat whenever necessary
-led1Thread = new Thread("sample", test_lcd);
-Thread* led1Thread;
-
-os_thread_return_t test_lcd(){
-    for(;;) {
-        lcd.update();
-    }
-}*/
