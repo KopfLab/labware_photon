@@ -79,6 +79,79 @@ void StepperLoggerComponent::debug() {
 
 /*** setup ***/
 
+uint8_t StepperLoggerComponent::setupDataVector(uint8_t start_idx) { 
+    start_idx = ControllerLoggerComponent::setupDataVector(start_idx);
+    data.resize(2);
+    // same index to allow for step transition logging
+    data[0] = LoggerData(1, "speed", "rpm", 1);
+    data[0].setAutoClear(false); // not cleared during auto clear
+    data[1] = LoggerData(1, "speed", "rpm", 1);
+    return(start_idx + 2); 
+}
+
+void StepperLoggerComponent::init() {
+    ControllerLoggerComponent::init();
+
+    // calculate drive limits and initalize stepper
+    driver->calculateRpmLimits(board->max_speed, motor->steps, motor->gearing);
+    stepper = AccelStepper(AccelStepper::DRIVER, board->step, board->dir);
+    stepper.setEnablePin(board->enable);
+    stepper.setPinsInverted	(
+                driver->dir_cw != LOW,
+                driver->step_on != HIGH,
+                driver->enable_on != LOW
+            );
+    stepper.disableOutputs();
+    stepper.setMaxSpeed(board->max_speed);
+
+    // microstepping
+    state->ms_index = findMicrostepIndexForRpm(state->rpm);
+    state->ms_mode = driver->getMode(state->ms_index);
+    pinMode(board->ms1, OUTPUT);
+    pinMode(board->ms2, OUTPUT);
+    pinMode(board->ms3, OUTPUT);
+    if (debug_mode) {
+        Serial.println("INFO: available microstepping modes");
+        for (int i = 0; i < driver->ms_modes_n; i++) {
+        Serial.printf("   Mode %d: %i steps, max rpm: %.1f\n", i, driver->ms_modes[i].mode, driver->ms_modes[i].rpm_limit);
+        }
+    }
+
+    //updateStepper(true); // FIXME
+}
+
+/*** state management ***/
+    
+size_t StepperLoggerComponent::getStateSize() { 
+    return(sizeof(*state));
+}
+
+void StepperLoggerComponent::saveState() { 
+    EEPROM.put(eeprom_start, *state);
+    if (ctrl->debug_state) {
+        Serial.printf("DEBUG: component '%s' state saved in memory (if any updates were necessary)\n", id);
+    }
+} 
+
+bool StepperLoggerComponent::restoreState() {
+    StepperState *saved_state = new StepperState();
+    EEPROM.get(eeprom_start, *saved_state);
+    bool recoverable = saved_state->version == state->version;
+    if(recoverable) {
+        EEPROM.get(eeprom_start, *state);
+        Serial.printf("INFO: successfully restored component state from memory (state version %d)\n", state->version);
+    } else {
+        Serial.printf("INFO: could not restore state from memory (found state version %d instead of %d), sticking with initial default\n", saved_state->version, state->version);
+        saveState();
+    }
+    return(recoverable);
+}
+
+void StepperLoggerComponent::resetState() {
+    state->version = 0; // force reset of state on restart
+    saveState();
+}
+
 /*
 
 void StepperLoggerComponent::construct() {

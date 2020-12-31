@@ -68,10 +68,15 @@ class StepperLoggerComponent : public ControllerLoggerComponent {
     void debug();
 
     /*** setup ***/
-    //uint8_t setupDataVector(uint8_t start_idx);
-    //void init();
+    uint8_t setupDataVector(uint8_t start_idx);
+    void init();
 
     /*** state management ***/
+    virtual size_t getStateSize();
+    virtual void saveState();
+    virtual bool restoreState();
+    virtual void resetState();
+
 
     /*** command parsing ***/
 
