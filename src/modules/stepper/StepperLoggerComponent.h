@@ -37,13 +37,6 @@ class StepperLoggerComponent : public ControllerLoggerComponent {
 
   private:
 
-    // internal functions
-    void construct();
-    void updateStepper(bool init = false); // update stepper object
-    float calculateSpeed(); // calculate speed based on settings
-    int findMicrostepIndexForRpm(float rpm); // finds the correct ms index for the requested rpm (takes ms_auto into consideration)
-    bool setSpeedWithSteppingLimit(float rpm); // sets state->speed and returns true if request set, false if had to set to limit
-
     // configuration
     StepperBoard* board;
     StepperDriver* driver;
@@ -71,16 +64,32 @@ class StepperLoggerComponent : public ControllerLoggerComponent {
     uint8_t setupDataVector(uint8_t start_idx);
     void init();
 
+    /*** loop ***/
+    void update();
+
     /*** state management ***/
     virtual size_t getStateSize();
     virtual void saveState();
     virtual bool restoreState();
     virtual void resetState();
 
-
     /*** command parsing ***/
 
+
     /*** state changes ***/
+    bool changeStatus(int status);
+    bool changeDirection(int direction);
+    bool changeSpeedRpm(float rpm); // return false if had to limit speed, true if taking speed directly
+    bool changeToAutoMicrosteppingMode(); // set to automatic microstepping mode
+    bool changeMicrosteppingMode(int ms_mode); // set microstepping by mode, return false if can't find requested mode
+
+    /*** state auxiliary functions ***/
+
+    // internal functions - could be private
+    void updateStepper(bool init = false); // update stepper object
+    float calculateSpeed(); // calculate speed based on settings
+    int findMicrostepIndexForRpm(float rpm); // finds the correct ms index for the requested rpm (takes ms_auto into consideration)
+    bool setSpeedWithSteppingLimit(float rpm); // sets state->speed and returns true if request set, false if had to set to limit
 
     /*
 
@@ -89,11 +98,6 @@ class StepperLoggerComponent : public ControllerLoggerComponent {
     float getMaxRpm(); // returns the maximum rpm for the pump
 
     bool changeDataLogging (bool on);
-    bool changeStatus(int status);
-    bool changeDirection(int direction);
-    bool changeSpeedRpm(float rpm); // return false if had to limit speed, true if taking speed directly
-    bool changeToAutoMicrosteppingMode(); // set to automatic microstepping mode
-    bool changeMicrosteppingMode(int ms_mode); // set microstepping by mode, return false if can't find requested mode
 
     bool start(); // start the pump
     bool stop(); // stop the pump

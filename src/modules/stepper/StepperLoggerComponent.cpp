@@ -117,7 +117,35 @@ void StepperLoggerComponent::init() {
         }
     }
 
-    //updateStepper(true); // FIXME
+    updateStepper(true);
+}
+
+/*** loop ***/
+
+void StepperLoggerComponent::update() {
+
+  if (state->status == STATUS_ROTATE) {
+    // WARNING: FIXME known bug, when power out, saved rotate status will lead to immediate stop of pump
+    if (stepper.distanceToGo() == 0) {
+      changeStatus(STATUS_OFF); // disengage if reached target location
+      ctrl->updateStateVariable(); // state variable change not connected to a direct commmand
+    } else {
+      stepper.runSpeedToPosition();
+    }
+  } else {
+    stepper.runSpeed();
+  }
+
+  // log rpm once startup is complete // FIXME - 
+  // --> implement a startup complete method in the components that is called by the controller whenever startup is complete
+  /*
+  if (startup_logged && !startup_rpm_logged) {
+    logRpm();
+    startup_rpm_logged = true;
+  }
+  */
+
+  ControllerLoggerComponent::update();
 }
 
 /*** state management ***/
@@ -152,8 +180,192 @@ void StepperLoggerComponent::resetState() {
     saveState();
 }
 
-/*
+/*** command parsing ***/
 
+
+
+/*** state changes ***/
+
+bool StepperLoggerComponent::changeStatus(int status) {
+
+  // only update if necessary
+  bool changed = status != state->status;
+
+  if (debug_mode) {
+    (changed) ?
+      Serial.printf("INFO: status updating to %d\n", status):
+      Serial.printf("INFO: status unchanged (%d)\n", status);
+  }
+
+  if (changed) {
+    state->status = status;
+    updateStepper();
+    saveState();
+  }
+  return(changed);
+}
+
+bool StepperLoggerComponent::changeDirection(int direction) {
+
+  // only update if necessary
+  bool changed = (direction == DIR_CW || direction == DIR_CC) && state->direction != direction;
+
+  if (debug_mode) {
+    if (changed)
+      (direction == DIR_CW) ? Serial.println("INFO: changing direction to clockwise") : Serial.println("INFO: changing direction to counter clockwise");
+    else
+      (direction == DIR_CW) ? Serial.println("INFO: direction unchanged (clockwise)") : Serial.println("INFO: direction unchanged (counter clockwise)");
+  }
+
+  if (changed) {
+    state->direction = direction;
+    if (state->status == STATUS_ROTATE) {
+      // if rotating to a specific position, changing direction turns the pump off
+      if (debug_mode) {
+        Serial.println("INFO: stepper stopped due to change in direction during 'rotate'");
+      }
+      state->status = STATUS_OFF;
+    }
+    updateStepper();
+    saveState();
+  }
+
+  return(changed);
+}
+
+bool StepperLoggerComponent::changeSpeedRpm(float rpm) {
+  int original_ms_mode = state->ms_mode;
+  float original_rpm = state->rpm;
+  state->ms_index = findMicrostepIndexForRpm(rpm);
+  state->ms_mode = driver->getMode(state->ms_index); // tracked for convenience
+  setSpeedWithSteppingLimit(rpm);
+  bool changed = state->ms_mode != original_ms_mode | fabs(state->rpm - original_rpm) > 0.0001;
+
+  if (debug_mode) {
+    (changed) ?
+      Serial.printf("INFO: changing rpm %.3f\n", state->rpm) :
+      Serial.printf("INFO: rpm staying unchanged ()%.3f)\n", state->rpm);
+  }
+
+  if (changed) {
+    updateStepper();
+    saveState();
+  }
+  return(changed);
+}
+
+bool StepperLoggerComponent::changeToAutoMicrosteppingMode() {
+
+  bool changed = !state->ms_auto;
+
+  if (debug_mode) {
+    (changed) ?
+      Serial.println("INFO: activating automatic microstepping"):
+      Serial.println("INFO: automatic microstepping already active");
+  }
+
+  if (changed) {
+    state->ms_auto = true;
+    state->ms_index = findMicrostepIndexForRpm(state->rpm);
+    state->ms_mode = driver->getMode(state->ms_index); // tracked for convenience
+    updateStepper();
+    saveState();
+  }
+  return(changed);
+}
+
+bool StepperLoggerComponent::changeMicrosteppingMode(int ms_mode) {
+
+  // find index for requested microstepping mode
+  int ms_index = driver->findMicrostepIndexForMode(ms_mode);
+
+  // no index found for requested mode
+  if (ms_index == -1) {
+    Serial.printf("WARNING: could not find microstep index for mode %d\n", ms_mode);
+    return(false);
+  }
+
+  bool changed = state->ms_auto | (state->ms_index != ms_index);
+  if (debug_mode) {
+    (changed) ?
+      Serial.printf("INFO: activating microstepping index %d for mode %d\n", ms_index, ms_mode):
+      Serial.printf("INFO: microstepping mode already active (%d)\n", state->ms_mode);
+  }
+
+  if (changed) {
+    // update with new microstepping mode
+    state->ms_auto = false; // deactivate auto microstepping
+    state->ms_index = ms_index; // set the found index
+    state->ms_mode = driver->getMode(ms_index); // tracked for convenience
+    setSpeedWithSteppingLimit(state->rpm); // update speed (if necessary)
+    updateStepper();
+    saveState();
+  }
+  return(changed);
+}
+
+/*** state auxiliary functions ***/
+
+void StepperLoggerComponent::updateStepper(bool init) {
+  // update microstepping
+  if (state->ms_index >= 0 && state->ms_index < driver->ms_modes_n) {
+    digitalWrite(board->ms1, driver->ms_modes[state->ms_index].ms1);
+    digitalWrite(board->ms2, driver->ms_modes[state->ms_index].ms2);
+    digitalWrite(board->ms3, driver->ms_modes[state->ms_index].ms3);
+  }
+
+  // update speed
+  stepper.setSpeed(calculateSpeed());
+
+  // update enabled / disabled
+  if (state->status == STATUS_ON || state->status == STATUS_ROTATE) {
+    stepper.enableOutputs();
+  } else if (state->status == STATUS_HOLD) {
+    stepper.setSpeed(0);
+    stepper.enableOutputs();
+  } else {
+    // STATUS_OFF
+    stepper.setSpeed(0);
+    stepper.disableOutputs();
+  }
+
+  // log rpm (if necessary - determined in function)
+  //if (!init) logRpm(); // FIXME - implement the log rpm function
+  // --> think about how that should/shouldn't make use of the data variable updates
+  // --> the data handling probably using ctrl->updateDataVariable() and the component-specific logData() 
+}
+
+float StepperLoggerComponent::calculateSpeed() {
+  float speed = state->rpm/60.0 * motor->steps * motor->gearing * state->ms_mode * state->direction;
+  if (debug_mode) {
+    Serial.printf("INFO: calculated speed %.5f (micro)steps/s (%i microstep mode)\n", speed, state->ms_mode);
+  }
+  return(speed);
+}
+
+int StepperLoggerComponent::findMicrostepIndexForRpm(float rpm) {
+  if (state->ms_auto) {
+    // automatic mode --> find lowest MS mode that can handle these rpm (otherwise go to full step -> ms_index = 0)
+    return(driver->findMicrostepIndexForRpm(rpm));
+  } else {
+    return(state->ms_index);
+  }
+}
+
+bool StepperLoggerComponent::setSpeedWithSteppingLimit(float rpm) {
+  if (driver->testRpmLimit(state->ms_index, rpm)) {
+    state->rpm = driver->getRpmLimit(state->ms_index);
+    Serial.printf("WARNING: stepping mode is not fast enough for the requested rpm: %.3f --> switching to MS mode rpm limit of %.3f\n", rpm, state->rpm);
+    return(false);
+  } else {
+    state->rpm = rpm;
+    return(true);
+  }
+}
+
+
+/*
+// now part of setup 
 void StepperLoggerComponent::construct() {
   driver->calculateRpmLimits(board->max_speed, motor->steps, motor->gearing);
   data.resize(2);
@@ -163,6 +375,7 @@ void StepperLoggerComponent::construct() {
   data[1] = LoggerData(1, "speed", "rpm", 1);
 }
 
+// implemented
 void StepperLoggerComponent::init() {
 
   LoggerController::init();
@@ -193,7 +406,7 @@ void StepperLoggerComponent::init() {
   updateStepper(true);
 }
 
-// loop function
+// implemented
 void StepperLoggerComponent::update() {
   if (state->status == STATUS_ROTATE) {
     // WARNING: FIXME known bug, when power out, saved rotate status will lead to immediate stop of pump
@@ -217,6 +430,7 @@ void StepperLoggerComponent::update() {
 }
 
 
+// implemented
 // save device state to EEPROM
 void StepperLoggerComponent::saveDS() {
   EEPROM.put(STATE_ADDRESS, *state);
@@ -225,6 +439,7 @@ void StepperLoggerComponent::saveDS() {
   #endif
 }
 
+// implemented
 // load device state from EEPROM
 bool StepperLoggerComponent::restoreDS(){
   StepperState saved_state;
@@ -240,6 +455,7 @@ bool StepperLoggerComponent::restoreDS(){
   return(recoverable);
 }
 
+// implemented
 void StepperLoggerComponent::updateStepper(bool init) {
   // update microstepping
   if (state->ms_index >= 0 && state->ms_index < driver->ms_modes_n) {
@@ -267,6 +483,7 @@ void StepperLoggerComponent::updateStepper(bool init) {
   if (!init) logRpm();
 }
 
+// implemented
 float StepperLoggerComponent::calculateSpeed() {
   float speed = state->rpm/60.0 * motor->steps * motor->gearing * state->ms_mode * state->direction;
   #ifdef STEPPER_DEBUG_ON
@@ -275,7 +492,11 @@ float StepperLoggerComponent::calculateSpeed() {
   return(speed);
 }
 
-
+// FIXNE: needs implementation --> needs a call from controller to components
+// whenever data logging changes
+// potentially implement in parseCommands? (i.e. reparse commands)
+// consider calling logData() for all ControllerComponents automatically upon it getting turned on?
+// FIXME end
 bool StepperLoggerComponent::changeDataLogging (bool on) {
   bool changed = LoggerController::changeDataLogging (on);
   if (on && changed) logRpm();
@@ -415,6 +636,7 @@ bool StepperLoggerComponent::changeMicrosteppingMode(int ms_mode) {
   return(changed);
 }
 
+// implemented
 int StepperLoggerComponent::findMicrostepIndexForRpm(float rpm) {
   if (state->ms_auto) {
     // automatic mode --> find lowest MS mode that can handle these rpm (otherwise go to full step -> ms_index = 0)
@@ -507,7 +729,7 @@ void StepperLoggerComponent::updateStateInformation() {
   // LCD update
   if (lcd) {
 
-      // fixme: should be callback function
+      // fixme: should be callback function - this is now handled by ctrl->updateStateVariable
 
     // stirrer
     lcd_buffer[0] = 0; // reset buffer
