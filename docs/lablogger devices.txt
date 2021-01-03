@@ -193,14 +193,23 @@ LoggerController->LoggerController: System.reset(trigger_reset)
 end
 
 group #ff00ff if Particle.connected() && named_handler_succeeded && !startup_logged
-LoggerController->LoggerController: updateStateVariable()
-LoggerController->LoggerController: updateDataInformation()
+LoggerController->LoggerController: completeStartup()
+activate LoggerController#red
+LoggerController->LoggerController: updateStateVariable() [see details above]
+LoggerController->LoggerController: updateDataVariable() [see details below]
 LoggerController->LoggerController: assembleStartupLog()
 LoggerController->LoggerController: publishStateLog()
+LoggerController->LoggerComponent: completeStartup()
+deactivateafter LoggerController
 note right of LoggerController: startup_logged = true
+# FIXME: implement startup complete call
 end
 
 LoggerController->LoggerComponent: update()
+activate LoggerComponent
+LoggerController<--LoggerComponent: updateDataVariable()
+# FIXME: continue capturing what's going on here
+deactivateafter LoggerComponent
 
 LoggerController->LoggerDisplay: update()
 

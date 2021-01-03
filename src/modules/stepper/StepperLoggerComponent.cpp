@@ -120,10 +120,17 @@ void StepperLoggerComponent::init() {
     updateStepper(true);
 }
 
+void StepperLoggerComponent::completeStartup() {
+    ControllerLoggerComponent::completeStartup();
+    if (debug_mode) {
+        Serial.printf("INFO: logging speed at startup (%.4frpm)\n", data[0].getValue());
+    }
+    logData();
+}
+
 /*** loop ***/
 
 void StepperLoggerComponent::update() {
-
   if (state->status == STATUS_ROTATE) {
     // WARNING: FIXME known bug, when power out, saved rotate status will lead to immediate stop of pump
     if (stepper.distanceToGo() == 0) {
@@ -135,16 +142,6 @@ void StepperLoggerComponent::update() {
   } else {
     stepper.runSpeed();
   }
-
-  // log rpm once startup is complete // FIXME - 
-  // --> implement a startup complete method in the components that is called by the controller whenever startup is complete
-  /*
-  if (startup_logged && !startup_rpm_logged) {
-    logRpm();
-    startup_rpm_logged = true;
-  }
-  */
-
   ControllerLoggerComponent::update();
 }
 
@@ -182,7 +179,147 @@ void StepperLoggerComponent::resetState() {
 
 /*** command parsing ***/
 
+bool StepperLoggerComponent::parseCommand(LoggerCommand *command) {
+  if (parseStatus(command)) {
+    // check for status commands
+  } else if (parseDirection(command)) {
+    // check for direction commands
+  } else if (parseSpeed(command)) {
+    // check for speed commands
+  //} else if (parseRamp()) {
+    // check for ramp commands - TODO
+  } else if (parseMS(command)) {
+    // check for microstepping commands
+  }
+  return(command->isTypeDefined());
+}
 
+bool StepperLoggerComponent::parseStatus(LoggerCommand *command) {
+  if (command->parseVariable(CMD_START)) {
+    // start
+    command->success(start());
+  } else if (command->parseVariable(CMD_STOP)) {
+    // stop
+    command->success(stop());
+  } else if (command->parseVariable(CMD_HOLD)) {
+    // hold
+    command->success(hold());
+  } else if (command->parseVariable(CMD_RUN)) {
+    // run - not yet implemented FIXME
+  } else if (command->parseVariable(CMD_AUTO)) {
+    // auto - not yet implemented FIXME
+  } else if (command->parseVariable(CMD_ROTATE)) {
+    // rotate
+    command->extractValue();
+    char* end;
+    float number = strtof (command->value, &end);
+    int converted = end - command->value;
+    if (converted > 0) {
+      // valid number
+      rotate(number);
+      // rotate always counts as new command b/c rotation starts from scratch
+      command->success(true);
+    } else {
+      // no number, invalid value
+      command->errorValue();
+    }
+  }
+
+  // set command data if type defined
+  if (command->isTypeDefined()) {
+    getStepperStateStatusInfo(state->status, command->data, sizeof(command->data));
+  }
+
+  return(command->isTypeDefined());
+}
+
+bool StepperLoggerComponent::parseDirection(LoggerCommand *command) {
+
+  if (command->parseVariable(CMD_DIR)) {
+    // direction
+    command->extractValue();
+    if (command->parseValue(CMD_DIR_CW)) {
+      // clockwise
+      command->success(changeDirection(DIR_CW));
+    } else if (command->parseValue(CMD_DIR_CC)) {
+      // counter clockwise
+      command->success(changeDirection(DIR_CC));
+    } else if (command->parseValue(CMD_DIR_SWITCH)) {
+      // switch
+      command->success(changeDirection(-state->direction));
+    } else {
+      // invalid
+      command->errorValue();
+    }
+  }
+
+  // set command data if type defined
+  if (command->isTypeDefined()) {
+    getStepperStateDirectionInfo(state->direction, command->data, sizeof(command->data));
+  }
+
+  return(command->isTypeDefined());
+}
+
+bool StepperLoggerComponent::parseSpeed(LoggerCommand *command) {
+
+  if (command->parseVariable(CMD_SPEED)) {
+    // speed
+    command->extractValue();
+    command->extractUnits();
+
+    if (command->parseUnits(SPEED_RPM)) {
+      // speed rpm
+      char* end;
+      float number = strtof (command->value, &end);
+      int converted = end - command->value;
+      if (converted > 0) {
+        // valid number
+        command->success(changeSpeedRpm(number));
+        if( (state->rpm - number) < 0.0 ) {
+          // could not set to rpm, hit the max --> set warning
+          command->warning(CMD_RET_WARN_MAX_RPM, CMD_RET_WARN_MAX_RPM_TEXT);
+        }
+      } else {
+        // no number, invalid value
+        command->errorValue();
+      }
+    //} else if (command->parseUnits(SPEED_FPM)) {
+      // speed fpm
+      // TODO
+    } else {
+      command->errorUnits();
+    }
+  }
+
+  // set command data if type defined
+  if (command->isTypeDefined()) {
+    getStepperStateSpeedInfo(state->rpm, command->data, sizeof(command->data));
+  }
+
+  return(command->isTypeDefined());
+}
+
+bool StepperLoggerComponent::parseMS(LoggerCommand *command) {
+
+  if (command->parseVariable(CMD_STEP)) {
+    // microstepping
+    command->extractValue();
+    if (command->parseValue(CMD_STEP_AUTO)) {
+      command->success(changeToAutoMicrosteppingMode());
+    } else {
+      int ms_mode = atoi(command->value);
+      command->success(changeMicrosteppingMode(ms_mode));
+    }
+  }
+
+  // set command data if type defined
+  if (command->isTypeDefined()) {
+    getStepperStateMSInfo(state->ms_auto, state->ms_mode, command->data, sizeof(command->data));
+  }
+
+  return(command->isTypeDefined());
+}
 
 /*** state changes ***/
 
@@ -203,6 +340,18 @@ bool StepperLoggerComponent::changeStatus(int status) {
     saveState();
   }
   return(changed);
+}
+
+bool StepperLoggerComponent::start() { return(changeStatus(STATUS_ON)); }
+bool StepperLoggerComponent::stop() { return(changeStatus(STATUS_OFF)); }
+bool StepperLoggerComponent::hold() { return(changeStatus(STATUS_HOLD)); }
+
+long StepperLoggerComponent::rotate(float number) {
+  long steps = state->direction * number * motor->steps * motor->gearing * state->ms_mode;
+  stepper.setCurrentPosition(0);
+  stepper.moveTo(steps);
+  changeStatus(STATUS_ROTATE);
+  return(steps);
 }
 
 bool StepperLoggerComponent::changeDirection(int direction) {
@@ -304,7 +453,7 @@ bool StepperLoggerComponent::changeMicrosteppingMode(int ms_mode) {
   return(changed);
 }
 
-/*** state auxiliary functions ***/
+/*** stepper functions ***/
 
 void StepperLoggerComponent::updateStepper(bool init) {
   // update microstepping
@@ -329,10 +478,35 @@ void StepperLoggerComponent::updateStepper(bool init) {
     stepper.disableOutputs();
   }
 
-  // log rpm (if necessary - determined in function)
-  //if (!init) logRpm(); // FIXME - implement the log rpm function
-  // --> think about how that should/shouldn't make use of the data variable updates
-  // --> the data handling probably using ctrl->updateDataVariable() and the component-specific logData() 
+  // update data if new rpm
+  float new_rpm;
+  if (state->status == STATUS_ON || state->status == STATUS_ROTATE) {
+    new_rpm = state->rpm * state->direction;
+  } else {
+    new_rpm = 0.0;
+  }
+
+  // make change if data (=rpm) not yet set or rpm has changed
+  if (!data[0].newest_value_valid || fabs(new_rpm - data[0].getValue()) > 0.0001) {
+   
+    // any existing data?
+    if (data[0].newest_value_valid) {
+        if (debug_mode) {
+            Serial.printf("INFO: logging speed shift from %.4f to %.4frpm\n", data[0].getValue(), new_rpm);
+        }
+        data[1].setNewestDataTime(millis() - 1); // old value logged 1 ms before new value
+        data[1].saveNewestValue(false); // no averaging
+        data[1].setNewestValue(data[0].getValue());
+    } 
+
+    // set new value
+    data[0].setNewestValue(new_rpm);
+    data[0].setNewestDataTime(millis());
+    data[0].saveNewestValue(false); // no averagings
+    logData();
+    ctrl->updateDataVariable();
+    clearData(false);
+  }
 }
 
 float StepperLoggerComponent::calculateSpeed() {
@@ -361,6 +535,31 @@ bool StepperLoggerComponent::setSpeedWithSteppingLimit(float rpm) {
     state->rpm = rpm;
     return(true);
   }
+}
+
+/*** command info to display ***/
+
+/*** state info to LCD display ***/
+
+/*** logger state variable ***/
+
+void StepperLoggerComponent::assembleStateVariable() {
+  char pair[60];
+  getStepperStateStatusInfo(state->status, pair, sizeof(pair)); ctrl->addToStateVariableBuffer(pair);
+  getStepperStateDirectionInfo(state->direction, pair, sizeof(pair)); ctrl->addToStateVariableBuffer(pair);
+  getStepperStateSpeedInfo(state->rpm, pair, sizeof(pair)); ctrl->addToStateVariableBuffer(pair);
+  getStepperStateMSInfo(state->ms_auto, state->ms_mode, pair, sizeof(pair)); ctrl->addToStateVariableBuffer(pair);
+}
+
+/*** particle webhook state log ***/
+
+/*** logger data variable ***/
+
+/*** particle webhook data log ***/
+
+void StepperLoggerComponent::clearData(bool all) {
+  // never clear persistent data
+  ControllerLoggerComponent::clearData(false);
 }
 
 
@@ -422,7 +621,7 @@ void StepperLoggerComponent::update() {
 
   // log rpm once startup is complete
   if (startup_logged && !startup_rpm_logged) {
-    logRpm();
+    changeData();
     startup_rpm_logged = true;
   }
 
@@ -480,7 +679,7 @@ void StepperLoggerComponent::updateStepper(bool init) {
   }
 
   // log rpm (if necessary - determined in function)
-  if (!init) logRpm();
+  if (!init) changeData();
 }
 
 // implemented
@@ -499,7 +698,7 @@ float StepperLoggerComponent::calculateSpeed() {
 // FIXME end
 bool StepperLoggerComponent::changeDataLogging (bool on) {
   bool changed = LoggerController::changeDataLogging (on);
-  if (on && changed) logRpm();
+  if (on && changed) changeData();
   return(changed);
 }
 
@@ -646,25 +845,6 @@ int StepperLoggerComponent::findMicrostepIndexForRpm(float rpm) {
   }
 }
 
-// start, stop, hold
-bool StepperLoggerComponent::start() { return(changeStatus(STATUS_ON)); }
-bool StepperLoggerComponent::stop() { return(changeStatus(STATUS_OFF)); }
-bool StepperLoggerComponent::hold() { return(changeStatus(STATUS_HOLD)); }
-
-// number of rotations
-long StepperLoggerComponent::rotate(float number) {
-  long steps = state->direction * number * motor->steps * motor->gearing * state->ms_mode;
-  stepper.setCurrentPosition(0);
-  stepper.moveTo(steps);
-  changeStatus(STATUS_ROTATE);
-  return(steps);
-}
-
-void StepperLoggerComponent::clearData(bool all) {
-  // never clear persistent data
-  LoggerController::clearData(false);
-}
-
 bool StepperLoggerComponent::assembleDataLog() {
   // always reset time offset to 0
   data[0].setNewestDataTime(millis());
@@ -673,7 +853,8 @@ bool StepperLoggerComponent::assembleDataLog() {
   return(LoggerController::assembleDataLog(false));
 }
 
-void StepperLoggerComponent::logRpm() {
+// implemented --> incrorporated into updateStepper
+void StepperLoggerComponent::changeData() {
 
   // new rpm
   float new_rpm;
@@ -684,10 +865,10 @@ void StepperLoggerComponent::logRpm() {
   }
 
   // log if first time call (i.e. at startup) or rpm has changed
-  bool log_rpm = !data[0].newest_value_valid || fabs(new_rpm - data[0].getValue()) > 0.0001;
+  bool log_change = !data[0].newest_value_valid || fabs(new_rpm - data[0].getValue()) > 0.0001;
 
   // log
-  if (log_rpm) {
+  if (log_change) {
 
     #ifdef DATA_DEBUG_ON
       (data[0].newest_value_valid) ?
@@ -709,16 +890,6 @@ void StepperLoggerComponent::logRpm() {
     updateDataInformation();
     clearData(false);
   }
-}
-
-
-void StepperLoggerComponent::assembleStateInformation() {
-  LoggerController::assembleStateInformation();
-  char pair[60];
-  getStepperStateStatusInfo(state->status, pair, sizeof(pair)); addToStateInformation(pair);
-  getStepperStateDirectionInfo(state->direction, pair, sizeof(pair)); addToStateInformation(pair);
-  getStepperStateSpeedInfo(state->rpm, pair, sizeof(pair)); addToStateInformation(pair);
-  getStepperStateMSInfo(state->ms_auto, state->ms_mode, pair, sizeof(pair)); addToStateInformation(pair);
 }
 
 void StepperLoggerComponent::updateStateInformation() {
@@ -756,153 +927,6 @@ void StepperLoggerComponent::updateStateInformation() {
     lcd->printLine(4, lcd_buffer);
 
   }
-}
-
-bool StepperLoggerComponent::parseStatus() {
-  if (command.parseVariable(CMD_START)) {
-    // start
-    command.success(start());
-  } else if (command.parseVariable(CMD_STOP)) {
-    // stop
-    command.success(stop());
-  } else if (command.parseVariable(CMD_HOLD)) {
-    // hold
-    command.success(hold());
-  } else if (command.parseVariable(CMD_RUN)) {
-    // run - not yet implemented FIXME
-  } else if (command.parseVariable(CMD_AUTO)) {
-    // auto - not yet implemented FIXME
-  } else if (command.parseVariable(CMD_ROTATE)) {
-    // rotate
-    command.extractValue();
-    char* end;
-    float number = strtof (command.value, &end);
-    int converted = end - command.value;
-    if (converted > 0) {
-      // valid number
-      rotate(number);
-      // rotate always counts as new command b/c rotation starts from scratch
-      command.success(true);
-    } else {
-      // no number, invalid value
-      command.errorValue();
-    }
-  }
-
-  // set command data if type defined
-  if (command.isTypeDefined()) {
-    getStepperStateStatusInfo(state->status, command.data, sizeof(command.data));
-  }
-
-  return(command.isTypeDefined());
-}
-
-bool StepperLoggerComponent::parseDirection() {
-
-  if (command.parseVariable(CMD_DIR)) {
-    // direction
-    command.extractValue();
-    if (command.parseValue(CMD_DIR_CW)) {
-      // clockwise
-      command.success(changeDirection(DIR_CW));
-    } else if (command.parseValue(CMD_DIR_CC)) {
-      // counter clockwise
-      command.success(changeDirection(DIR_CC));
-    } else if (command.parseValue(CMD_DIR_SWITCH)) {
-      // switch
-      command.success(changeDirection(-state->direction));
-    } else {
-      // invalid
-      command.errorValue();
-    }
-  }
-
-  // set command data if type defined
-  if (command.isTypeDefined()) {
-    getStepperStateDirectionInfo(state->direction, command.data, sizeof(command.data));
-  }
-
-  return(command.isTypeDefined());
-}
-
-bool StepperLoggerComponent::parseSpeed() {
-
-  if (command.parseVariable(CMD_SPEED)) {
-    // speed
-    command.extractValue();
-    command.extractUnits();
-
-    if (command.parseUnits(SPEED_RPM)) {
-      // speed rpm
-      char* end;
-      float number = strtof (command.value, &end);
-      int converted = end - command.value;
-      if (converted > 0) {
-        // valid number
-        command.success(changeSpeedRpm(number));
-        if( (state->rpm - number) < 0.0 ) {
-          // could not set to rpm, hit the max --> set warning
-          command.warning(CMD_RET_WARN_MAX_RPM, CMD_RET_WARN_MAX_RPM_TEXT);
-        }
-      } else {
-        // no number, invalid value
-        command.errorValue();
-      }
-    //} else if (command.parseUnits(SPEED_FPM)) {
-      // speed fpm
-      // TODO
-    } else {
-      command.errorUnits();
-    }
-  }
-
-  // set command data if type defined
-  if (command.isTypeDefined()) {
-    getStepperStateSpeedInfo(state->rpm, command.data, sizeof(command.data));
-  }
-
-  return(command.isTypeDefined());
-}
-
-bool StepperLoggerComponent::parseMS() {
-
-  if (command.parseVariable(CMD_STEP)) {
-    // microstepping
-    command.extractValue();
-    if (command.parseValue(CMD_STEP_AUTO)) {
-      command.success(changeToAutoMicrosteppingMode());
-    } else {
-      int ms_mode = atoi(command.value);
-      command.success(changeMicrosteppingMode(ms_mode));
-    }
-  }
-
-  // set command data if type defined
-  if (command.isTypeDefined()) {
-    getStepperStateMSInfo(state->ms_auto, state->ms_mode, command.data, sizeof(command.data));
-  }
-
-  return(command.isTypeDefined());
-}
-
-void StepperLoggerComponent::parseCommand() {
-
-  LoggerController::parseCommand();
-
-  if (command.isTypeDefined()) {
-    // command processed successfully by parent function
-  } else if (parseStatus()) {
-    // check for status commands
-  } else if (parseDirection()) {
-    // check for direction commands
-  } else if (parseSpeed()) {
-    // check for speed commands
-  //} else if (parseRamp()) {
-    // check for ramp commands - TODO
-  } else if (parseMS()) {
-    // check for microstepping commands
-  }
-
 }
 
 */

@@ -267,6 +267,26 @@ void LoggerController::initComponents()
   }
 }
 
+void LoggerController::completeStartup() {
+  // update state and data information now that name is available
+  updateStateVariable();
+  updateDataVariable();
+
+  if (state->state_logging) {
+    Serial.println("INFO: start-up completed.");
+    assembleStartupLog();
+    publishStateLog();
+  } else {
+    Serial.println("INFO: start-up completed (not logged).");
+  }
+
+  // complete components' startup
+  for(components_iter = components.begin(); components_iter != components.end(); components_iter++) 
+  {
+    (*components_iter)->completeStartup();
+  }
+}
+
 /*** loop ***/
 
 void LoggerController::update() {
@@ -310,18 +330,8 @@ void LoggerController::update() {
 
     // startup complete once name handler succeeds (could be some time after initial particle connect)
     if (Particle.connected() && !startup_logged && name_handler_succeeded) {
-        // update state and data information now that name is available
-        updateStateVariable();
-        updateDataVariable();
-
-        if (state->state_logging) {
-          Serial.println("INFO: start-up completed.");
-          assembleStartupLog();
-          publishStateLog();
-        } else {
-        Serial.println("INFO: start-up completed (not logged).");
-        }
-        startup_logged = true;
+       completeStartup();
+       startup_logged = true;
     }
 
     // components update

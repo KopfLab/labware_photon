@@ -246,6 +246,7 @@ class LoggerController {
     void addComponent(LoggerComponent* component);
     void init(); 
     virtual void initComponents();
+    virtual void completeStartup();
 
     /*** loop ***/
     void update();

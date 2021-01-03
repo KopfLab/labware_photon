@@ -14,6 +14,10 @@ void LoggerComponent::init() {
     Serial.printf("INFO: initializing component '%s'...\n", id);
 };
 
+void LoggerComponent::completeStartup() {
+    Serial.printf("INFO: completing startup for component '%s'...\n", id);
+}
+
 /*** loop ***/
 
 void LoggerComponent::update() {
@@ -87,7 +91,9 @@ void LoggerComponent::assembleDataVariable() {
 
 void LoggerComponent::clearData(bool all) {
     if (ctrl->debug_data) {
-        Serial.printf("DEBUG: clearing component '%s' data at ", id);
+        (all) ?
+            Serial.printf("DEBUG: clearing all component '%s' data at ", id):
+            Serial.printf("DEBUG: clearing only non-persistant component '%s' data at ", id);
         Serial.println(Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z"));
     }
     for (int i=0; i<data.size(); i++) data[i].clear(all);

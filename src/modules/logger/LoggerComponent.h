@@ -42,6 +42,7 @@ class LoggerComponent
     /*** setup ***/
     uint8_t setupDataVector(uint8_t start_idx); // setup data vector - override in derived clases, has to return the new index
     void init();
+    void completeStartup();
 
     /*** loop ***/
     void update();

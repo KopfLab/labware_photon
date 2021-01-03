@@ -63,6 +63,7 @@ class StepperLoggerComponent : public ControllerLoggerComponent {
     /*** setup ***/
     uint8_t setupDataVector(uint8_t start_idx);
     void init();
+    void completeStartup();
 
     /*** loop ***/
     void update();
@@ -74,16 +75,24 @@ class StepperLoggerComponent : public ControllerLoggerComponent {
     virtual void resetState();
 
     /*** command parsing ***/
-
+    bool parseCommand(LoggerCommand *command);
+    bool parseStatus(LoggerCommand *command);
+    bool parseDirection(LoggerCommand *command);
+    bool parseSpeed(LoggerCommand *command);
+    bool parseMS(LoggerCommand *command);
 
     /*** state changes ***/
     bool changeStatus(int status);
-    bool changeDirection(int direction);
+    bool start(); // start the stepper
+    bool stop(); // stop the stepper
+    bool hold(); // hold position
+    long rotate(float number); // returns the number of steps the motor will take
+    bool changeDirection(int direction); // change the direction of spinning
     bool changeSpeedRpm(float rpm); // return false if had to limit speed, true if taking speed directly
     bool changeToAutoMicrosteppingMode(); // set to automatic microstepping mode
     bool changeMicrosteppingMode(int ms_mode); // set microstepping by mode, return false if can't find requested mode
 
-    /*** state auxiliary functions ***/
+    /*** stepper functions ***/
 
     // internal functions - could be private
     void updateStepper(bool init = false); // update stepper object
@@ -91,35 +100,29 @@ class StepperLoggerComponent : public ControllerLoggerComponent {
     int findMicrostepIndexForRpm(float rpm); // finds the correct ms index for the requested rpm (takes ms_auto into consideration)
     bool setSpeedWithSteppingLimit(float rpm); // sets state->speed and returns true if request set, false if had to set to limit
 
+
+    /*** command info to display ***/
+
+    /*** state info to LCD display ***/
+
+    /*** logger state variable ***/
+    virtual void assembleStateVariable();
+
+    /*** particle webhook state log ***/
+
+    /*** logger data variable ***/
+
+    /*** particle webhook data log ***/
+    virtual void clearData(bool all);    
+
     /*
+    float getMaxRpm(); // returns the maximum rpm for the pump --> figure out where this is needed
 
-    void update(); // to be run during loop()
+    bool changeDataLogging (bool on); --> implement call from controller
 
-    float getMaxRpm(); // returns the maximum rpm for the pump
+    bool assembleDataLog(); --> think about this function
 
-    bool changeDataLogging (bool on);
-
-    bool start(); // start the pump
-    bool stop(); // stop the pump
-    bool hold(); // hold position
-    long rotate(float number); // returns the number of steps the motor will take
-
-    LoggerState* getDS() { return(ls); }; // return device state
-    void saveDS(); // save device state to EEPROM
-    bool restoreDS(); // load device state from EEPROM
-
-    void clearData(bool all) ;
-    bool assembleDataLog();
-    void logRpm();
-
-    void assembleStateInformation();
-    void updateStateInformation();
-
-    void parseCommand();
-    bool parseStatus();
-    bool parseDirection();
-    bool parseSpeed();
-    bool parseMS();
+    void updateStateInformation(); --> handle wiht state callback
 
     */
 
