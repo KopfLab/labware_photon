@@ -93,11 +93,13 @@ LoggerController->LoggerController: parseDataReadingPeriod()
 LoggerController->LoggerController: parseReset()
 activate LoggerController#green
 group #ff00ff if reset data
-LoggerController->LoggerController: clearData(all = true)
+LoggerController->LoggerController: clearData(clear_persistent = true)
 activate LoggerController#blue
-LoggerController->LoggerComponent: clearData(all = true)
+LoggerController->LoggerComponent: clearData(clear_persistent = true)
 activate LoggerComponent
-LoggerComponent->LoggerData: clear(all = true)
+group #00ff00 if auto_clear_data
+LoggerComponent-->LoggerData: clear(clear_persistent = true)
+end
 deactivateafter LoggerComponent
 deactivateafter LoggerController
 end
@@ -235,11 +237,11 @@ deactivate LoggerComponent
 deactivateafter LoggerComponent
 end
 deactivateafter LoggerController
-LoggerController->LoggerController: clearData(all = false);
+LoggerController->LoggerController: clearData(clear_persistent = false);
 activate LoggerController#red
-LoggerController->LoggerComponent: clearData(all = false);
+LoggerController->LoggerComponent: clearData(clear_persistent = false);
 activate LoggerComponent
-LoggerComponent->LoggerData: clear(all = false)
+LoggerComponent->LoggerData: clear(clear_persistent = false)
 deactivateafter LoggerComponent
 deactivateafter LoggerController
 end

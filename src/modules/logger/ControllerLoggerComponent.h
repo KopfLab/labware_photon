@@ -14,10 +14,7 @@ class ControllerLoggerComponent : public LoggerComponent
 
     /*** constructors ***/
     // these types of logger components don't usually have global time offsets --> set to false
-    ControllerLoggerComponent (const char *id, LoggerController *ctrl) : LoggerComponent(id, ctrl, false) {}
-
-    virtual void clearData(bool clear_persistent = false) {
-      // by default these types of controllers don't clear data, if they use data for logging they manage clearing internally
-    };
+    // these types of logger components usually manage their own data clearing --> set to false
+    ControllerLoggerComponent (const char *id, LoggerController *ctrl) : LoggerComponent(id, ctrl, false, false) {}
 
 };

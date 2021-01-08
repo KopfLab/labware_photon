@@ -24,6 +24,9 @@ class LoggerComponent
     // time offset - whether all data have the same
     bool data_have_same_time_offset;
 
+    // auto clear data - whether data should be cleared after data log and on data reset 
+    bool auto_clear_data;
+
     // keep track of which data has been logged
     int first_data_log_index;
     int last_data_log_index;
@@ -37,7 +40,7 @@ class LoggerComponent
     std::vector<LoggerData> data;
 
     /*** constructors ***/
-    LoggerComponent (const char *id, LoggerController *ctrl, bool data_have_same_time_offset) : id(id), ctrl(ctrl), data_have_same_time_offset(data_have_same_time_offset) {}
+    LoggerComponent (const char *id, LoggerController *ctrl, bool data_have_same_time_offset, bool auto_clear_data) : id(id), ctrl(ctrl), data_have_same_time_offset(data_have_same_time_offset), auto_clear_data(auto_clear_data) {}
 
     /*** setup ***/
     uint8_t setupDataVector(uint8_t start_idx); // setup data vector - override in derived clases, has to return the new index

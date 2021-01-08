@@ -24,7 +24,8 @@ class DataReaderLoggerComponent : public LoggerComponent
   public:
 
     /*** constructors ***/
-    DataReaderLoggerComponent (const char *id, LoggerController *ctrl, bool data_have_same_time_offset) : LoggerComponent(id, ctrl, data_have_same_time_offset) {}
+    // data clearing usually managed automatically -> set to true
+    DataReaderLoggerComponent (const char *id, LoggerController *ctrl, bool data_have_same_time_offset) : LoggerComponent(id, ctrl, data_have_same_time_offset, true) {}
 
     /*** loop ***/
     void update();

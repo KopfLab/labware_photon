@@ -90,13 +90,15 @@ void LoggerComponent::assembleDataVariable() {
 /*** particle webhook data log ***/
 
 void LoggerComponent::clearData(bool clear_persistent) {
-    if (ctrl->debug_data) {
-        (clear_persistent) ?
-            Serial.printf("DEBUG: clearing all component '%s' data at ", id):
-            Serial.printf("DEBUG: clearing only non-persistant component '%s' data at ", id);
-        Serial.println(Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z"));
+    if (auto_clear_data) {
+        if (ctrl->debug_data) {
+            (clear_persistent) ?
+                Serial.printf("DEBUG: clearing all component '%s' data at ", id):
+                Serial.printf("DEBUG: clearing only non-persistant component '%s' data at ", id);
+            Serial.println(Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z"));
+        }
+        for (int i=0; i<data.size(); i++) data[i].clear(clear_persistent);
     }
-    for (int i=0; i<data.size(); i++) data[i].clear(clear_persistent);
 };
 
 void LoggerComponent::logData() {
