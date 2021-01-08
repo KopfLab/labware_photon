@@ -84,7 +84,7 @@ uint8_t StepperLoggerComponent::setupDataVector(uint8_t start_idx) {
     data.resize(2);
     // same index to allow for step transition logging
     data[0] = LoggerData(1, "speed", "rpm", 1);
-    data[0].setAutoClear(false); // not cleared during auto clear
+    data[0].makePersistent(); // keeps rpm data, not cleared after data log
     data[1] = LoggerData(1, "speed", "rpm", 1);
     return(start_idx + 2); 
 }
@@ -557,7 +557,7 @@ void StepperLoggerComponent::assembleStateVariable() {
 
 /*** particle webhook data log ***/
 
-void StepperLoggerComponent::clearData(bool all) {
+void StepperLoggerComponent::clearData(bool clear_persistent) {
   // never clear persistent data
   ControllerLoggerComponent::clearData(false);
 }

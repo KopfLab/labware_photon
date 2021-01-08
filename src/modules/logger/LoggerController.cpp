@@ -1050,10 +1050,10 @@ bool LoggerController::isTimeForDataLogAndClear() {
   return(false);
 }
 
-void LoggerController::clearData(bool all) {
+void LoggerController::clearData(bool clear_persistent) {
   // clear data for components
   for(components_iter = components.begin(); components_iter != components.end(); components_iter++) {
-     (*components_iter)->clearData(all);
+     (*components_iter)->clearData(clear_persistent);
   }
 }
 

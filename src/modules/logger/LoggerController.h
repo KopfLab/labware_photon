@@ -312,7 +312,7 @@ class LoggerController {
 
     /*** particle webhook data log ***/
     virtual bool isTimeForDataLogAndClear(); // whether it's time for data clear and log (if logging is on)
-    virtual void clearData(bool all = false); // clear data fields
+    virtual void clearData(bool clear_persistent = false); // clear data fields
     virtual void logData(); 
     virtual void resetDataLog();
     virtual bool addToDataLogBuffer(char* info);

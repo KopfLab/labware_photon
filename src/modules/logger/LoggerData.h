@@ -22,7 +22,7 @@ struct LoggerData {
   RunningStats data_time;
 
   // clearing
-  bool auto_clear;
+  bool persistent;
 
   // output parameters
   int decimals; // what should the decimals be? (idxitive = decimals, negative = integers)
@@ -33,7 +33,7 @@ struct LoggerData {
     variable[0] = 0;
     units[0] = 0;
     decimals = 0;
-    auto_clear = true;
+    persistent = false;
     clear(true);
   };
 
@@ -48,8 +48,8 @@ struct LoggerData {
   void debug();
 
   // clearing
-  void clear(bool all = false);
-  void setAutoClear(bool clear);
+  void clear(bool clear_persistent = false);
+  void makePersistent();
 
   // data
   int getN();

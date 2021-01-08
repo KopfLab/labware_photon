@@ -113,7 +113,7 @@ class StepperLoggerComponent : public ControllerLoggerComponent {
     /*** logger data variable ***/
 
     /*** particle webhook data log ***/
-    virtual void clearData(bool all);    
+    virtual void clearData(bool clear_persistent = false);    
 
     /*
     float getMaxRpm(); // returns the maximum rpm for the pump --> figure out where this is needed

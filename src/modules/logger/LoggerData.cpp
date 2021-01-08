@@ -10,16 +10,16 @@ void LoggerData::debug() {
 
 /** CLEARING **/
 
-void LoggerData::clear(bool all) {
-  if (auto_clear || all) {
+void LoggerData::clear(bool clear_persistent) {
+  if (!persistent || clear_persistent) {
     setNewestValueInvalid();
     value.clear();
     data_time.clear();
   }
 }
 
-void LoggerData::setAutoClear(bool clear) {
-  auto_clear = clear;
+void LoggerData::makePersistent() {
+  persistent = true;
 }
 
 /** DATA **/

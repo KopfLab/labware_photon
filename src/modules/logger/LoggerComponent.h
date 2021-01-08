@@ -71,7 +71,7 @@ class LoggerComponent
     virtual void assembleDataVariable();
 
     /*** particle webhook data log ***/
-    virtual void clearData(bool all); // clear collected data // @param "all" whether to clear all data or keep persistant data intact
+    virtual void clearData(bool clear_persistent = false);
     virtual void logData();
     virtual bool assembleDataLog();
 
