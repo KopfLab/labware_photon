@@ -84,7 +84,6 @@ uint8_t StepperLoggerComponent::setupDataVector(uint8_t start_idx) {
     data.resize(2);
     // same index to allow for step transition logging
     data[0] = LoggerData(1, "speed", "rpm", 1);
-    data[0].makePersistent(); // keeps rpm data, not cleared after data log
     data[1] = LoggerData(1, "speed", "rpm", 1);
     return(start_idx + 2); 
 }
@@ -117,7 +116,7 @@ void StepperLoggerComponent::init() {
         }
     }
 
-    updateStepper(true);
+    updateStepper();
 }
 
 void StepperLoggerComponent::completeStartup() {
@@ -455,7 +454,7 @@ bool StepperLoggerComponent::changeMicrosteppingMode(int ms_mode) {
 
 /*** stepper functions ***/
 
-void StepperLoggerComponent::updateStepper(bool init) {
+void StepperLoggerComponent::updateStepper() {
   // update microstepping
   if (state->ms_index >= 0 && state->ms_index < driver->ms_modes_n) {
     digitalWrite(board->ms1, driver->ms_modes[state->ms_index].ms1);
@@ -489,7 +488,7 @@ void StepperLoggerComponent::updateStepper(bool init) {
   // make change if data (=rpm) not yet set or rpm has changed
   if (!data[0].newest_value_valid || fabs(new_rpm - data[0].getValue()) > 0.0001) {
    
-    // any existing data?
+    // save previous data in data[1] for the data log step transition
     if (data[0].newest_value_valid) {
         if (debug_mode) {
             Serial.printf("INFO: logging speed shift from %.4f to %.4frpm\n", data[0].getValue(), new_rpm);
@@ -501,11 +500,15 @@ void StepperLoggerComponent::updateStepper(bool init) {
 
     // set new value
     data[0].setNewestValue(new_rpm);
-    data[0].setNewestDataTime(millis());
-    data[0].saveNewestValue(false); // no averagings
+
+    // log data (changes data[0] time to millis())
     logData();
+
+    // clear the step transition data[1]
+    data[1].clear();
+
+    // update whole controller data variable
     ctrl->updateDataVariable();
-    clearData(false);
   }
 }
 
@@ -557,11 +560,12 @@ void StepperLoggerComponent::assembleStateVariable() {
 
 /*** particle webhook data log ***/
 
-void StepperLoggerComponent::clearData(bool clear_persistent) {
-  // never clear persistent data
-  ControllerLoggerComponent::clearData(false);
+void StepperLoggerComponent::logData() {
+  // always log data[0] with latest current time
+  data[0].setNewestDataTime(millis());
+  data[0].saveNewestValue(false);
+  ControllerLoggerComponent::logData();
 }
-
 
 /*
 // now part of setup 

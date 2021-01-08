@@ -95,7 +95,7 @@ class StepperLoggerComponent : public ControllerLoggerComponent {
     /*** stepper functions ***/
 
     // internal functions - could be private
-    void updateStepper(bool init = false); // update stepper object
+    void updateStepper(); // update stepper object and stepper data
     float calculateSpeed(); // calculate speed based on settings
     int findMicrostepIndexForRpm(float rpm); // finds the correct ms index for the requested rpm (takes ms_auto into consideration)
     bool setSpeedWithSteppingLimit(float rpm); // sets state->speed and returns true if request set, false if had to set to limit
@@ -113,14 +113,12 @@ class StepperLoggerComponent : public ControllerLoggerComponent {
     /*** logger data variable ***/
 
     /*** particle webhook data log ***/
-    virtual void clearData(bool clear_persistent = false);    
+    virtual void logData();
 
     /*
     float getMaxRpm(); // returns the maximum rpm for the pump --> figure out where this is needed
 
     bool changeDataLogging (bool on); --> implement call from controller
-
-    bool assembleDataLog(); --> think about this function
 
     void updateStateInformation(); --> handle wiht state callback
 

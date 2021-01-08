@@ -22,6 +22,8 @@ struct LoggerData {
   RunningStats data_time;
 
   // clearing
+  // FIXME: consider deprecating this attribute (formerly auto_clear) and all related functionality
+  // check if it is needed / useded anywhere?
   bool persistent;
 
   // output parameters
