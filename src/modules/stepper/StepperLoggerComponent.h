@@ -100,8 +100,9 @@ class StepperLoggerComponent : public ControllerLoggerComponent {
     int findMicrostepIndexForRpm(float rpm); // finds the correct ms index for the requested rpm (takes ms_auto into consideration)
     bool setSpeedWithSteppingLimit(float rpm); // sets state->speed and returns true if request set, false if had to set to limit
 
-
-    /*** command info to display ***/
+    /*** state changes ***/
+    virtual void activateDataLogging();
+    
 
     /*** state info to LCD display ***/
 
@@ -116,8 +117,6 @@ class StepperLoggerComponent : public ControllerLoggerComponent {
     virtual void logData();
 
     /*
-    float getMaxRpm(); // returns the maximum rpm for the pump --> figure out where this is needed
-
     bool changeDataLogging (bool on); --> implement call from controller
 
     void updateStateInformation(); --> handle wiht state callback

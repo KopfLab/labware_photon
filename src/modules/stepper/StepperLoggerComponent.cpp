@@ -1,77 +1,6 @@
 #include "application.h"
 #include "StepperLoggerComponent.h"
 
-/*** state info ***/
-
-const StepperStateInfo STATUS_INFO[] = {
-   {STATUS_ON, "on", "running"},
-   {STATUS_OFF, "off", "off"},
-   {STATUS_HOLD, "hold", "holding position"},
-   {STATUS_MANUAL, "man", "manual mode"},
-   {STATUS_ROTATE, "rot", "executing number of rotations"},
-   {STATUS_TRIGGER, "trig", "triggered by external signal"}
-};
-
-const StepperStateInfo DIR_INFO[] = {
-   {DIR_CW, "cw", "clockwise"},
-   {DIR_CC, "cc", "counter-clockwise"}
-};
-
-/*** state variable formatting ***/
-
-// pump status info
-static void getStepperStateStatusInfo(int status, char* target, int size, char* pattern, bool include_key = true)  {
-  int i = 0;
-  for (; i < sizeof(STATUS_INFO) / sizeof(StepperStateInfo); i++) {
-    if (STATUS_INFO[i].value == status) break;
-  }
-  getStateStringText("status", STATUS_INFO[i].short_label, target, size, pattern, include_key);
-}
-
-static void getStepperStateStatusInfo(int status, char* target, int size, bool value_only = false) {
-  if (value_only) getStepperStateStatusInfo(status, target, size, PATTERN_V_SIMPLE, false);
-  else getStepperStateStatusInfo(status, target, size, PATTERN_KV_JSON_QUOTED, true);
-}
-
-// pump direction info
-static void getStepperStateDirectionInfo(int direction, char* target, int size, char* pattern, bool include_key = true)  {
-  int i = 0;
-  for (; i < sizeof(DIR_INFO) / sizeof(StepperStateInfo); i++) {
-    if (DIR_INFO[i].value == direction) break;
-  }
-  getStateStringText("dir", DIR_INFO[i].short_label, target, size, pattern, include_key);
-}
-
-static void getStepperStateDirectionInfo(int direction, char* target, int size, bool value_only = false) {
-  if (value_only) getStepperStateDirectionInfo(direction, target, size, PATTERN_V_SIMPLE, false);
-  else getStepperStateDirectionInfo(direction, target, size, PATTERN_KV_JSON_QUOTED, true);
-}
-
-// speed
-static void getStepperStateSpeedInfo(float rpm, char* target, int size, char* pattern, bool include_key = true) {
-  int decimals = find_signif_decimals(rpm, 3, true, 3); // 3 significant digits by default, max 3 after decimals
-  getStateDoubleText("speed", rpm, "rpm", target, size, pattern, decimals, include_key);
-}
-
-static void getStepperStateSpeedInfo(float rpm, char* target, int size, bool value_only = false) {
-  if (value_only) getStepperStateSpeedInfo(rpm, target, size, PATTERN_VU_SIMPLE, false);
-  else getStepperStateSpeedInfo(rpm, target, size, PATTERN_KVU_JSON_QUOTED, true);
-}
-
-// microstepping info
-static void getStepperStateMSInfo(bool ms_auto, int ms_mode, char* target, int size, char* pattern, bool include_key = true) {
-  char ms_text[10];
-  (ms_auto) ?
-    snprintf(ms_text, sizeof(ms_text), "%dA", ms_mode) :
-    snprintf(ms_text, sizeof(ms_text), "%d", ms_mode);
-  getStateStringText("ms", ms_text, target, size, pattern, include_key);
-}
-
-static void getStepperStateMSInfo(bool ms_auto, int ms_mode, char* target, int size, bool value_only = false) {
-  if (value_only) getStepperStateMSInfo(ms_auto, ms_mode, target, size, PATTERN_V_SIMPLE, false);
-  else getStepperStateMSInfo(ms_auto, ms_mode, target, size, PATTERN_KV_JSON_QUOTED, true);
-}
-
 /*** debug ***/
 void StepperLoggerComponent::debug() {
     debug_mode = true;
@@ -110,7 +39,7 @@ void StepperLoggerComponent::init() {
     pinMode(board->ms2, OUTPUT);
     pinMode(board->ms3, OUTPUT);
     if (debug_mode) {
-        Serial.println("INFO: available microstepping modes");
+        Serial.println("DEBUG: available microstepping modes");
         for (int i = 0; i < driver->ms_modes_n; i++) {
         Serial.printf("   Mode %d: %i steps, max rpm: %.1f\n", i, driver->ms_modes[i].mode, driver->ms_modes[i].rpm_limit);
         }
@@ -121,9 +50,7 @@ void StepperLoggerComponent::init() {
 
 void StepperLoggerComponent::completeStartup() {
     ControllerLoggerComponent::completeStartup();
-    if (debug_mode) {
-        Serial.printf("INFO: logging speed at startup (%.4frpm)\n", data[0].getValue());
-    }
+    Serial.printf("INFO: logging %s speed at startup (%.4frpm)\n", id, data[0].getValue());
     logData();
 }
 
@@ -327,11 +254,9 @@ bool StepperLoggerComponent::changeStatus(int status) {
   // only update if necessary
   bool changed = status != state->status;
 
-  if (debug_mode) {
-    (changed) ?
-      Serial.printf("INFO: status updating to %d\n", status):
-      Serial.printf("INFO: status unchanged (%d)\n", status);
-  }
+  (changed) ?
+    Serial.printf("INFO: %s status updating to %d\n", id, status):
+    Serial.printf("INFO: %s status unchanged (%d)\n", id, status);
 
   if (changed) {
     state->status = status;
@@ -358,20 +283,16 @@ bool StepperLoggerComponent::changeDirection(int direction) {
   // only update if necessary
   bool changed = (direction == DIR_CW || direction == DIR_CC) && state->direction != direction;
 
-  if (debug_mode) {
-    if (changed)
-      (direction == DIR_CW) ? Serial.println("INFO: changing direction to clockwise") : Serial.println("INFO: changing direction to counter clockwise");
-    else
-      (direction == DIR_CW) ? Serial.println("INFO: direction unchanged (clockwise)") : Serial.println("INFO: direction unchanged (counter clockwise)");
-  }
+  if (changed)
+    (direction == DIR_CW) ? Serial.println("INFO: changing direction to clockwise") : Serial.println("INFO: changing direction to counter clockwise");
+  else
+    (direction == DIR_CW) ? Serial.println("INFO: direction unchanged (clockwise)") : Serial.println("INFO: direction unchanged (counter clockwise)");
 
   if (changed) {
     state->direction = direction;
     if (state->status == STATUS_ROTATE) {
       // if rotating to a specific position, changing direction turns the pump off
-      if (debug_mode) {
-        Serial.println("INFO: stepper stopped due to change in direction during 'rotate'");
-      }
+      Serial.println("INFO: stepper stopped due to change in direction during 'rotate'");
       state->status = STATUS_OFF;
     }
     updateStepper();
@@ -389,11 +310,9 @@ bool StepperLoggerComponent::changeSpeedRpm(float rpm) {
   setSpeedWithSteppingLimit(rpm);
   bool changed = state->ms_mode != original_ms_mode | fabs(state->rpm - original_rpm) > 0.0001;
 
-  if (debug_mode) {
-    (changed) ?
-      Serial.printf("INFO: changing rpm %.3f\n", state->rpm) :
-      Serial.printf("INFO: rpm staying unchanged ()%.3f)\n", state->rpm);
-  }
+  (changed) ?
+    Serial.printf("INFO: changing %s speed to %.3f rpm\n", id, state->rpm) :
+    Serial.printf("INFO: %s speed staying unchanged (%.3f rpm)\n", id, state->rpm);
 
   if (changed) {
     updateStepper();
@@ -406,11 +325,9 @@ bool StepperLoggerComponent::changeToAutoMicrosteppingMode() {
 
   bool changed = !state->ms_auto;
 
-  if (debug_mode) {
-    (changed) ?
-      Serial.println("INFO: activating automatic microstepping"):
-      Serial.println("INFO: automatic microstepping already active");
-  }
+  (changed) ?
+    Serial.println("INFO: activating automatic microstepping"):
+    Serial.println("INFO: automatic microstepping already active");
 
   if (changed) {
     state->ms_auto = true;
@@ -434,11 +351,9 @@ bool StepperLoggerComponent::changeMicrosteppingMode(int ms_mode) {
   }
 
   bool changed = state->ms_auto | (state->ms_index != ms_index);
-  if (debug_mode) {
-    (changed) ?
-      Serial.printf("INFO: activating microstepping index %d for mode %d\n", ms_index, ms_mode):
-      Serial.printf("INFO: microstepping mode already active (%d)\n", state->ms_mode);
-  }
+  (changed) ?
+    Serial.printf("INFO: activating microstepping index %d for mode %d\n", ms_index, ms_mode):
+    Serial.printf("INFO: microstepping mode already active (%d)\n", state->ms_mode);
 
   if (changed) {
     // update with new microstepping mode
@@ -491,7 +406,7 @@ void StepperLoggerComponent::updateStepper() {
     // save previous data in data[1] for the data log step transition
     if (data[0].newest_value_valid) {
         if (debug_mode) {
-            Serial.printf("INFO: logging speed shift from %.4f to %.4frpm\n", data[0].getValue(), new_rpm);
+            Serial.printf("DEBUG: logging speed shift from %.4f to %.4frpm\n", data[0].getValue(), new_rpm);
         }
         data[1].setNewestDataTime(millis() - 1); // old value logged 1 ms before new value
         data[1].saveNewestValue(false); // no averaging
@@ -515,7 +430,7 @@ void StepperLoggerComponent::updateStepper() {
 float StepperLoggerComponent::calculateSpeed() {
   float speed = state->rpm/60.0 * motor->steps * motor->gearing * state->ms_mode * state->direction;
   if (debug_mode) {
-    Serial.printf("INFO: calculated speed %.5f (micro)steps/s (%i microstep mode)\n", speed, state->ms_mode);
+    Serial.printf("DEBUG: calculated speed %.5f (micro)steps/s (%i microstep mode)\n", speed, state->ms_mode);
   }
   return(speed);
 }
@@ -540,7 +455,10 @@ bool StepperLoggerComponent::setSpeedWithSteppingLimit(float rpm) {
   }
 }
 
-/*** command info to display ***/
+/*** state changes ***/
+void StepperLoggerComponent::activateDataLogging() {
+  logData();
+}
 
 /*** state info to LCD display ***/
 

@@ -79,6 +79,22 @@ StepperLoggerComponent* stirrer = new StepperLoggerComponent(
   /* pointer to motor */      motor
 );
 
+// state update callback function
+char state_info[50];
+void state_update_callback() {
+  lcd->resetBuffer();
+  getStepperStateStatusInfo(stepper_state->status, state_info, sizeof(state_info), true); 
+  lcd->addToBuffer(state_info);
+  lcd->addToBuffer(" ");
+  getStepperStateSpeedInfo(stepper_state->rpm, state_info, sizeof(state_info), true);
+  lcd->addToBuffer(state_info);
+  lcd->addToBuffer(" ");
+  getStepperStateDirectionInfo(stepper_state->direction, state_info, sizeof(state_info), true);
+  lcd->addToBuffer(state_info);
+  lcd->printLineFromBuffer(2);
+
+}
+
 // manual wifi management
 SYSTEM_THREAD(ENABLED);
 SYSTEM_MODE(MANUAL);
@@ -97,6 +113,9 @@ void setup() {
 
   // lcd temporary messages
   lcd->setTempTextShowTime(3); // how many seconds temp time
+
+  // callbacks
+  controller->setStateUpdateCallback(state_update_callback);
 
   // add components
   controller->addComponent(stirrer);
