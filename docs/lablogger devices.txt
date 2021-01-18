@@ -1,4 +1,5 @@
 title Lablogger Devices
+# visualize at https://sequencediagram.org/
 
 # classes
 entity Particle#lightgreen
@@ -88,6 +89,14 @@ LoggerController->LoggerCommand: success() / error()
 deactivateafter LoggerController
 LoggerController->LoggerController: parseStateLogging()
 LoggerController->LoggerController: parseDataLogging()
+activate LoggerController#green
+group #ff00ff if data logging switched on
+LoggerController->LoggerController: changeDataLogging(true)
+activate LoggerController#blue
+LoggerController->LoggerComponent: activateDataLogging()
+deactivateafter LoggerController
+deactivateafter LoggerController
+end
 LoggerController->LoggerController: parseDataLoggingPeriod()
 LoggerController->LoggerController: parseDataReadingPeriod()
 LoggerController->LoggerController: parseReset()
@@ -241,7 +250,9 @@ LoggerController->LoggerController: clearData(clear_persistent = false);
 activate LoggerController#red
 LoggerController->LoggerComponent: clearData(clear_persistent = false);
 activate LoggerComponent
-LoggerComponent->LoggerData: clear(clear_persistent = false)
+group #00ff00 if auto_clear_data
+LoggerComponent-->LoggerData: clear(clear_persistent = false)
+end
 deactivateafter LoggerComponent
 deactivateafter LoggerController
 end
