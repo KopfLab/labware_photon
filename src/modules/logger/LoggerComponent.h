@@ -14,9 +14,6 @@ class LoggerComponent
 
     // controller
     LoggerController *ctrl;
- 
-    // lcd buffer
-    char lcd_buffer[21];
 
     // state
     size_t eeprom_start;

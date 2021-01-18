@@ -26,10 +26,10 @@ void LoggerDisplay::init()
 		for (int i = 0; i < cols * lines; i++)
 		{
 			temp_pos[i] = false;
-			buffer[i] = ' ';
+			text[i] = ' ';
 			memory[i] = ' ';
 		}
-		buffer[cols * lines] = 0;
+		text[cols * lines] = 0;
 		memory[cols * lines] = 0;
 		moveToPos(1, 1);
 	}
@@ -125,9 +125,9 @@ void LoggerDisplay::print(const char c[], bool temp)
 		int needs_update = -1;
 		for (uint8_t i = 0; i <= length; i++)
 		{
-			if (needs_update > -1 && (i == length || buffer[pos_now + i] == c[i]))
+			if (needs_update > -1 && (i == length || text[pos_now + i] == c[i]))
 			{
-				// either at the end OR buffer the same as new text but prior text has needs_update flag on -> write text
+				// either at the end OR text buffer the same as new text but prior text has needs_update flag on -> write text
 				strncpy(update, c + needs_update, i - needs_update);
 				update[i - needs_update] = 0; // make sure it's 0-pointer terminated
 
@@ -142,14 +142,14 @@ void LoggerDisplay::print(const char c[], bool temp)
 				lcd->print(update);
 				//LiquidCrystal_I2C::print(update);
 
-				// store new text in buffer
-				strncpy(buffer + pos_now + needs_update, update, i - needs_update);
+				// store new text in text buffer
+				strncpy(text + pos_now + needs_update, update, i - needs_update);
 
 				needs_update = -1; // reset
 			}
-			else if (needs_update == -1 && i < length && (temp || !temp_pos[pos_now + i]) && buffer[pos_now + i] != c[i])
+			else if (needs_update == -1 && i < length && (temp || !temp_pos[pos_now + i]) && text[pos_now + i] != c[i])
 			{
-				// either a new temp or NOT overwriting a temp position + buffer not the same as new text (and not at end yet)
+				// either a new temp or NOT overwriting a temp position + text buffer not the same as new text (and not at end yet)
 				needs_update = i; // mark beginning of update
 			}
 		}
@@ -179,7 +179,7 @@ void LoggerDisplay::print(const char c[], bool temp)
 		}
 
 		if (debug_display) {
-			Serial.printf(" - finished (new cursor location = line %d, col %d), text buffer:\n[1]%s[%d]\n", line_now, col_now, buffer, strlen(buffer));
+			Serial.printf(" - finished (new cursor location = line %d, col %d), text buffer:\n[1]%s[%d]\n", line_now, col_now, text, strlen(text));
 		}
 	}
 }
@@ -272,6 +272,38 @@ void LoggerDisplay::printLineTempRight(uint8_t line, const char text[], uint8_t 
 	printLine(line, text, start, end, LCD_ALIGN_RIGHT, true);
 }
 
+// print line from buffer equivalents of the above functions
+void LoggerDisplay::printLineFromBuffer(uint8_t line, uint8_t length, uint8_t start) {
+	printLine(line, buffer, length, start);
+}
+
+void LoggerDisplay::printLineRightFromBuffer(uint8_t line, uint8_t length, uint8_t end) {
+	printLineRight(line, buffer, length, end);
+}
+
+void LoggerDisplay::printLineTempFromBuffer(uint8_t line, uint8_t length, uint8_t start) {
+	printLineTemp(line, buffer, length, start);
+}
+
+void LoggerDisplay::printLineTempRightFromBuffer(uint8_t line, uint8_t length, uint8_t end) {
+	printLineTempRight(line, buffer, length, end);
+}
+
+// assemble buffer
+void LoggerDisplay::resetBuffer() {
+	buffer[0] = 0; // reset buffer
+}
+
+void LoggerDisplay::addToBuffer(char* add) {
+  if (buffer[0] == 0) {
+    strncpy(buffer, add, sizeof(buffer));
+  } else {
+    snprintf(buffer, sizeof(buffer),
+        "%s%s", buffer, add);
+  }
+}
+
+
 void LoggerDisplay::clearLine(uint8_t line, uint8_t start, uint8_t end)
 {
 	printLine(line, "", start, end);
@@ -291,7 +323,7 @@ void LoggerDisplay::clearScreen(uint8_t start_line)
 void LoggerDisplay::clearTempText()
 {
 
-	// buffers
+	// revert data
 	char revert[cols];
 	int needs_revert = -1;
 	uint16_t pos, i;

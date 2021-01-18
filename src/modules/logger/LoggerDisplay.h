@@ -39,7 +39,7 @@ private:
 
 	// display data
 	uint8_t col_now, line_now;		 // current print position on the display
-	char buffer[LCD_MAX_SIZE + 1];   // the current text of the lcd display
+	char text[LCD_MAX_SIZE + 1];     // the current text of the lcd display
 	char memory[LCD_MAX_SIZE + 1];   // the memory text of the lcd display for non temporay messages
 	bool temp_pos[LCD_MAX_SIZE + 1]; // which text is only temporary
 
@@ -54,6 +54,9 @@ private:
 	uint16_t getPos(uint8_t line, uint8_t col);
 
 public:
+
+	// text buffer for lcd text assembly by user --> use resetBuffer and addToBuffer
+	char buffer[LCD_MAX_SIZE + 1];	 
 
 	// empty constructor (no screen)
 	LoggerDisplay() : LoggerDisplay(0, 0) {
@@ -94,7 +97,7 @@ public:
 	void print(const char c[], bool temp = false);
 
 	// print a whole line (shortens text if too long, pads with spaces if too short)
-	void printLine(uint8_t line, const char text[], uint8_t start, uint8_t end, uint8_t align, bool temp);
+	void printLine(uint8_t line, const char text[], uint8_t start, uint8_t end, uint8_t align, bool temp = false);
 
 	// simpler version of printLine with useful defaults (left aligned, start at first character, print whole line)
 	void printLine(uint8_t line, const char text[], uint8_t length = LCD_LINE_LENGTH, uint8_t start = 1L);
@@ -107,6 +110,16 @@ public:
 
 	// same as the simpler version of printLineRight but only tempoary text
 	void printLineTempRight(uint8_t line, const char text[], uint8_t length = LCD_LINE_LENGTH, uint8_t end = LCD_LINE_END);
+
+	// print line from buffer equivalents of the above functions
+	void printLineFromBuffer(uint8_t line, uint8_t length = LCD_LINE_LENGTH, uint8_t start = 1L);
+	void printLineRightFromBuffer(uint8_t line, uint8_t length = LCD_LINE_LENGTH, uint8_t end = LCD_LINE_END);
+	void printLineTempFromBuffer(uint8_t line, uint8_t length = LCD_LINE_LENGTH, uint8_t start = 1L);
+	void printLineTempRightFromBuffer(uint8_t line, uint8_t length = LCD_LINE_LENGTH, uint8_t end = LCD_LINE_END);
+
+	// assemble buffer
+	void resetBuffer();
+	void addToBuffer(char* add);
 
 	// clear all temporary text
 	void clearTempText();

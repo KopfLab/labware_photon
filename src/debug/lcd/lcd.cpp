@@ -130,7 +130,11 @@ void loop(void)
 
 		if (test == 0)
 		{
-			lcd->printLineTemp(1, "line 1 temp msg extra long");
+			lcd->resetBuffer();
+			lcd->addToBuffer("line 1");
+			lcd->addToBuffer(" temp msg");
+			lcd->addToBuffer(" extra long");
+			lcd->printLineTempFromBuffer(1);
 		}
 		else if (test == 1)
 		{
