@@ -25,7 +25,7 @@ debug/blink: MODULES=
 debug/cloud: MODULES=
 debug/credentials: MODULES=
 debug/i2c_scanner: MODULES=
-debug/lcd: MODULES=modules/logger/LoggerDisplay.h
+debug/lcd: MODULES=modules/logger/LoggerDisplay.h modules/logger/LoggerDisplay.cpp
 debug/logger: MODULES=modules/logger
 ministat: MODULES=modules/logger modules/stepper
 

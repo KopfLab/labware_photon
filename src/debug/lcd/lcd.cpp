@@ -10,8 +10,8 @@
 #include "LoggerDisplay.h"
 
 // Which display to debug?
-//LoggerDisplay *lcd = &LCD_16x2;
-LoggerDisplay *lcd = &LCD_20x4;
+LoggerDisplay *lcd = new LoggerDisplay(16, 2);
+//LoggerDisplay *lcd = new LoggerDisplay(20, 4);
 
 int last_second = 0;
 int last_message = 0;
