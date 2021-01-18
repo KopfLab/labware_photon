@@ -10,7 +10,6 @@
 //#define LCD_DEBUG_ON
 //#define STATE_RESET // FIXME auto state reset
 
-// keep track of installed version
 #include "LoggerController.h"
 #include "LoggerComponent.h"
 #include "DataReaderLoggerComponent.h"
@@ -46,7 +45,7 @@ LoggerController* controller = new LoggerController(
 
 // components
 LoggerComponent* cp1 = new LoggerComponent(
-  "cp1 test", controller, false
+  "cp1 test", controller, false, false
 );
 
 ExampleState* cp2_state = new ExampleState();
