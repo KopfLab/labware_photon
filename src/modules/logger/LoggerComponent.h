@@ -62,7 +62,7 @@ class LoggerComponent
     virtual bool parseCommand(LoggerCommand *command);
 
     /*** state changes ***/
-    // implement in derived classes
+    virtual void activateDataLogging();
 
     /*** state info to LCD display ***/
     virtual void updateDisplayStateInformation();

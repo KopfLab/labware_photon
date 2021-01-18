@@ -65,6 +65,9 @@ bool LoggerComponent::parseCommand(LoggerCommand *command) {
 
 /*** state changes ***/
 
+void LoggerComponent::activateDataLogging() {
+    
+};
 
 /*** state info to LCD display ***/
 

@@ -723,6 +723,12 @@ bool LoggerController::changeDataLogging (bool on) {
 
   if (changed) {
     state->data_logging = on;
+    if (on) {
+      for(components_iter = components.begin(); components_iter != components.end(); components_iter++) 
+      {
+        (*components_iter)->activateDataLogging();
+      }
+    }
   }
 
   if (debug_state) {
