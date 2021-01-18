@@ -1,17 +1,6 @@
 #include "application.h"
 #include "ExampleLoggerComponent.h"
 
-/*** state variable formatting ***/
-
-static void getStateSettingText(bool setting, char* target, int size, char* pattern, bool include_key = true) {
-  getStateBooleanText(CMD_SETTING, setting, CMD_SETTING_ON, CMD_SETTING_OFF, target, size, pattern, include_key);
-}
-
-static void getStateSettingText(bool setting, char* target, int size, bool value_only = false) {
-  if (value_only) getStateSettingText(setting, target, size, PATTERN_V_SIMPLE, false);
-  else getStateSettingText(setting, target, size, PATTERN_KV_JSON_QUOTED, true);
-}
-
 /*** setup ***/
 
 // setup data vector - override in derived clases, has to return the new index
@@ -99,8 +88,9 @@ bool ExampleLoggerComponent::changeStateSetting (bool on) {
 /*** state info to LCD display ***/
 
 void ExampleLoggerComponent::updateDisplayStateInformation() {
-    getStateSettingText(state->setting, lcd_buffer, sizeof(lcd_buffer), true);
-    ctrl->lcd->printLine(2, lcd_buffer);
+    ctrl->lcd->resetBuffer();
+    getStateSettingText(state->setting, ctrl->lcd->buffer, sizeof(ctrl->lcd->buffer), true);
+    ctrl->lcd->printLineFromBuffer(2);
 }
 
 /*** logger state variable ***/

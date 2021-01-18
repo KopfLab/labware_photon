@@ -14,6 +14,17 @@ struct ExampleState {
   ExampleState(bool setting) : setting(setting) {}
 };
 
+/*** state variable formatting ***/
+
+static void getStateSettingText(bool setting, char* target, int size, char* pattern, bool include_key = true) {
+  getStateBooleanText(CMD_SETTING, setting, CMD_SETTING_ON, CMD_SETTING_OFF, target, size, pattern, include_key);
+}
+
+static void getStateSettingText(bool setting, char* target, int size, bool value_only = false) {
+  if (value_only) getStateSettingText(setting, target, size, PATTERN_V_SIMPLE, false);
+  else getStateSettingText(setting, target, size, PATTERN_KV_JSON_QUOTED, true);
+}
+
 /* component */
 class ExampleLoggerComponent : public DataReaderLoggerComponent
 {
