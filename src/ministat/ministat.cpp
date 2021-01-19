@@ -108,7 +108,13 @@ void setup() {
   Serial.begin(9600);
   delay(1000);
 
-  // debug modes
+  // debugging
+  //controller->forceReset();
+  //controller->debugDisplay();
+  controller->debugData();
+  controller->debugState();
+  controller->debugCloud();
+  //controller->debugWebhooks();
   stirrer->debug();
 
   // lcd temporary messages

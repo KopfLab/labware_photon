@@ -9,12 +9,11 @@ void StepperLoggerComponent::debug() {
 /*** setup ***/
 
 uint8_t StepperLoggerComponent::setupDataVector(uint8_t start_idx) { 
-    start_idx = ControllerLoggerComponent::setupDataVector(start_idx);
-    data.resize(2);
     // same index to allow for step transition logging
-    data[0] = LoggerData(1, "speed", "rpm", 1);
-    data[1] = LoggerData(1, "speed", "rpm", 1);
-    return(start_idx + 2); 
+    // idx, key, units, digits
+    data.push_back(LoggerData(1, "speed", "rpm", 1));
+    data.push_back(LoggerData(1, "speed", "rpm", 1));
+    return(start_idx + data.size()); 
 }
 
 void StepperLoggerComponent::init() {
@@ -41,7 +40,7 @@ void StepperLoggerComponent::init() {
     if (debug_mode) {
         Serial.println("DEBUG: available microstepping modes");
         for (int i = 0; i < driver->ms_modes_n; i++) {
-        Serial.printf("   Mode %d: %i steps, max rpm: %.1f\n", i, driver->ms_modes[i].mode, driver->ms_modes[i].rpm_limit);
+          Serial.printf("   Mode %d: %i steps, max rpm: %.1f\n", i, driver->ms_modes[i].mode, driver->ms_modes[i].rpm_limit);
         }
     }
 
@@ -409,8 +408,8 @@ void StepperLoggerComponent::updateStepper() {
             Serial.printf("DEBUG: logging speed shift from %.4f to %.4frpm\n", data[0].getValue(), new_rpm);
         }
         data[1].setNewestDataTime(millis() - 1); // old value logged 1 ms before new value
-        data[1].saveNewestValue(false); // no averaging
         data[1].setNewestValue(data[0].getValue());
+        data[1].saveNewestValue(false); // no averaging
     } 
 
     // set new value
@@ -486,6 +485,8 @@ void StepperLoggerComponent::logData() {
 }
 
 /*
+// FIXME: remove this after testing
+
 // now part of setup 
 void StepperLoggerComponent::construct() {
   driver->calculateRpmLimits(board->max_speed, motor->steps, motor->gearing);

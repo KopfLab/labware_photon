@@ -62,11 +62,11 @@ class StepperLoggerComponent : public ControllerLoggerComponent {
 
     /*** setup ***/
     uint8_t setupDataVector(uint8_t start_idx);
-    void init();
-    void completeStartup();
+    virtual void init();
+    virtual void completeStartup();
 
     /*** loop ***/
-    void update();
+    virtual void update();
 
     /*** state management ***/
     virtual size_t getStateSize();
