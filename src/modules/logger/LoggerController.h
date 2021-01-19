@@ -7,13 +7,13 @@
 /*** spark cloud constants ***/
 #define CMD_ROOT              "device" // command root (i.e. registered particle call function)
 #define STATE_INFO_VARIABLE   "state" // name of the particle exposed state variable
-#define STATE_INFO_MAX_CHAR   600 // how long is the state information maximally
+#define STATE_INFO_MAX_CHAR   621 // how long is the state information maximally
 #define STATE_LOG_WEBHOOK     "state_log"  // name of the webhook to Logger state log
-#define STATE_LOG_MAX_CHAR    255  // spark.publish is limited to 255 chars of data
+#define STATE_LOG_MAX_CHAR    621  // spark.publish is limited to 622 bytes of device OS 0.8.0 (previously just 255)
 #define DATA_INFO_VARIABLE    "data" // name of the particle exposed data variable
-#define DATA_INFO_MAX_CHAR    600 // how long is the data information maximally
+#define DATA_INFO_MAX_CHAR    621 // how long is the data information maximally
 #define DATA_LOG_WEBHOOK      "data_log"  // name of the webhook to Logger data log
-#define DATA_LOG_MAX_CHAR     255  // spark.publish is limited to 255 chars of data
+#define DATA_LOG_MAX_CHAR     621  // spark.publish is limited to 622 bytes of device OS 0.8.0 (previously just 255)
 
 /*** commands ***/
 // return codes:
@@ -336,7 +336,6 @@ class LoggerController {
     LoggerControllerState* state;
     LoggerCommand* command = new LoggerCommand();
     std::vector<LoggerComponent*> components;
-    std::vector<LoggerComponent*>::iterator components_iter;
 
     /*** constructors ***/
     LoggerController (const char *version, int reset_pin) : LoggerController(version, reset_pin, new LoggerDisplay()) {}

@@ -119,13 +119,13 @@ bool LoggerComponent::assembleDataLog() {
 
     // first reporting index
     first_data_log_index = last_data_log_index + 1;
-    int i = first_data_log_index;
-
+    
     // check if we're already done with all data
-    if (i == data.size()) return(false);
+    if (first_data_log_index >= data.size()) return(false);
 
     // check first next data (is there at least one with data?)
     bool something_to_report = false;
+    int i = first_data_log_index;
     for (; i < data.size(); i++) {
         if(data[i].getN() > 0) {
             // found data that has something to report
@@ -141,16 +141,15 @@ bool LoggerComponent::assembleDataLog() {
     ctrl->resetDataLog();
 
     // all data that fits
-    for(i = i + 1; i < data.size(); i++) {
+    i = first_data_log_index;
+    for(; i < data.size(); i++) {
         if(data[i].assembleLog(!data_have_same_time_offset)) {
-            if (ctrl->addToDataLogBuffer(data[i].json)) {
-            // successfully added to buffer
-            last_data_log_index = i;
-            } else {
-            // no more space - stop here for this log
-            break;
+            if (!ctrl->addToDataLogBuffer(data[i].json)) {
+                // no more space - stop here for this log
+                break;
             }
         }
+        last_data_log_index = i;
     }
 
     // finalize data log

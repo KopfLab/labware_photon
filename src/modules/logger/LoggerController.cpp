@@ -75,7 +75,8 @@ void LoggerController::init() {
   pinMode(reset_pin, INPUT_PULLDOWN);
 
   // initialize
-  Serial.printf("INFO: initializing controller '%s'...\n", version);
+  Serial.printlnf("INFO: initializing controller '%s'...", version);
+  Serial.printlnf("INFO: available memory: %lu", System.freeMemory());
 
   // capturing system reset information
   if (System.resetReason() == RESET_REASON_USER) {
@@ -99,21 +100,11 @@ void LoggerController::init() {
   lcd->printLine(1, version);
 
   //  check for reset
-  if(digitalRead(reset_pin) == HIGH) {
+  if(digitalRead(reset_pin) == HIGH || reset) {
     reset = true;
     Serial.println("INFO: reset request detected");
     lcd->printLineTemp(1, "Resetting...");
   }
-
-  // controller state
-  loadState(reset);
-  loadComponentsState(reset);
-
-  // components' init
-  initComponents();
-
-  // startup time info
-  Serial.println(Time.format(Time.now(), "INFO: startup time: %Y-%m-%d %H:%M:%S %Z"));
 
   // state and log variables
   strcpy(state_variable, "{}");
@@ -137,13 +128,26 @@ void LoggerController::init() {
     Particle.variable(DATA_LOG_WEBHOOK, data_log);
   }
 
+  // controller state
+  loadState(reset);
+  loadComponentsState(reset);
+
+  // components' init
+  initComponents();
+  
+  // startup time info
+  Serial.println(Time.format(Time.now(), "INFO: startup time: %Y-%m-%d %H:%M:%S %Z"));
+  Serial.printlnf("INFO: available memory: %lu", System.freeMemory());
+
   // data log
   last_data_log = 0;
 }
 
 void LoggerController::initComponents() 
 {
-  for(components_iter = components.begin(); components_iter != components.end(); components_iter++) 
+  // use local iterator to avoid issues with nested call cycles (ctrl->components->ctrl->components)
+  std::vector<LoggerComponent*>::iterator components_iter = components.begin();
+  for(; components_iter != components.end(); components_iter++) 
   {
     (*components_iter)->init();
   }
@@ -163,10 +167,13 @@ void LoggerController::completeStartup() {
   }
 
   // complete components' startup
-  for(components_iter = components.begin(); components_iter != components.end(); components_iter++) 
+  std::vector<LoggerComponent*>::iterator components_iter = components.begin();
+  for(; components_iter != components.end(); components_iter++) 
   {
     (*components_iter)->completeStartup();
   }
+
+  Serial.printlnf("INFO: available memory: %lu", System.freeMemory());
 }
 
 /*** loop ***/
@@ -181,6 +188,7 @@ void LoggerController::update() {
             Serial.printf("INFO: MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n", 
             mac_address[0], mac_address[1], mac_address[2], mac_address[3], mac_address[4], mac_address[5]);
             Serial.println(Time.format(Time.now(), "INFO: cloud connection established at %H:%M:%S %d.%m.%Y"));
+            Serial.printlnf("INFO: available memory: %lu", System.freeMemory());
             cloud_connected = true;
             lcd->printLine(2, ""); // clear "connect wifi" message
 
@@ -217,7 +225,8 @@ void LoggerController::update() {
     }
 
     // components update
-    for(components_iter = components.begin(); components_iter != components.end(); components_iter++) {
+    std::vector<LoggerComponent*>::iterator components_iter = components.begin();
+    for(; components_iter != components.end(); components_iter++) {
         (*components_iter)->update();
     }
 
@@ -272,7 +281,8 @@ void LoggerController::loadState(bool reset)
 
 void LoggerController::loadComponentsState(bool reset)
 {
-  for(components_iter = components.begin(); components_iter != components.end(); components_iter++) 
+  std::vector<LoggerComponent*>::iterator components_iter = components.begin();
+  for(; components_iter != components.end(); components_iter++)
   {
     (*components_iter)->loadState(reset);
   }
@@ -307,7 +317,8 @@ bool LoggerController::restoreState()
 void LoggerController::resetState() {
   state->version = 0; // force reset of state on restart
   saveState();
-  for(components_iter = components.begin(); components_iter != components.end(); components_iter++) 
+  std::vector<LoggerComponent*>::iterator components_iter = components.begin();
+  for(; components_iter != components.end(); components_iter++)
   {
     (*components_iter)->resetState();
   }
@@ -376,7 +387,8 @@ void LoggerController::parseCommand() {
 
 void LoggerController::parseComponentsCommand() {
   bool success = false;
-  for(components_iter = components.begin(); components_iter != components.end(); components_iter++) 
+  std::vector<LoggerComponent*>::iterator components_iter = components.begin();
+  for(; components_iter != components.end(); components_iter++)
   {
      success = (*components_iter)->parseCommand(command);
      if (success) break;
@@ -606,7 +618,8 @@ bool LoggerController::changeDataLogging (bool on) {
   if (changed) {
     state->data_logging = on;
     if (on) {
-      for(components_iter = components.begin(); components_iter != components.end(); components_iter++) 
+      std::vector<LoggerComponent*>::iterator components_iter = components.begin();
+      for(; components_iter != components.end(); components_iter++)
       {
         (*components_iter)->activateDataLogging();
       }
@@ -749,7 +762,8 @@ void LoggerController::showDisplayStateInformation() {
 }
 
 void LoggerController::updateDisplayComponentsStateInformation() {
-  for(components_iter = components.begin(); components_iter != components.end(); components_iter++) 
+  std::vector<LoggerComponent*>::iterator components_iter = components.begin();
+  for(; components_iter != components.end(); components_iter++)
   {
      (*components_iter)->updateDisplayStateInformation();
   }
@@ -765,9 +779,7 @@ void LoggerController::updateStateVariable() {
   assembleStateVariable();
   assembleComponentsStateVariable();
   postStateVariable();
-  if (debug_cloud) {
-    Serial.printf("DEBUG: updated state variable: %s\n", state_variable);
-  }
+  Serial.printlnf("INFO: available memory: %lu", System.freeMemory());
 }
 
 void LoggerController::assembleStateVariable() {
@@ -782,7 +794,8 @@ void LoggerController::assembleStateVariable() {
 }
 
 void LoggerController::assembleComponentsStateVariable() {
-  for(components_iter = components.begin(); components_iter != components.end(); components_iter++) 
+  std::vector<LoggerComponent*>::iterator components_iter = components.begin();
+  for(; components_iter != components.end(); components_iter++)
   {
      (*components_iter)->assembleStateVariable();
   }
@@ -798,16 +811,18 @@ void LoggerController::addToStateVariableBuffer(char* info) {
 }
 
 void LoggerController::postStateVariable() {
-  if (Particle.connected()) {
-    Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
-    // dt = datetime, s = state information
-    snprintf(state_variable, sizeof(state_variable), 
-      "{\"dt\":\"%s\",\"version\":\"%s\",\"mac\":\"%02x:%02x:%02x:%02x:%02x:%02x\",\"s\":[%s]}",
-      date_time_buffer, version, 
-      mac_address[0], mac_address[1], mac_address[2], mac_address[3], mac_address[4], mac_address[5],
-      state_variable_buffer);
-  } else {
-    Serial.println("ERROR: particle not (yet) connected.");
+  Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
+  // dt = datetime, s = state information
+  snprintf(state_variable, sizeof(state_variable), 
+    "{\"dt\":\"%s\",\"version\":\"%s\",\"mac\":\"%02x:%02x:%02x:%02x:%02x:%02x\",\"s\":[%s]}",
+    date_time_buffer, version, 
+    mac_address[0], mac_address[1], mac_address[2], mac_address[3], mac_address[4], mac_address[5],
+    state_variable_buffer);
+  if (debug_cloud) {
+    Serial.printf("DEBUG: updated state variable: %s\n", state_variable);
+  }
+  if (!Particle.connected()) {
+    Serial.println("WARNING: particle not (yet) connected, state variable only available when connected.");
   }
 }
 
@@ -846,22 +861,22 @@ void LoggerController::assembleStateLog() {
 bool LoggerController::publishStateLog() {
   if (debug_cloud) {
     Serial.printf("DEBUG: publishing state log %s to event '%s'... ", state_log, STATE_LOG_WEBHOOK);
-    if (debug_webhooks) {
-      Serial.println();
-    }
   }
 
   if (debug_webhooks) {
+    if (debug_cloud) Serial.println();
     Serial.println("WARNING: state log NOT sent because in WEBHOOKS_DEBUG_ON mode.");
     return(false);
+  } else if (!Particle.connected()) {
+    if (debug_cloud) Serial.println();
+    Serial.println("WARNING: particle not (yet) connected, cannot publish state log.");
+    return(false);
   } else {
-    bool success = Particle.connected() && Particle.publish(STATE_LOG_WEBHOOK, state_log, PRIVATE, WITH_ACK);
-
+    bool success = Particle.publish(STATE_LOG_WEBHOOK, state_log, PRIVATE, WITH_ACK);
     if (debug_cloud) {
       if (success) Serial.println("successful.");
       else Serial.println("failed!");
     }
-
     return(success);
   }
 }
@@ -872,18 +887,13 @@ void LoggerController::updateDataVariable() {
   if (data_update_callback) data_update_callback();
   data_variable_buffer[0] = 0; // reset buffer
   assembleComponentsDataVariable();
-  if (Particle.connected()) {
-    postDataVariable();
-  } else {
-    Serial.println("ERROR: particle not (yet) connected.");
-  }
-  if (debug_cloud) {
-    Serial.printf("DEBUG: updated data variable: %s\n", data_variable);
-  }
+  postDataVariable();
+  Serial.printlnf("INFO: available memory: %lu", System.freeMemory());
 }
 
 void LoggerController::assembleComponentsDataVariable() {
-  for(components_iter = components.begin(); components_iter != components.end(); components_iter++) 
+  std::vector<LoggerComponent*>::iterator components_iter = components.begin();
+  for(; components_iter != components.end(); components_iter++)
   {
      (*components_iter)->assembleDataVariable();
   }
@@ -903,6 +913,12 @@ void LoggerController::postDataVariable() {
   // dt = datetime, d = structured data
   snprintf(data_variable, sizeof(data_variable), "{\"dt\":\"%s\",\"d\":[%s]}",
     date_time_buffer, data_variable_buffer);
+  if (debug_cloud) {
+    Serial.printf("DEBUG: updated data variable: %s\n", data_variable);
+  }
+  if (!Particle.connected()) {
+    Serial.println("WARNING: particle not (yet) connected, data variable only available when connected.");
+  }
 }
 
 /*** particle webhook data log ***/
@@ -940,7 +956,8 @@ bool LoggerController::isTimeForDataLogAndClear() {
 
 void LoggerController::clearData(bool clear_persistent) {
   // clear data for components
-  for(components_iter = components.begin(); components_iter != components.end(); components_iter++) {
+  std::vector<LoggerComponent*>::iterator components_iter = components.begin();
+  for(; components_iter != components.end(); components_iter++) {
      (*components_iter)->clearData(clear_persistent);
   }
 }
@@ -954,7 +971,8 @@ void LoggerController::logData() {
   }
   if (state->data_logging | override_data_log) {
       // log data for components
-      for(components_iter = components.begin(); components_iter != components.end(); components_iter++) {
+      std::vector<LoggerComponent*>::iterator components_iter = components.begin();
+      for(; components_iter != components.end(); components_iter++) {
         (*components_iter)->logData();
       }
   } else {
@@ -971,19 +989,25 @@ void LoggerController::resetDataLog() {
 
 bool LoggerController::addToDataLogBuffer(char* info) {
 
+  // debug
+  if (debug_data) Serial.printf("DEBUG: trying to add '%s' to data log... ", info);
+
   // characters reserved for rest of data log
   const uid_t reserve = 50;
   if (strlen(data_log_buffer) + strlen(info) + reserve >= sizeof(data_log)) {
     // not enough space in the data log to add more to the buffer
+    if (debug_data) Serial.println("but log is at the size limit.");
     return(false);
   }
 
   // still enough space
   if (data_log_buffer[0] == 0) {
-    // buffer empty, start from scract
+    // buffer empty, start from scratch
+    if (debug_data) Serial.println("success (first data).");
     strncpy(data_log_buffer, info, sizeof(data_log_buffer));
   } else {
     // concatenate existing buffer with new info
+    if (debug_data) Serial.println("success.");
     snprintf(data_log_buffer, sizeof(data_log_buffer),
         "%s,%s", data_log_buffer, info);
   }
@@ -1013,9 +1037,6 @@ bool LoggerController::publishDataLog() {
   if (debug_cloud) {
     if (!state->data_logging) Serial.println("WARNING: publishing data log despite data logging turned off");
     Serial.printf("DEBUG: publishing data log '%s' to event '%s'... ", data_log, DATA_LOG_WEBHOOK);
-    if (debug_webhooks) {
-      Serial.println();
-    }
   }
 
   if (strlen(data_log) == 0) {
@@ -1024,10 +1045,16 @@ bool LoggerController::publishDataLog() {
   }
 
   if (debug_webhooks) {
+    if (debug_cloud) Serial.println();
     Serial.println("WARNING: data log NOT sent because in WEBHOOKS_DEBUG_ON mode.");
     return(false);
+  } else if (!Particle.connected()) {
+    if (debug_cloud) Serial.println();
+    Serial.println("WARNING: particle not (yet) connected, cannot publish data log.");
+    lcd->printLineTemp(1, "ERR: data log error");
+    return(false);
   } else {
-    bool success = Particle.connected() && Particle.publish(DATA_LOG_WEBHOOK, data_log, PRIVATE, WITH_ACK);
+    bool success = Particle.publish(DATA_LOG_WEBHOOK, data_log, PRIVATE, WITH_ACK);
 
     if (debug_cloud) {
       if (success) Serial.println("successful.");

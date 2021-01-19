@@ -28,7 +28,7 @@ class DataReaderLoggerComponent : public LoggerComponent
     DataReaderLoggerComponent (const char *id, LoggerController *ctrl, bool data_have_same_time_offset) : LoggerComponent(id, ctrl, data_have_same_time_offset, true) {}
 
     /*** loop ***/
-    void update();
+    virtual void update();
 
     /*** read data ***/
     virtual bool isManualDataReader();

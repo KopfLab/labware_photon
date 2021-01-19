@@ -40,7 +40,7 @@ class ExampleLoggerComponent : public DataReaderLoggerComponent
 
     /*** setup ***/
     virtual uint8_t setupDataVector(uint8_t start_idx);
-    void init();
+    virtual void init();
 
     /*** state management ***/
     virtual size_t getStateSize();

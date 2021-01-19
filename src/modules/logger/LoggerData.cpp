@@ -126,7 +126,7 @@ void LoggerData::saveNewestValue(bool average) {
     }
     
   } else {
-    Serial.printf("WARNING: newest value for %d (%s) not valid and therefore not saved\n", idx, variable);
+    Serial.printf("WARNING: newest value for #%d (%s) not valid and therefore not saved\n", idx, variable);
   }
 }
 
