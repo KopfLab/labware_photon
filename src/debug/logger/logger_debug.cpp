@@ -1,15 +1,5 @@
 #pragma SPARK_NO_PREPROCESSOR // disable spark preprocssor to avoid issues with callbacks
 #include "application.h"
-
-// debugging options
-#define CLOUD_DEBUG_ON
-//#define WEBHOOKS_DEBUG_ON
-#define STATE_DEBUG_ON
-//#define DATA_DEBUG_ON
-//#define SERIAL_DEBUG_ON
-//#define LCD_DEBUG_ON
-//#define STATE_RESET // FIXME auto state reset
-
 #include "LoggerController.h"
 #include "LoggerComponent.h"
 #include "DataReaderLoggerComponent.h"
