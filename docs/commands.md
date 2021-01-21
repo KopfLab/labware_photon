@@ -9,7 +9,7 @@ geometry: margin=1in
 
 The following commands can be used directly through the [lablogger GUI](https://github.com/KopfLab/lablogger) or take the place of the `<cmd>` placeholder in the CLI call `particle call <deviceID> device "<cmd>"`.
 
-# [`LoggerController`](src/modules/logger/LoggerController.h) commands:
+# [`LoggerController`](/src/modules/logger/LoggerController.h) commands:
 
 The following commands are available for all loggers. Addtional commands are provided by individual components listed hereafter.
 
@@ -33,7 +33,7 @@ The following commands are available for all loggers. Addtional commands are pro
   - `reset data` to reset the data currently being collected
   - `page` to switch to the next page on the LCD screen (**FIXME**: not fully implemented)
 
-# [`ScaleLoggerComponent`](src/modules/scale/ScaleLoggerComponent.h) commands:
+# [`ScaleLoggerComponent`](/src/modules/scale/ScaleLoggerComponent.h) commands:
 
   - all `LoggerController` commands PLUS:
   - `calc-rate <options>` to specify whether to calculate a mass flow rate and if so, which time units to use, `<options>`:
@@ -43,14 +43,14 @@ The following commands are available for all loggers. Addtional commands are pro
     - `h` calculate flow rate as mass/hours
     - `d` calculate flow rate as mass/day
 
-# [`MFCLoggerComponent`](src/modules/mfc/MFCLoggerComponent.h) commands:
+# [`MFCLoggerComponent`](/src/modules/mfc/MFCLoggerComponent.h) commands:
 
   - all `LoggerController` commands PLUS:
   - `unit <ID>` to specify the ID of the mass flow controller to communicate with (typically a letter from A-Z)
   - `gas <name>` to specify the name of the gas, must match what is set on the mass flow controller
   - `totalizer <yes/no>` whether MFC has a totalizer or not (if not correct, will not process serial data correctly!)
 
-# [`StepperLoggerComponent`](src/modules/mfc/StepperLoggerComponent.h) commands:
+# [`StepperLoggerComponent`](/src/modules/mfc/StepperLoggerComponent.h) commands:
 
   - all `LoggerController` commands PLUS:
   - `start` to start the motor (at the currently set speed and microstepping)
