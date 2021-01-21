@@ -18,7 +18,7 @@ struct LoggerCommand {
     // command outcome
     char type[20]; // command type
     char type_short[10]; // short version of the command type (for lcd)
-    char msg[50]; // log message
+    char msg[100]; // log message
     char data[50]; // data text
     int ret_val; // return value
 

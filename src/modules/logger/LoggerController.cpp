@@ -139,8 +139,6 @@ void LoggerController::init() {
   Serial.println(Time.format(Time.now(), "INFO: startup time: %Y-%m-%d %H:%M:%S %Z"));
   Serial.printlnf("INFO: available memory: %lu", System.freeMemory());
 
-  // data log
-  last_data_log = 0;
 }
 
 void LoggerController::initComponents() 
@@ -161,7 +159,7 @@ void LoggerController::completeStartup() {
   if (state->state_logging) {
     Serial.println("INFO: start-up completed.");
     assembleStartupLog();
-    publishStateLog();
+    queueStateLog();
   } else {
     Serial.println("INFO: start-up completed (not logged).");
   }
@@ -172,8 +170,6 @@ void LoggerController::completeStartup() {
   {
     (*components_iter)->completeStartup();
   }
-
-  Serial.printlnf("INFO: available memory: %lu", System.freeMemory());
 }
 
 /*** loop ***/
@@ -218,26 +214,43 @@ void LoggerController::update() {
         cloud_connection_started = true;
     }
 
-    // startup complete once name handler succeeds (could be some time after initial particle connect)
-    if (Particle.connected() && !startup_logged && name_handler_succeeded) {
-       completeStartup();
-       startup_logged = true;
+    // startup complete once name handler succeeds and the time is valid (could be some time after initial particle connect)
+    if (!startup_complete && Particle.connected() && name_handler_succeeded && Time.isValid()) {
+      startup_complete = true;
+      completeStartup();
     }
 
-    // components update
-    std::vector<LoggerComponent*>::iterator components_iter = components.begin();
-    for(; components_iter != components.end(); components_iter++) {
-        (*components_iter)->update();
-    }
-
-    // lcd update
-    lcd->update();
-
-    // time to log data?
-    if (isTimeForDataLogAndClear()) {
+    // time to generate data logs?
+    if (startup_complete && isTimeForDataLogAndClear()) {
         last_data_log = millis();
         logData();
         clearData(false);
+    }
+
+    // out of memory?
+    if (missed_data > 0 && !out_of_memory) {
+      Serial.printlnf("INFO: no longer out of memory but missed %d data logs along the way", missed_data);
+      assembleMissedDataLog();
+      queueStateLog();
+      missed_data = 0;
+    }
+    
+    // time to process logs?
+    if (startup_complete && Particle.connected() && millis() - last_log_published > publish_interval) {
+      if (!state_log_stack.empty()) {
+        // process state logs first
+        publishStateLog();
+      } else if (!data_log_stack.empty()) {
+        publishDataLog();
+      }
+      last_log_published = millis();
+    }
+
+    // time for time sync?
+    if (startup_complete && Particle.connected() && millis() - last_sync > ONE_DAY_MILLIS) {
+      // request time synchronization from the Particle Cloud
+      Particle.syncTime();
+      last_sync = millis();
     }
 
     // restart
@@ -250,6 +263,15 @@ void LoggerController::update() {
       lcd->printLineTemp(1, lcd_buffer);
     }
 
+    // components update
+    std::vector<LoggerComponent*>::iterator components_iter = components.begin();
+    for(; components_iter != components.end(); components_iter++) {
+        (*components_iter)->update();
+    }
+
+    // lcd update
+    lcd->update();
+
 }
 
 /*** logger name capture ***/
@@ -258,7 +280,7 @@ void LoggerController::captureName(const char *topic, const char *data) {
   // store name and also assign it to Logger information
   strncpy ( name, data, sizeof(name) );
   name_handler_succeeded = true;
-  Serial.println("INFO: logger name '" + String(name) + "'");
+  Serial.printlnf("INFO: logger name '%s'", name);
   lcd->printLine(1, name);
   if (name_callback) name_callback();
 }
@@ -346,7 +368,7 @@ int LoggerController::receiveCommand(String command_string) {
   }
   if (state->state_logging | override_state_log) {
     assembleStateLog();
-    publishStateLog();
+    queueStateLog();
   }
   override_state_log = false;
 
@@ -779,7 +801,6 @@ void LoggerController::updateStateVariable() {
   assembleStateVariable();
   assembleComponentsStateVariable();
   postStateVariable();
-  Serial.printlnf("INFO: available memory: %lu", System.freeMemory());
 }
 
 void LoggerController::assembleStateVariable() {
@@ -814,9 +835,10 @@ void LoggerController::postStateVariable() {
   Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
   // dt = datetime, s = state information
   snprintf(state_variable, sizeof(state_variable), 
-    "{\"dt\":\"%s\",\"version\":\"%s\",\"mac\":\"%02x:%02x:%02x:%02x:%02x:%02x\",\"s\":[%s]}",
+    "{\"dt\":\"%s\",\"v\":\"%s\",\"mac\":\"%02x:%02x:%02x:%02x:%02x:%02x\",\"mem\":%lu,\"sls\":%d,\"dls\":%d,\"s\":[%s]}",
     date_time_buffer, version, 
     mac_address[0], mac_address[1], mac_address[2], mac_address[3], mac_address[4], mac_address[5],
+    System.freeMemory(), state_log_stack.size(), data_log_stack.size(),
     state_variable_buffer);
   if (debug_cloud) {
     Serial.printf("DEBUG: updated state variable: %s\n", state_variable);
@@ -824,33 +846,44 @@ void LoggerController::postStateVariable() {
   if (!Particle.connected()) {
     Serial.println("WARNING: particle not (yet) connected, state variable only available when connected.");
   }
+  Serial.printlnf("INFO: available memory: %lu", System.freeMemory());
 }
 
 /*** particle webhook state log ***/
 
 void LoggerController::assembleStartupLog() {
   // include restart details in startup log message
-  char msg[50];
-  msg[0] = 0;
+  command->reset();
+  strcpy(command->type, CMD_LOG_TYPE_STARTUP);
+  strcpy(command->data, "{\"k\":\"startup\",\"v\":\"complete\"}");
   if (past_reset == RESET_RESTART) {
-    strncpy(msg, "after user-requested restart", sizeof(msg) - 1);
+    strcpy(command->msg, "after user-requested restart");
   } else if (past_reset == RESET_STATE) {
-    strncpy(msg, "for user-requested state reset", sizeof(msg) - 1);
+    strcpy(command->msg, "for user-requested state reset");
   } else if (past_reset == RESET_WATCHDOG) {
-    strncpy(msg, "triggered by application watchdog", sizeof(msg) - 1);
+    strcpy(command->msg, "triggered by application watchdog");
   }
-  msg[sizeof(msg)-1] = 0;
-  // id = Logger name, t = state log type, s = state change, m = message, n = notes
-  snprintf(state_log, sizeof(state_log), "{\"id\":\"%s\",\"t\":\"startup\",\"s\":[{\"k\":\"startup\",\"v\":\"complete\"}],\"m\":\"%s\",\"n\":\"\"}", name, msg);
+  assembleStateLog();
+}
+
+void LoggerController::assembleMissedDataLog() {
+  command->reset();
+  strcpy(command->type, CMD_LOG_TYPE_ERROR);
+  char data[40];
+  snprintf(data, sizeof(data), "{\"k\":\"missed_data_logs\",\"v\":\"%d\"}", missed_data);
+  strcpy(command->data, data);
+  strcpy(command->msg, "lack of cloud connection and low memory lead to missing data logs");
+  assembleStateLog();
 }
 
 void LoggerController::assembleStateLog() {
   state_log[0] = 0;
   if (command->data[0] == 0) strcpy(command->data, "{}"); // empty data entry
-  // id = Logger name, t = state log type, s = state change, m = message, n = notes
+  // id = Logger name, dt = log datetime, t = state log type, s = state change, m = message, n = notes
+  Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
   int buffer_size = snprintf(state_log, sizeof(state_log),
-     "{\"id\":\"%s\",\"t\":\"%s\",\"s\":[%s],\"m\":\"%s\",\"n\":\"%s\"}",
-     name, command->type, command->data, command->msg, command->notes);
+     "{\"id\":\"%s\",\"dt\":\"%s\",\"t\":\"%s\",\"s\":[%s],\"m\":\"%s\",\"n\":\"%s\"}",
+     name, date_time_buffer, command->type, command->data, command->msg, command->notes);
   if (buffer_size < 0 || buffer_size >= sizeof(state_log)) {
     Serial.println("ERROR: state log buffer not large enough for state log");
     lcd->printLineTemp(1, "ERR: statelog too big");
@@ -858,27 +891,43 @@ void LoggerController::assembleStateLog() {
   }
 }
 
-bool LoggerController::publishStateLog() {
-  if (debug_cloud) {
-    Serial.printf("DEBUG: publishing state log %s to event '%s'... ", state_log, STATE_LOG_WEBHOOK);
-  }
-
-  if (debug_webhooks) {
-    if (debug_cloud) Serial.println();
-    Serial.println("WARNING: state log NOT sent because in WEBHOOKS_DEBUG_ON mode.");
-    return(false);
-  } else if (!Particle.connected()) {
-    if (debug_cloud) Serial.println();
-    Serial.println("WARNING: particle not (yet) connected, cannot publish state log.");
-    return(false);
+void LoggerController::queueStateLog() {
+  if (!startup_complete) {
+    Serial.printlnf("WARNING: state log '%s' NOT queued because startup is not yet complete.", state_log);
+  } else if (debug_webhooks) {
+    Serial.printlnf("WARNING: state log '%s' NOT queued because in WEBHOOKS_DEBUG_ON mode.", state_log);
   } else {
-    bool success = Particle.publish(STATE_LOG_WEBHOOK, state_log, PRIVATE, WITH_ACK);
+    state_log_stack.push_back(state_log);
+    if (debug_cloud) {
+      Serial.printlnf("DEBUG: added log #%d to state log stack: '%s'", state_log_stack.size(), state_log_stack.back().c_str());
+    }
+  }
+  postStateVariable(); // update state variable stack info
+}
+
+void LoggerController::publishStateLog() {
+  
+  if (!state_log_stack.empty()) {
+
+    // process from back to front (i.e. always latest log first) for speed and to avoid memory fragmentation
+    if (debug_cloud) {
+      Serial.printf("DEBUG: publishing last state log (#%d) to event '%s': '%s'... ", 
+        state_log_stack.size(), STATE_LOG_WEBHOOK, state_log_stack.back().c_str());
+    }
+    
+    bool success = Particle.publish(STATE_LOG_WEBHOOK, state_log_stack.back().c_str(), WITH_ACK);
     if (debug_cloud) {
       if (success) Serial.println("successful.");
       else Serial.println("failed!");
     }
-    return(success);
+
+    if (success) {
+      state_log_stack.pop_back();
+      postStateVariable(); // update state variable stack info
+    }
+
   }
+  
 }
 
 /*** logger data variable ***/
@@ -888,7 +937,6 @@ void LoggerController::updateDataVariable() {
   data_variable_buffer[0] = 0; // reset buffer
   assembleComponentsDataVariable();
   postDataVariable();
-  Serial.printlnf("INFO: available memory: %lu", System.freeMemory());
 }
 
 void LoggerController::assembleComponentsDataVariable() {
@@ -1016,13 +1064,16 @@ bool LoggerController::addToDataLogBuffer(char* info) {
 
 bool LoggerController::finalizeDataLog(bool use_common_time, unsigned long common_time) {
   // data
+  Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
   int buffer_size;
   if (use_common_time) {
-    // id = Logger name, to = time offset (global), d = structured data
-    buffer_size = snprintf(data_log, sizeof(data_log), "{\"id\":\"%s\",\"to\":%lu,\"d\":[%s]}", name, common_time, data_log_buffer);
+    // id = Logger name, dt = log datetime, to = time offset from log datetime (global), d = structured data
+    buffer_size = snprintf(data_log, sizeof(data_log), "{\"id\":\"%s\",\"dt\":\"%s\",\"to\":%lu,\"d\":[%s]}", 
+      name, date_time_buffer, common_time, data_log_buffer);
   } else {
     // indivudal time
-    buffer_size = snprintf(data_log, sizeof(data_log), "{\"id\":\"%s\",\"d\":[%s]}", name, data_log_buffer);
+    buffer_size = snprintf(data_log, sizeof(data_log), "{\"id\":\"%s\",\"dt\":\"%s\",\"d\":[%s]}", 
+      name, date_time_buffer, data_log_buffer);
   }
   if (buffer_size < 0 || buffer_size >= sizeof(data_log)) {
     Serial.println("ERROR: data log buffer not large enough for data log - this should NOT be possible to happen");
@@ -1032,39 +1083,58 @@ bool LoggerController::finalizeDataLog(bool use_common_time, unsigned long commo
   return(true);
 }
 
-bool LoggerController::publishDataLog() {
-
-  if (debug_cloud) {
-    if (!state->data_logging) Serial.println("WARNING: publishing data log despite data logging turned off");
-    Serial.printf("DEBUG: publishing data log '%s' to event '%s'... ", data_log, DATA_LOG_WEBHOOK);
-  }
-
+void LoggerController::queueDataLog() {
   if (strlen(data_log) == 0) {
-    Serial.println("WARNING: no data log sent because there is none.");
-    return(false);
-  }
-
-  if (debug_webhooks) {
-    if (debug_cloud) Serial.println();
-    Serial.println("WARNING: data log NOT sent because in WEBHOOKS_DEBUG_ON mode.");
-    return(false);
-  } else if (!Particle.connected()) {
-    if (debug_cloud) Serial.println();
-    Serial.println("WARNING: particle not (yet) connected, cannot publish data log.");
-    lcd->printLineTemp(1, "ERR: data log error");
-    return(false);
+    Serial.println("WARNING: no data log queued because there is none.");
+  } else if (!startup_complete) {
+    Serial.printlnf("WARNING: data log '%s' NOT queued because startup is not yet complete.", data_log);
+  } else if (debug_webhooks) {
+    Serial.printlnf("WARNING: data log '%s' NOT queued because in WEBHOOKS_DEBUG_ON mode.", data_log);
+  } else if (System.freeMemory() < memory_reserve) {
+    out_of_memory = true;
+    missed_data++;
+    Serial.printlnf("WARNING: data log '%s' NOT queued because free memory < memory reserve (%d bytes), total %d data logs missed.", 
+      data_log, memory_reserve, missed_data);
   } else {
-    bool success = Particle.publish(DATA_LOG_WEBHOOK, data_log, PRIVATE, WITH_ACK);
+    out_of_memory = false;
+    data_log_stack.push_back(data_log);
+    if (debug_cloud) {
+      Serial.printlnf("DEBUG: added log #%d to data log stack: '%s'", data_log_stack.size(), data_log_stack.back().c_str());
+    }
+  }
+  postStateVariable(); // update state variable stack info
+}
 
+void LoggerController::publishDataLog() {
+  
+  if (!data_log_stack.empty()) {
+
+    size_t log_n = data_log_stack.size();
+
+    // process from back to front (i.e. always latest log first) for speed and to avoid memory fragmentation
+    if (debug_cloud) {
+      Serial.printf("DEBUG: publishing last data log (#%d) to event '%s': '%s'... ", 
+        log_n, DATA_LOG_WEBHOOK, data_log_stack.back().c_str());
+    }
+
+    // particle is connected, try to publish the latest log
+    bool success = Particle.publish(DATA_LOG_WEBHOOK, data_log_stack.back().c_str(), WITH_ACK);
+    
     if (debug_cloud) {
       if (success) Serial.println("successful.");
       else Serial.println("failed!");
     }
 
-    (success) ?
-        lcd->printLineTemp(1, "INFO: data log sent") :
-        lcd->printLineTemp(1, "ERR: data log error");
+    if (success) {
+      snprintf(lcd_buffer, sizeof(lcd_buffer), "INFO: data log %d sent", log_n);
+      lcd->printLineTemp(1, lcd_buffer);
+      data_log_stack.pop_back();
+      postStateVariable(); // update state variable stack info
+    } else {
+      snprintf(lcd_buffer, sizeof(lcd_buffer), "ERR: data log %d error", log_n);
+      lcd->printLineTemp(1, lcd_buffer);
+    }
 
-    return(success);
   }
+  
 }

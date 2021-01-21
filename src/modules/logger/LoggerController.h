@@ -4,6 +4,9 @@
 #include "LoggerCommand.h"
 #include "LoggerDisplay.h"
 
+/*** time sync ***/
+#define ONE_DAY_MILLIS (24 * 60 * 60 * 1000)
+
 /*** spark cloud constants ***/
 #define CMD_ROOT              "device" // command root (i.e. registered particle call function)
 #define STATE_INFO_VARIABLE   "state" // name of the particle exposed state variable
@@ -50,6 +53,8 @@
 #define CMD_LOG_TYPE_STATE_CHANGED_SHORT    "OK"
 #define CMD_LOG_TYPE_STATE_UNCHANGED        "state unchanged"
 #define CMD_LOG_TYPE_STATE_UNCHANGED_SHORT  "SAME"
+#define CMD_LOG_TYPE_STARTUP                "startup"
+
 
 // locking
 #define CMD_LOCK            "lock" // device "lock on/off [notes]" : locks/unlocks the Logger
@@ -267,6 +272,9 @@ class LoggerController {
     const int reset_pin;
     bool reset = false;
     
+    // time sync
+    unsigned long last_sync = 0;
+
     // state log exceptions
     bool override_state_log = false;
 
@@ -285,13 +293,13 @@ class LoggerController {
     const size_t eeprom_start = 0;
     size_t eeprom_location = 0;
 
+    // startup
+    bool startup_complete = false;
+
     // data indices
     uint8_t data_idx = 0;
 
   protected:
-
-    // startup
-    bool startup_logged = false;
 
     // lcd buffer (for cross-method msg assembly that might not be safe to do with lcd->buffer)
     char lcd_buffer[21];
@@ -317,7 +325,20 @@ class LoggerController {
     char data_log_buffer[DATA_LOG_MAX_CHAR-10];
 
     // data logging tracker
-    unsigned long last_data_log;
+    unsigned long last_data_log = 0;
+
+    // log stacks
+    std::vector<std::string> state_log_stack;
+    std::vector<std::string> data_log_stack;
+
+    // log stack processing
+    unsigned long last_log_published = 0;
+    const int publish_interval = 1000; // 1/s is the max frequency for particle cloud publishing
+
+    // memory reserve
+    uint memory_reserve = 5000; // memory reserve in bytes
+    bool out_of_memory = false; // whether out of memory
+    uint missed_data = 0; // how many data points missed b/c no internet and out of memory
 
   public:
 
@@ -418,8 +439,10 @@ class LoggerController {
 
     /*** particle webhook state log ***/
     virtual void assembleStartupLog(); 
+    virtual void assembleMissedDataLog();
     virtual void assembleStateLog(); 
-    virtual bool publishStateLog(); 
+    virtual void queueStateLog(); 
+    virtual void publishStateLog();
 
     /*** logger data variable ***/
     virtual void updateDataVariable();
@@ -434,6 +457,7 @@ class LoggerController {
     virtual void resetDataLog();
     virtual bool addToDataLogBuffer(char* info);
     virtual bool finalizeDataLog(bool use_common_time, unsigned long common_time = 0);
-    virtual bool publishDataLog();
+    virtual void queueDataLog();
+    virtual void publishDataLog();
 
 };

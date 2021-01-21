@@ -111,7 +111,7 @@ void LoggerComponent::logData() {
         if (ctrl->debug_cloud) {
             Serial.printf("DEBUG: assembled data log for component '%s' from index %d to %d\n", id, first_data_log_index, last_data_log_index);
         }
-        ctrl->publishDataLog();
+        ctrl->queueDataLog();
     }
 };
 
