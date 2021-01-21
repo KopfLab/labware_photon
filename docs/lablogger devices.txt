@@ -142,10 +142,8 @@ deactivateafter LoggerController
 deactivateafter LoggerController
 group #ff00ff if state->state_logging
 LoggerController->LoggerController: assembleStateLog()
-parallel
-LoggerController->LoggerController: publishStateLog()
-Particle<-LoggerController:publish("state_log")
-parallel off
+LoggerController->LoggerController: queueStateLog()
+
 end
 
 group #ff00ff if command->hasStateChanged()
@@ -203,29 +201,32 @@ group #ff00ff if trigger_reset != RESET_UNDEF
 LoggerController->LoggerController: System.reset(trigger_reset)
 end
 
-group #ff00ff if Particle.connected() && named_handler_succeeded && !startup_logged
+group #ff00ff if !startup_complete && Particle.connected() && named_handler_succeeded
+note right of LoggerController: startup_complete = true
 LoggerController->LoggerController: completeStartup()
 activate LoggerController#red
 LoggerController->LoggerController: updateStateVariable() [see details above]
 LoggerController->LoggerController: updateDataVariable() [see details below]
 LoggerController->LoggerController: assembleStartupLog()
-LoggerController->LoggerController: publishStateLog()
+LoggerController->LoggerController: queueStateLog()
 LoggerController->LoggerComponent: completeStartup()
 deactivateafter LoggerController
-note right of LoggerController: startup_logged = true
 # FIXME: implement startup complete call
 end
 
-LoggerController->LoggerComponent: update()
-activate LoggerComponent
-LoggerController<--LoggerComponent: updateDataVariable()
-# FIXME: continue capturing what's going on here
-deactivateafter LoggerComponent
-
-LoggerController->LoggerDisplay: update()
+group #ff00ff if startup_complete && !state_log_stack.empty() || !data_log_stack.empty  - every 1s
+parallel
+LoggerController->LoggerController: publishStateLog()
+Particle<-LoggerController: publish("state_log")
+parallel off
+parallel
+LoggerController->LoggerController: publishDataLog()
+Particle<-LoggerController: publish("data_log")
+parallel off
+end
 
 # log and clear data
-group #ff00ff if isTimeForDataLogAndClear()
+group #ff00ff if startup_complete && isTimeForDataLogAndClear()
 note right of LoggerController: last_data_log = millis()
 LoggerController->LoggerController: logData()
 activate LoggerController#red
@@ -238,10 +239,10 @@ LoggerController<-LoggerComponent: resetDataLog()
 LoggerComponent->LoggerData: assembleLog()
 LoggerController<-LoggerComponent: addToDataLogBuffer()
 LoggerController<-LoggerComponent: finalizeDataLog()
-parallel
-LoggerController<-LoggerComponent: publishDataLog()
-Particle<-LoggerController: publish("data_log")
-parallel off
+LoggerController<-LoggerComponent: queueDataLog()
+activate LoggerController#green
+LoggerController->LoggerController:postStateVariable()
+deactivateafter LoggerController
 deactivate LoggerComponent
 deactivateafter LoggerComponent
 end
@@ -256,6 +257,16 @@ end
 deactivateafter LoggerComponent
 deactivateafter LoggerController
 end
+
+# component and lcd updates
+LoggerController->LoggerComponent: update()
+activate LoggerComponent
+LoggerController<--LoggerComponent: updateDataVariable()
+# FIXME: continue capturing what's going on here
+deactivateafter LoggerComponent
+
+LoggerController->LoggerDisplay: update()
+
 deactivateafter LoggerController
 
 
