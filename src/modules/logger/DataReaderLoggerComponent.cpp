@@ -43,7 +43,7 @@ void DataReaderLoggerComponent::startDataRead() {
         (isManualDataReader()) ?
             Serial.printf("INFO: starting data read for component '%s' (manual mode)", id) :
             Serial.printf("INFO: starting data read for component '%s' ", id);
-        Serial.println(Time.format(Time.now(), "at %Y-%m-%d %H:%M:%S %Z\n"));
+        Serial.println(Time.format(Time.now(), "at %Y-%m-%d %H:%M:%S %Z"));
     }
     data_read_start = millis();
     data_read_status = DATA_READ_WAITING;

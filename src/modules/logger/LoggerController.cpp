@@ -183,7 +183,7 @@ void LoggerController::update() {
             WiFi.macAddress(mac_address);
             Serial.printf("INFO: MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n", 
             mac_address[0], mac_address[1], mac_address[2], mac_address[3], mac_address[4], mac_address[5]);
-            Serial.println(Time.format(Time.now(), "INFO: cloud connection established at %H:%M:%S %d.%m.%Y"));
+            Serial.println(Time.format(Time.now(), "INFO: cloud connection established at %H:%M:%S"));
             Serial.printlnf("INFO: available memory: %lu", System.freeMemory());
             cloud_connected = true;
             lcd->printLine(2, ""); // clear "connect wifi" message
@@ -202,12 +202,12 @@ void LoggerController::update() {
         Particle.process();
     } else if (cloud_connected) {
         // should be connected but isn't --> reconnect
-        Serial.println(Time.format(Time.now(), "INFO: lost cloud connection at %H:%M:%S %d.%m.%Y"));
+        Serial.println(Time.format(Time.now(), "INFO: lost cloud connection at %H:%M:%S"));
         cloud_connection_started = false;
         cloud_connected = false;
     } else if (!cloud_connection_started) {
         // start cloud connection
-        Serial.println(Time.format(Time.now(), "INFO: initiate cloud connection at %H:%M:%S %d.%m.%Y"));
+        Serial.println(Time.format(Time.now(), "INFO: initiate cloud connection at %H:%M:%S"));
         lcd->printLine(2, "Connect WiFi...");
         updateDisplayStateInformation(); // not components, preserve connect wifi message
         Particle.connect();
