@@ -9,15 +9,16 @@ void ScaleLoggerComponent::debug() {
 /*** setup ***/
 
 uint8_t ScaleLoggerComponent::setupDataVector(uint8_t start_idx) { 
-    // idx, key
-    LoggerData weight = LoggerData(1, "weight");
-    LoggerData rate = LoggerData(2, "rate");
-    // rate is persistent (i.e. not cleared after each log since it's calculated from two weights)
-    rate.makePersistent();
 
-    // add data
-    data.push_back(weight);
-    data.push_back(rate);
+    // resize data vector
+    data.resize(2);
+
+    // add data: idx, key
+    data[0] = LoggerData(1, "weight");
+    data[1] = LoggerData(2, "rate");
+    // rate is persistent (i.e. not cleared after each log since it's calculated from two weights)
+    data[1].makePersistent();
+
     return(start_idx + data.size()); 
 }
 
