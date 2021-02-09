@@ -100,7 +100,6 @@ class ScaleLoggerComponent : public SerialReaderLoggerComponent
 
     /*** rate calculations ***/
     void calculateRate();
-    void setRateUnits();
 
     /*** manage data ***/
     virtual void finishData();

@@ -98,8 +98,7 @@ bool ScaleLoggerComponent::changeCalcRate(uint rate) {
 
   if (changed) {
     state->calc_rate = rate;
-    setRateUnits(); // update units
-    calculateRate(); // recalculate rate
+    calculateRate();
     ctrl->updateDataVariable();
   }
   
@@ -120,6 +119,14 @@ void ScaleLoggerComponent::calculateRate() {
     // no rate calculation OR not enough data for rate calculation, make sure to clear
     data[1].clear(true);
   } else {
+    // set rate units text
+    char rate_units[10];
+    strncpy(rate_units, data[0].units, sizeof(rate_units) - 1);
+    strcpy(rate_units + strlen(data[0].units), "/");
+    getStateCalcRateText(state->calc_rate, rate_units + strlen(data[0].units) + 1, sizeof(rate_units), true);
+    rate_units[sizeof(rate_units) - 1] = 0; // safety
+    data[1].setUnits(rate_units);
+    
     // calculate rate
     double time_diff = (double) prev_data_time1 - (double) prev_data_time2;
     if (state->calc_rate == CALC_RATE_SEC) time_diff = time_diff / 1000.;
@@ -139,18 +146,9 @@ void ScaleLoggerComponent::calculateRate() {
     double variance = (prev_weight1.getVariance() + prev_weight2.getVariance()) / (time_diff * time_diff);
     data[1].value.M2 = variance * (data[1].value.n - 1); // a bit round-about but works
 
-    // set decimals to 4 significant digits
+    // set decimals to 5 significant digits
     data[1].setDecimals(find_signif_decimals (rate, 5, false, 6));
   }
-}
-
-void ScaleLoggerComponent::setRateUnits() {
-  char rate_units[10];
-  strncpy(rate_units, data[0].units, sizeof(rate_units) - 1);
-  strcpy(rate_units + strlen(data[0].units), "/");
-  getStateCalcRateText(state->calc_rate, rate_units + strlen(data[0].units) + 1, sizeof(rate_units), true);
-  rate_units[sizeof(rate_units) - 1] = 0;
-  data[1].setUnits(rate_units);
 }
 
 /*** manage data ***/
