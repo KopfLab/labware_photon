@@ -23,12 +23,18 @@ Microcontrollers for lablogger.
 
 ## Available programs
 
+### devices
+
+ - `devices/ministat`: ministat controller including a stepper component for stirring and an OD reader component for recording optical density 
+ - `devices/chemglass_scale` : logger for chemglass scales (pulls weight data via serial and calculates rates on the fly)
+
+### debug
+
  - `debug/blink`: simple blink program to check if photon works
  - `debug/cloud`: use to debug wifi settings and cloud connection
  - `debug/i2c_scanner`: use to search for the address(es) of I2C connected devices
  - `debug/lcd`: use debug I2C-connected LCD screens
  - `debug/logger`: use to test out a basic lab logger setup with an example component
- - `ministat`: ministat controller including a stepper component for stirring and an OD reader component for recording optical density 
 
 # Web commands
 
