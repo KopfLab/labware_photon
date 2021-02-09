@@ -23,6 +23,7 @@ struct LoggerData {
 
   // clearing
   // FIXME: consider deprecating this attribute (formerly auto_clear) and all related functionality
+  // UPDATE: see use case in Scale! should remain
   // check if it is needed / useded anywhere?
   bool persistent;
 
