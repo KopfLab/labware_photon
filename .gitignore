@@ -53,3 +53,6 @@ lib/
 
 # OS
 .DS_Store
+
+# old code
+src/old
