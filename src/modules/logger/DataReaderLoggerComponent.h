@@ -19,7 +19,8 @@ class DataReaderLoggerComponent : public LoggerComponent
 
     // data reader - whether this component is a data reader
     uint8_t data_read_status = DATA_READ_IDLE;
-    unsigned long data_read_start = 0;
+    unsigned long data_read_start = 0; // time the read started
+    unsigned int error_counter = 0; // number of errors encountered during the read
 
   public:
 
@@ -32,10 +33,15 @@ class DataReaderLoggerComponent : public LoggerComponent
 
     /*** read data ***/
     virtual bool isManualDataReader();
-    virtual void startDataRead();
+    virtual void idleDataRead();
+    virtual void initiateDataRead();
     virtual void readData();
-    virtual void handleDataReadError();
+    virtual void completeDataRead();
+    virtual void registerDataReadError();
     virtual void handleDataReadTimeout();
-    virtual void finishDataRead();
+
+    /*** manage data ***/
+    virtual void startData();
+    virtual void finishData();
 
 };
