@@ -467,7 +467,9 @@ bool LoggerController::parseReset() {
   if (command->parseVariable(CMD_RESET)) {
     command->extractValue();
     if (command->parseValue(CMD_RESET_DATA)) {
+      last_data_log = millis(); // reset last log
       clearData(true); // clear all data
+      updateDataVariable(); // update data variable
       command->success(true);
       getStateStringText(CMD_RESET, CMD_RESET_DATA, command->data, sizeof(command->data), PATTERN_KV_JSON_QUOTED, false);
     } else  if (command->parseValue(CMD_RESET_STATE)) {
