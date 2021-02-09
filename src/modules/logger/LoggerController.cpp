@@ -837,7 +837,7 @@ void LoggerController::postStateVariable() {
   Time.format(Time.now(), "%Y-%m-%d %H:%M:%S %Z").toCharArray(date_time_buffer, sizeof(date_time_buffer));
   // dt = datetime, s = state information
   snprintf(state_variable, sizeof(state_variable), 
-    "{\"dt\":\"%s\",\"v\":\"%s\",\"mac\":\"%02x:%02x:%02x:%02x:%02x:%02x\",\"mem\":%lu,\"sls\":%d,\"dls\":%d,\"s\":[%s]}",
+    "{\"dt\":\"%s\",\"version\":\"%s\",\"mac\":\"%02x:%02x:%02x:%02x:%02x:%02x\",\"mem\":%lu,\"sls\":%d,\"dls\":%d,\"s\":[%s]}",
     date_time_buffer, version, 
     mac_address[0], mac_address[1], mac_address[2], mac_address[3], mac_address[4], mac_address[5],
     System.freeMemory(), state_log_stack.size(), data_log_stack.size(),
