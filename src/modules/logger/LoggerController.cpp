@@ -1128,7 +1128,9 @@ void LoggerController::publishDataLog() {
     }
 
     if (success) {
-      snprintf(lcd_buffer, sizeof(lcd_buffer), "INFO: data log %d sent", log_n);
+      (log_n > 1) ?
+        snprintf(lcd_buffer, sizeof(lcd_buffer), "INFO: data log %d sent", log_n) :
+        snprintf(lcd_buffer, sizeof(lcd_buffer), "INFO: data log sent");
       lcd->printLineTemp(1, lcd_buffer);
       data_log_stack.pop_back();
       postStateVariable(); // update state variable stack info
