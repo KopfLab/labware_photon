@@ -2,6 +2,11 @@
 #include "LoggerComponent.h"
 #include "LoggerController.h"
 
+/*** debug ***/
+void LoggerComponent::debug() {
+    debug_component = true;
+}
+
 /*** setup ***/
 
 // setup data vector - override in derived clases, has to return the new index

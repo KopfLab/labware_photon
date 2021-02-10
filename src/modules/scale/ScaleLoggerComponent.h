@@ -79,9 +79,6 @@ class ScaleLoggerComponent : public SerialReaderLoggerComponent
     ScaleLoggerComponent (const char *id, LoggerController *ctrl, ScaleState* state, const long baud_rate, const long serial_config, const char *request_command) : 
       ScaleLoggerComponent(id, ctrl, state, baud_rate, serial_config, request_command, 0) {}
 
-    /*** debug ***/
-    void debug();
-
     /*** setup ***/
     virtual uint8_t setupDataVector(uint8_t start_idx); // setup data vector - override in derived clases, has to return the new index
 

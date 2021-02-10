@@ -1,11 +1,6 @@
 #include "application.h"
 #include "ScaleLoggerComponent.h"
 
-/*** debug ***/
-void ScaleLoggerComponent::debug() {
-    debug_mode = true;
-}
-
 /*** setup ***/
 
 uint8_t ScaleLoggerComponent::setupDataVector(uint8_t start_idx) { 

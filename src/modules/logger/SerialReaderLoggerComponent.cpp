@@ -82,8 +82,13 @@ void SerialReaderLoggerComponent::startData() {
 }
 
 void SerialReaderLoggerComponent::processNewByte() {
-    if (new_byte >= 32 && new_byte <= 126) appendToSerialDataBuffer(new_byte); // all data
-    // extend in derived classes
+  if (debug_component) {
+    (new_byte >= 32 && new_byte <= 126) ?
+      Serial.printlnf("SERIAL: byte# %03d: %i (dec) = %x (hex) = '%c' (char)", n_byte, (int) new_byte, new_byte, (char) new_byte) :
+      Serial.printlnf("SERIAL: byte# %03d: %i (dec) = %x (hex) = (special char)", n_byte, (int) new_byte, new_byte);
+  }
+  if (new_byte >= 32 && new_byte <= 126) appendToSerialDataBuffer(new_byte); // all data
+  // extend in derived classes
 }
 
 void SerialReaderLoggerComponent::finishData() {

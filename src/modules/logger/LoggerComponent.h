@@ -12,6 +12,9 @@ class LoggerComponent
 
   protected:
 
+    // debug
+    bool debug_component = false;
+
     // controller
     LoggerController *ctrl;
 
@@ -38,6 +41,9 @@ class LoggerComponent
 
     /*** constructors ***/
     LoggerComponent (const char *id, LoggerController *ctrl, bool data_have_same_time_offset, bool auto_clear_data) : id(id), ctrl(ctrl), data_have_same_time_offset(data_have_same_time_offset), auto_clear_data(auto_clear_data) {}
+
+    /*** debug ***/
+    void debug();
 
     /*** setup ***/
     virtual uint8_t setupDataVector(uint8_t start_idx); // setup data vector - override in derived clases, has to return the new index
