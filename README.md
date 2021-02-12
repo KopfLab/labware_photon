@@ -1,56 +1,61 @@
-# Photon labware
+# Lablogger devices
 
-Base classes for particle photons tied into the lab device and data infrastructure.
+Microcontrollers for lablogger.
 
-## Usage
+## Features
 
-This repository could at some point be turned into a particle photon library but is too lab specific at the moment.
-To include as a submodule in labware projects:
+- easily extensible framework for implementing cloud-connected instrument controllers and data logging devices based on the secure and well-established Particle Photon platform
+- flexible components for data reading, serial communication, stepper motor control, etc. that can be combined into a single controller as needed
+- logging framework constructs JSON-formatted data logs for flexible recording in spreadsheets or databases via cloud webhooks
+- build-in data averaging and error calculation
+- built-in support for remote control via cloud commands
+- built-in support for device state management (device locking, logging behavior, data read and log frequency, etc.)
+- built-in connectivity management with data cashing during offline periods - Photon memory typically allows cashing of 50-100 logs to bridge device downtime of several hours
 
-- `cd` to the other labware project, there `git submodule add https://github.com/KopfLab/labware_photon device`
-- to update most easily, from project main directory (above submodule): `git submodule update --remote`
-- to check out the project elsewhere `git submodule update --init --recursive` and then in the folder `git checkout master` and `git pull`
+## Makefile
 
-Then reference to the `labware_photon` classes via:
+- to compile: make PROGRAM 
+- to flash latest compile via USB: make flash
+- to flash latest compile via cloud: make flash device=DEVICE
+- to start serial monitor: make monitor
+- to compile & flash: make PROGRAM flash
+- to compile, flash & monitor: make PROGRAM flash monitor
 
-- `#include "device/Device???.h"`
+## Available programs
 
-## Serial
+### devices
 
-The null soft RS232 module used typically in our serial device housings is described in detail at http://www.nulsom.com/datasheet/NS-RS232_en.pdf. The important pins on the DB9 connector are 2 (RX), 3 (TX) and 5 (GND).
+ - `devices/ministat`: ministat controller including a stepper component for stirring and an OD reader component for recording optical density 
+ - `devices/chemglass_scale` : logger for chemglass scales (pulls weight data via serial and calculates rates on the fly)
 
-## Web commands
+### debug
+
+ - `debug/blink`: simple blink program to check if photon works
+ - `debug/cloud`: use to debug wifi settings and cloud connection
+ - `debug/i2c_scanner`: use to search for the address(es) of I2C connected devices
+ - `debug/lcd`: use debug I2C-connected LCD screens
+ - `debug/logger`: use to test out a basic lab logger setup with an example component
+
+# Web commands
 
 To run any web commands, you need to either have the [Particle Cloud command line interface (CLI)](https://github.com/spark/particle-cli) installed, or format the appropriate POST request to the [Particle Cloud API](https://docs.particle.io/reference/api/). Here only the currently implemented CLI calls are listed but they translate directly into the corresponding API requests. You only have access to the photons that are registered to your account.
 
-### requesting information via CLI
+## requesting information via CLI
 
-The state of the device can be requested by calling `particle get <deviceID> device_state` where `<deviceID>` is the name of the photon you want to get state information from. The latest data can be requested by calling `particle get <deviceID> device_data`. The return values are always array strings (ready to be JSON parsed) that include information on the state or last registered data of the device, respectively. Requires being logged in (`particle login`) to have access to the photons.
+The state of the device can be requested by calling `particle get <deviceID> state` where `<deviceID>` is the name of the photon you want to get state information from. The latest data can be requested by calling `particle get <deviceID> data`. The return values are always array strings (ready to be JSON parsed) that include information on the state or last registered data of the device, respectively. Requires being logged in (`particle login`) to have access to the photons.
 
-### issuing commands via CLI
+## issuing commands via CLI
 
-All calls are issued from the terminal and have the format `particle call <deviceID> device "<cmd>"` where `<deviceID>` is the name of the photon you want to issue a command to and `<cmd>` is the command (and should always be in quotes) - e.g. `particle call my-logger device "data-log on"`. If the command was successfully received and executed, `0` is returned, if the command was received but caused an error, a negative number (e.g. `-1` for generic error, `-2` for device is locked, `-3` for unknown command, etc.) is the return value. Positive return values mean executed with warning (e.g. `1` to note that the command did not change anything). The command's exact wording and all the return codes are defined in `DeviceCommands.h` and `SerialDeviceCommands.h`. Issuing commands also requires being logged in (`particle login`) to have access to the photons.
+All calls are issued from the terminal and have the format `particle call <deviceID> device "<cmd>"` where `<deviceID>` is the name of the photon you want to issue a command to and `<cmd>` is the command (and should always be in quotes) - e.g. `particle call my-logger device "data-log on"`. If the command was successfully received and executed, `0` is returned, if the command was received but caused an error, a negative number (e.g. `-1` for generic error, `-2` for device is locked, `-3` for unknown command, etc.) is the return value. Positive return values mean executed with warning (e.g. `1` to note that the command did not change anything). The command's exact wording and all the return codes are defined in the header files of the controller and components (e.g. `LoggerController.h` and `ExampleLoggerComponent.h`). Issuing commands also requires being logged in (`particle login`) to have access to the photons.
 
-Some common state variables are displayed in short notation in the upper right corner of the LCD screen (same line as the device name) - called **state overview**. It is noted in the following command lists where this is the case.
+Some common state variables are displayed in short notation in the upper right corner of the LCD screen (same line as the device name) - called **state overview**. The state overview starts with a `W` if the photon has internet connection and `!` if it currently does not (yet). Additoinal letters and their meanings are noted in the following command lists when applicable.
 
-#### `DeviceController` commands (`<cmd>` options):
+## available commands
 
-  - `state-log on` to turn web logging of state changes on (letter `S` shown in the state overview)
-  - `state-log off` to turn web logging of state changes off (no letter `S` in state overview)
-  - `data-log on` to turn web logging of data on (letter `D` in state overview)
-  - `data-log off` to turn web logging of data off
-  - `lock on` to safely lock the device (i.e. no commands will be accepted until `lock off` is called) - letter `L` in state overview
-  - `lock off` to unlock the device if it is locked
-  - `reset data` to reset the data stored in the device
+See the full documentation [here](docs/commands.md) for a list of available commands from the contorller and various components.
 
-#### Additional `SerialDeviceController` commands:
+# Troubleshooting
 
-  - `read-period <options>` to specify how frequently data should be read (letter `R` + subsequent in state overview), `<options>`:
-    - `manual` don't read data unless externally triggered in some way (device specific) - `RM` in state overview
-    - `200 ms` read data every 200 (or any other number) milli seconds (`R200ms` in state overview)
-    - `5 s` read data every 5 (or any other number) seconds (`R5s` in state overview)
-  - `log-period <options>` to specify how frequently read data should be logged (after letter `D` in state overview, although the `D` only appears if data logging is actually enabled), `<options>`:
-    - `3 x` log after every 3rd (or any other number) successful data read (`D3x` in state overview if logging is active, just `3x` if not), works with `manual` or time based `read-period`, set to `1 x` in combination with `manual` to log every externally triggered data event immediately
-    - `2 s` log every 2 seconds (or any other number), must exceed the `read-period` (`D2s` in state overview if data logging is active, just `2s` if not)
-    - `8 m` log every 8 minutes (or any other number)
-    - `1 h` log every hour (or any other number)
+## Photon reset
+
+To reset a photon, use `particle device doctor` (or `make doctor`) to flash new firmware (first step) and you can reset other parts as well but setting new WiFi credentials does not always work this way. Instead afterwards modify the `debug/credentials` app with the correct wifi credentials and flash it with `make debug/credentials flash monitor`. If there are connectivity issues, flash `make debug/cloud flash monitor` to check wifi configuration. Note that if the photon is not claimed yet (or claimed to a different account), you always still need to hold `SETUP` until blue blinking and run `particle setup` from the command line to claim the photon (you have to set wifi credentials again during setup but can overwrite with desired using `make debug/credentials`). Note that the `particle setup` configuration of the wifi settings does not always work so it is easier to just use `debug/credentials`.

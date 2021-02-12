@@ -1,125 +1,62 @@
-#pragma once
-#include "device/DeviceMath.h"
+#include "application.h"
+#include "LoggerData.h"
+#include "LoggerUtils.h"
 
-// device data for spark cloud
-struct DeviceData {
+/** DEBUG **/
 
-  // data information
-  char variable[25]; // the name of the data variable
-  int idx; // the index of the data
-  char units[20]; // the units the data is recorded in
-
-  // newest data
-  unsigned long newest_data_time; // the last recorded datetime (in ms)
-  double newest_value; // the last recorded value
-  bool newest_value_valid; // whether the newest value is valid
-
-  // saved data
-  RunningStats value;
-  RunningStats data_time;
-
-  // clearing
-  bool auto_clear;
-
-  // output parameters
-  int decimals; // what should the decimals be? (idxitive = decimals, negative = integers)
-  char json[100]; // full data log text
-
-  DeviceData() {
-    idx = 0;
-    variable[0] = 0;
-    units[0] = 0;
-    decimals = 0;
-    auto_clear = true;
-    clear(true);
-  };
-
-  DeviceData(int idx) : DeviceData() { setIndex(idx); }
-  DeviceData(int idx, char* var) : DeviceData(idx) { setVariable(var); }
-  DeviceData(int idx, char* var, char* units) : DeviceData(idx, var) { setUnits(units); }
-  DeviceData(int idx, int d) : DeviceData(idx) { setDecimals(d); }
-  DeviceData(int idx, char* var, int d) : DeviceData(idx, var) { setDecimals(d); }
-  DeviceData(int idx, char* var, char* units, int d) : DeviceData(idx, var, units) { setDecimals(d); }
-
-  // clearing
-  void clear(bool all = false);
-  void setAutoClear(bool clear);
-
-  // data
-  int getN();
-  double getValue();
-  double getStdDev();
-  unsigned long getDataTime();
-  void setVariable(char* var);
-  void setIndex(int idx);
-  void setNewestValue(double val);
-  // returns whether the value is a valid number or not (if strict, expects only white spaces after the value)
-  bool setNewestValue(char* val, bool strict = true, bool infer_decimals = false, int add_decimals = 1, const char* sep = ".");
-  void setNewestValueInvalid();
-  void saveNewestValue(bool average); // set value based on current newest_value (calculate average if true)
-  void setNewestDataTime(unsigned long dt);
-  void setUnits(char* u);
-  void setDecimals(int d);
-  int getDecimals();
-
-  // operations
-  bool isVariableIdentical(char* comparison);
-  bool isUnitsIdentical(char* comparison);
-
-  // logging
-  bool assembleLog(bool include_time_offset = true); // assemble log (with our without time offset, in seconds)
-  void assembleInfo(); // assemble data info
-};
+void LoggerData::debug() {
+  debug_data = true;
+}
 
 /** CLEARING **/
 
-void DeviceData::clear(bool all) {
-  if (auto_clear || all) {
+void LoggerData::clear(bool clear_persistent) {
+  if (!persistent || clear_persistent) {
     setNewestValueInvalid();
     value.clear();
     data_time.clear();
   }
 }
 
-void DeviceData::setAutoClear(bool clear) {
-  auto_clear = clear;
+void LoggerData::makePersistent() {
+  persistent = true;
 }
 
 /** DATA **/
 
-int DeviceData::getN() {
+int LoggerData::getN() {
   return value.n;
 }
 
-double DeviceData::getValue() {
+double LoggerData::getValue() {
   return value.mean;
 }
 
-double DeviceData::getStdDev() {
+double LoggerData::getStdDev() {
   return value.getStdDev();
 }
 
-unsigned long DeviceData::getDataTime() {
+unsigned long LoggerData::getDataTime() {
   return (unsigned long) round(data_time.mean);
 }
 
-void DeviceData::setVariable(char* var) {
+void LoggerData::setVariable(char* var) {
   strncpy(variable, var, sizeof(variable) - 1);
   variable[sizeof(variable)-1] = 0;
 }
 
-void DeviceData::setIndex(int i) {
+void LoggerData::setIndex(int i) {
   idx = i;
 }
 
-void DeviceData::setNewestValue(double val) {
+void LoggerData::setNewestValue(double val) {
   newest_value = val;
   newest_value_valid = true;
 }
 
 // @param add_decimals how many decimals to add tot he infered decimals (only matters if inferred)
 // @param strict checks that only white spaces are left at the end
-bool DeviceData::setNewestValue(char* val, bool strict, bool infer_decimals, int add_decimals, const char* sep) {
+bool LoggerData::setNewestValue(char* val, bool strict, bool infer_decimals, int add_decimals, const char* sep) {
   char* double_end;
   double d = strtod (val, &double_end);
   int converted = double_end - val;
@@ -151,15 +88,15 @@ bool DeviceData::setNewestValue(char* val, bool strict, bool infer_decimals, int
 }
 
 
-void DeviceData::setNewestValueInvalid() {
+void LoggerData::setNewestValueInvalid() {
   newest_value_valid = false;
 }
 
-void DeviceData::setNewestDataTime(unsigned long dt) {
+void LoggerData::setNewestDataTime(unsigned long dt) {
   newest_data_time = dt;
 }
 
-void DeviceData::saveNewestValue(bool average) {
+void LoggerData::saveNewestValue(bool average) {
   if (newest_value_valid) {
 
     // clear/overwrite values if not averaging or data time has overflowed (for safety)
@@ -178,36 +115,37 @@ void DeviceData::saveNewestValue(bool average) {
     //Serial.printf("value add: %3.10f, datatime add: %lu\nvalue    : %3.10f, datatime    : %lu, stdev  : %.10f\n",
     //  newest_value, newest_data_time, getValue(), getDataTime(), getStdDev());
 
-    #ifdef DATA_DEBUG_ON
+    if (debug_data) {
       (average) ?
-        Serial.print("INFO: new average value saved for ") :
-        Serial.print("INFO: single value saved for ");
+        Serial.print("DEBUG: new average value saved for ") :
+        Serial.print("DEBUG: single value saved for ");
       (getN() > 1) ?
         getDataDoubleWithSigmaText(idx, variable, getValue(), getStdDev(), units, getN(), json, sizeof(json), PATTERN_IKVSUN_SIMPLE, decimals) :
         getDataDoubleText(idx, variable, getValue(), units, json, sizeof(json), PATTERN_IKVU_SIMPLE, decimals);
       Serial.printf("%s (data time = %Lu ms)\n", json, getDataTime());
-    #endif
+    }
+    
   } else {
-    Serial.printf("WARNING: newest value for %d (%s) not valid and therefore not saved\n", idx, variable);
+    Serial.printf("WARNING: newest value for #%d (%s) not valid and therefore not saved\n", idx, variable);
   }
 }
 
-void DeviceData::setUnits(char* u) {
+void LoggerData::setUnits(char* u) {
   strncpy(units, u, sizeof(units) - 1);
   units[sizeof(units)-1] = 0;
 }
 
-void DeviceData::setDecimals(int d) {
+void LoggerData::setDecimals(int d) {
   decimals = d;
 }
 
-int DeviceData::getDecimals() {
+int LoggerData::getDecimals() {
   return decimals;
 }
 
 /**** OPERATIONS ****/
 
-bool DeviceData::isVariableIdentical(char* comparison) {
+bool LoggerData::isVariableIdentical(char* comparison) {
   if (strcmp(variable, comparison) == 0) {
     return(true);
   } else {
@@ -215,7 +153,7 @@ bool DeviceData::isVariableIdentical(char* comparison) {
   }
 }
 
-bool DeviceData::isUnitsIdentical(char* comparison) {
+bool LoggerData::isUnitsIdentical(char* comparison) {
   if (strcmp(units, comparison) == 0) {
     return(true);
   } else {
@@ -225,7 +163,7 @@ bool DeviceData::isUnitsIdentical(char* comparison) {
 
 /***** LOGGING *****/
 
-bool DeviceData::assembleLog(bool include_time_offset) {
+bool LoggerData::assembleLog(bool include_time_offset) {
   if (getN() > 1) {
     // have data
     (include_time_offset) ?
@@ -243,7 +181,7 @@ bool DeviceData::assembleLog(bool include_time_offset) {
   }
 }
 
-void DeviceData::assembleInfo() {
+void LoggerData::assembleInfo() {
   if (newest_value_valid) {
     // valid data
     (strlen(units) > 0) ?
