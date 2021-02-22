@@ -87,7 +87,12 @@ void SerialReaderLoggerComponent::processNewByte() {
       Serial.printlnf("SERIAL: byte# %03d: %i (dec) = %x (hex) = '%c' (char)", n_byte, (int) new_byte, new_byte, (char) new_byte) :
       Serial.printlnf("SERIAL: byte# %03d: %i (dec) = %x (hex) = (special char)", n_byte, (int) new_byte, new_byte);
   }
-  if (new_byte >= 32 && new_byte <= 126) appendToSerialDataBuffer(new_byte); // all data
+  if (new_byte >= 32 && new_byte <= 126) {
+    appendToSerialDataBuffer(new_byte); // all data
+  } else if (new_byte == 13 || new_byte == 10) {
+    // 13 = carriage return, 10 = line feed
+    appendToSerialDataBuffer(10); // add new line to all data
+  }
   // extend in derived classes
 }
 
@@ -130,6 +135,8 @@ void SerialReaderLoggerComponent::appendToSerialDataBuffer(byte b) {
     data_charcounter++;
   } else {
     Serial.println("ERROR: serial data buffer not big enough");
+    registerDataReadError();
+    data_read_status = DATA_READ_IDLE;
   }
 }
 
@@ -139,6 +146,8 @@ void SerialReaderLoggerComponent::appendToSerialVariableBuffer(byte b) {
     variable_charcounter++;
   } else {
     Serial.println("ERROR: serial variable buffer not big enough");
+    registerDataReadError();
+    data_read_status = DATA_READ_IDLE;
   }
 }
 
@@ -155,6 +164,8 @@ void SerialReaderLoggerComponent::appendToSerialValueBuffer(byte b) {
     value_charcounter++;
   } else {
     Serial.println("ERROR: serial value buffer not big enough");
+    registerDataReadError();
+    data_read_status = DATA_READ_IDLE;
   }
 }
 
@@ -171,6 +182,8 @@ void SerialReaderLoggerComponent::appendToSerialUnitsBuffer(byte b) {
     units_charcounter++;
   } else {
     Serial.println("ERROR: serial units buffer not big enough");
+    registerDataReadError();
+    data_read_status = DATA_READ_IDLE;
   }
 }
 

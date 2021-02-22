@@ -19,7 +19,7 @@ class SerialReaderLoggerComponent : public DataReaderLoggerComponent
     byte new_byte;
 
     // buffers
-    char data_buffer[500];
+    char data_buffer[2000];
     int data_charcounter;
     char variable_buffer[25];
     int variable_charcounter;

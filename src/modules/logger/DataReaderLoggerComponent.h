@@ -8,8 +8,6 @@
 #define DATA_READ_WAITING   2 // waiting for (more) data
 #define DATA_READ_COMPLETE  3 // all data received
 #define DATA_READ_TIMEOUT   4 // read timed out
-#define DATA_READ_ERROR     5 // encountered an error
-
 
 /* component */
 class DataReaderLoggerComponent : public LoggerComponent
