@@ -1,6 +1,14 @@
 #pragma once
 #include "DataReaderLoggerComponent.h"
 
+/*** serial data parameters ***/
+
+// special ascii characters (actual byte values)
+#define SERIAL_B_CR         13 // \r
+#define SERIAL_B_NL         10 // \n
+#define SERIAL_B_0          48 // 0
+#define SERIAL_B_9          57 // 9
+
 /* component */
 class SerialReaderLoggerComponent : public DataReaderLoggerComponent
 {

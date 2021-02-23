@@ -49,7 +49,7 @@ void SerialReaderLoggerComponent::readData() {
         processNewByte();
 
         // if working with a data pattern --> mark completion
-        if (data_pattern_pos > data_pattern_size) {
+        if (data_pattern_pos >= data_pattern_size) {
             data_read_status = DATA_READ_COMPLETE;
         }
 
