@@ -32,7 +32,7 @@ LoggerController* controller = new LoggerController(
 
 // MFC state
 MFCState* mfc_state = new MFCState(
-  /* mfc_id */                "B"
+  /* mfc_id */                "A"
 );
 
 // MFC component
@@ -103,7 +103,7 @@ void setup() {
   //controller->debugState();
   //controller->debugCloud();
   //controller->debugWebhooks();
-  mfc->debug();
+  //mfc->debug();
 
   // lcd temporary messages
   lcd->setTempTextShowTime(3); // how many seconds temp time

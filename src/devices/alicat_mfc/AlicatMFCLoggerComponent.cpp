@@ -3,19 +3,20 @@
 
 /*** serial data parameters ***/
 
+// requests
+const char* GAS_REQUEST = "A$$R46";
+const char* GAS_LIST_REQUEST = "A??G*";
+
 // pattern pieces
 #define MFC_P_UNIT      -1 // A, B, F, K
 #define MFC_P_D         -2 // [0-9] --> 48 - 57
 #define MFC_P_BYTE       0 // anything > 0 is specific byte
 
-// e.g. 'A   046 = 264'
+// gas command: 'A   046 = 264'
 const int MFC_GAS_REGISTER_PATTERN[] = {MFC_P_UNIT, ' ', ' ', ' ', '0', '4', '6', ' ', '=', ' ', MFC_P_D, SERIAL_B_CR};
 
-/*** serial mode ***/
-#define MFC_SERIAL_MODE_GAS      1
-#define MFC_SERIAL_MODE_GAS_LIST 2
-#define MFC_SERIAL_MODE_UNITS    3
-#define MFC_SERIAL_MODE_DATA     4
+// gas list command: 'A G07       He'
+const int MFC_GAS_LIST_PATTERN[] = {MFC_P_UNIT, ' ', 'G', MFC_P_D, SERIAL_B_CR}; // FIXME: continue here
 
 /*** setup ***/
 
@@ -34,6 +35,20 @@ uint8_t AlicatMFCLoggerComponent::setupDataVector(uint8_t start_idx) {
     return(start_idx + data.size()); 
 }
 
+/*** loop ***/
+
+void AlicatMFCLoggerComponent::update() {
+    // check for gas
+    if (serial_mode == MFC_SERIAL_MODE_IDLE && gas_id < 0) {
+        serial_mode = MFC_SERIAL_MODE_GAS;
+    } else if (serial_mode == MFC_SERIAL_MODE_IDLE && strlen(gas) == 0) {
+        serial_mode = MFC_SERIAL_MODE_GAS_LIST;
+    }
+
+    // run general update
+    MFCLoggerComponent::update();
+}
+
 /*** manage data ***/
 
 void AlicatMFCLoggerComponent::processNewByte() {
@@ -44,7 +59,16 @@ void AlicatMFCLoggerComponent::processNewByte() {
     // note: has new line characters as part of the message (13) between each data block
     // note: it seems that the whole message ends with 13 13 (two returns in a row)
 
+    // process gas
+    if (serial_mode == MFC_SERIAL_MODE_GAS) {
+        processGas();
+    } else if (serial_mode == MFC_SERIAL_MODE_GAS_LIST) {
+        processGasList();
+    }
 
+}
+
+void AlicatMFCLoggerComponent::processGas() {
     // check if end of data pattern
     if ( MFC_GAS_REGISTER_PATTERN[data_pattern_pos] == MFC_P_D && data_pattern_pos + 1 < data_pattern_size && 
             MFC_GAS_REGISTER_PATTERN[data_pattern_pos + 1] > 0 && new_byte == MFC_GAS_REGISTER_PATTERN[data_pattern_pos + 1]) {
@@ -72,7 +96,9 @@ void AlicatMFCLoggerComponent::processNewByte() {
         registerDataReadError();
         data_pattern_pos++;
     }
+}
 
+void AlicatMFCLoggerComponent::processGasList() {
 }
 
 /*** read data ***/
@@ -82,18 +108,44 @@ void AlicatMFCLoggerComponent::sendSerialDataRequest() {
     // move most functionality into the AlicatMFCLoggerComponent as it's not clear yet what might be extractable into a more generic class
     // --> maybe just the command structure for "id ..." and "flow ?? ??" and everything else into the alicat?
     // 
-    Serial.println("Asking for devince information command");
+    
     //Serial1.print("A??M*"); // ask for manufacturer data
     //Serial1.print("A??D*"); // ask for device configuration including units
     //Serial1.print("A??G*"); // gas list
-    data_pattern_size = sizeof(MFC_GAS_REGISTER_PATTERN) / sizeof(MFC_GAS_REGISTER_PATTERN[0]);
-    Serial1.print("A$$R46"); // read the register that holds the gas information
-    Serial1.print("\r");
+
+    if (serial_mode == MFC_SERIAL_MODE_GAS) {
+        // read the register that holds the gas information
+        if (ctrl->debug_data) {
+            Serial.printlnf("DEBUG: sending gas command '%s' over serial connection for component '%s'", GAS_REQUEST, id);
+        }
+        data_pattern_size = sizeof(MFC_GAS_REGISTER_PATTERN) / sizeof(MFC_GAS_REGISTER_PATTERN[0]);
+        Serial1.print(GAS_REQUEST); 
+        Serial1.print("\r"); 
+    } else if (serial_mode == MFC_SERIAL_MODE_GAS_LIST) {
+        // read the gas list
+        if (ctrl->debug_data) {
+            Serial.printlnf("DEBUG: sending gas list command '%s' to find gas for gas ID '%d' for component '%s'", GAS_LIST_REQUEST, gas_id, id);
+        }
+        //data_pattern_size = sizeof(MFC_GAS_REGISTER_PATTERN) / sizeof(MFC_GAS_REGISTER_PATTERN[0]);
+        Serial1.print(GAS_LIST_REQUEST); 
+        Serial1.print("\r");
+    } else {
+        data_read_status = DATA_READ_IDLE;
+    }
 }
 
 void AlicatMFCLoggerComponent::finishData() {
-    // weight
-    if (error_counter == 0) {
-        Serial.printlnf("new value: '%d'", atoi(value_buffer) % 256);
+    if (serial_mode == MFC_SERIAL_MODE_GAS && error_counter == 0) {
+        // get gas_id from gas register
+        gas_id = atoi(value_buffer) % 256;
+        if (ctrl->debug_data) {
+            Serial.printlnf("DEBUG: identified gas ID: '%d'", gas_id);
+        }
+        // skip time delay and jump straight to gas list request
+        data_read_status = DATA_READ_REQUEST;
+    } else if (serial_mode == MFC_SERIAL_MODE_GAS_LIST) {
+        // get gas from gas list data
+
     }
+    serial_mode = MFC_SERIAL_MODE_IDLE;
 }
