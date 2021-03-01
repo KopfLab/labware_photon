@@ -1,5 +1,5 @@
 /*
- * This code is for controlling an Alicat MFC
+ * This code is for controlling an Alicat MFC with a 4-line LCD logger
  * Author: Sebastian Kopf <sebastian.kopf@colorado.edu>
  */
 #pragma SPARK_NO_PREPROCESSOR // disable spark preprocssor to avoid issues with callbacks
@@ -24,7 +24,7 @@ LoggerControllerState* controller_state = new LoggerControllerState(
 
 // controller
 LoggerController* controller = new LoggerController(
-  /* version */           "mfc 0.4.0",
+  /* version */           "mfc 1.0.0",
   /* reset pin */         A5,
   /* lcd screen */        lcd,
   /* pointer to state */  controller_state
@@ -44,43 +44,32 @@ AlicatMFCLoggerComponent* mfc = new AlicatMFCLoggerComponent(
 
 // data update callback function
 void data_update_callback() {
-    /*
-    // latest data
-    lcd->resetBuffer();
-    if (scale->data[0].newest_value_valid)
-        getDataDoubleText("Last", scale->data[0].newest_value, scale->data[0].units, 
-        lcd->buffer, sizeof(lcd->buffer), PATTERN_KVU_SIMPLE, scale->data[0].decimals - 1);
+    // gas info and setpoint
+    char sp[20];
+    int i = 4;
+    getDataDoubleText("SP", mfc->data[i].getValue(), mfc->data[i].units, sp, sizeof(sp), PATTERN_KVU_SIMPLE, mfc->data[i].getDecimals()-1);
+    if (mfc->data[i].getN() > 0)
+      snprintf(lcd->buffer, sizeof(lcd->buffer), "%s=%s %s", mfc_state->mfc_id, mfc->gas, sp);
     else
-        strcpy(lcd->buffer, "Last: no data yet");
+      snprintf(lcd->buffer, sizeof(lcd->buffer), "%s=%s", mfc_state->mfc_id, mfc->gas);
     lcd->printLineFromBuffer(2);
 
-    // running data
-    lcd->resetBuffer();
-    if (scale->data[0].getN() > 0)
-        getDataDoubleText("Avg", scale->data[0].getValue(), scale->data[0].units, scale->data[0].getN(), 
-        lcd->buffer, sizeof(lcd->buffer), PATTERN_KVUN_SIMPLE, scale->data[0].getDecimals());
+    // pressure
+    i = 0;
+    if (mfc->data[i].getN() > 0)
+      getDataDoubleText(mfc->data[i].variable, mfc->data[i].getValue(), mfc->data[i].units, mfc->data[i].getN(), lcd->buffer, sizeof(lcd->buffer), PATTERN_KVUN_SIMPLE, mfc->data[i].getDecimals());
     else
-        strcpy(lcd->buffer, "Avg: no data yet");
+      getInfoKeyValue(lcd->buffer, sizeof(lcd->buffer), mfc->data[i].variable, "no data yet", PATTERN_KV_SIMPLE);
     lcd->printLineFromBuffer(3);
+    
+    // mass flow
+    i = 3;
+    if (mfc->data[i].getN() > 0)
+      getDataDoubleText("F", mfc->data[i].getValue(), mfc->data[i].units, mfc->data[i].getN(), lcd->buffer, sizeof(lcd->buffer), PATTERN_KVUN_SIMPLE, mfc->data[i].getDecimals());
+    else
+      getInfoKeyValue(lcd->buffer, sizeof(lcd->buffer), "F", "no data yet", PATTERN_KV_SIMPLE);
+    lcd->printLineFromBuffer(4);
 
-    // rate
-    lcd->resetBuffer();
-    if (scale->state->calc_rate == CALC_RATE_OFF) {
-        if (scale->data[0].getN() > 1)
-        getDataDoubleText("SD", scale->data[0].getStdDev(), scale->data[0].units, scale->data[0].getN(),
-            lcd->buffer, sizeof(lcd->buffer), PATTERN_KVUN_SIMPLE, scale->data[0].getDecimals());
-        else
-        strcpy(lcd->buffer, "SD: not enough data");
-        lcd->printLineFromBuffer(4);
-    } else {
-        if (scale->data[1].newest_value_valid)
-        getDataDoubleText("Rate", scale->data[1].newest_value, scale->data[1].units, 
-            lcd->buffer, sizeof(lcd->buffer), PATTERN_KVU_SIMPLE, scale->data[1].decimals);
-        else
-        strcpy(lcd->buffer, "Rate: not enough data");
-        lcd->printLineFromBuffer(4);
-    }
-    */
 }
 
 // manual wifi management
@@ -97,9 +86,9 @@ void setup() {
   delay(1000);
 
   // debugging
-  controller->forceReset();
+  //controller->forceReset();
   //controller->debugDisplay();
-  controller->debugData();
+  //controller->debugData();
   //controller->debugState();
   //controller->debugCloud();
   //controller->debugWebhooks();
