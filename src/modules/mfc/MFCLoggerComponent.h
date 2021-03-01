@@ -22,6 +22,16 @@ struct MFCState {
 
 /*** state variable formatting ***/
 
+// MFC ID
+static void getStateMFCIDText(char* mfc_id, char* target, int size, const char* pattern, bool include_key = true) {
+  getStateStringText(CMD_MFC_ID, mfc_id, target, size, pattern, include_key);
+}
+
+static void getStateMFCIDText(char* mfc_id, char* target, int size, bool value_only = false) {
+  (value_only) ?
+    getStateMFCIDText(mfc_id, target, size, PATTERN_V_SIMPLE, false) :
+    getStateMFCIDText(mfc_id, target, size, PATTERN_KV_JSON_QUOTED, true);
+}
 
 /*** component ***/
 class MFCLoggerComponent : public SerialReaderLoggerComponent
@@ -47,24 +57,23 @@ class MFCLoggerComponent : public SerialReaderLoggerComponent
       MFCLoggerComponent(id, ctrl, state, baud_rate, serial_config, "", 0) {}
 
     /*** state management ***/
-    //virtual size_t getStateSize();
-    //virtual void saveState();
-    //virtual bool restoreState();
-    //virtual void resetState();
+    virtual size_t getStateSize();
+    virtual void saveState();
+    virtual bool restoreState();
+    virtual void resetState();
 
     /*** command parsing ***/
-    
+    bool parseCommand(LoggerCommand *command);
+    bool parseMFCID(LoggerCommand *command);
     
     /*** state changes ***/
+    virtual bool changeMFCID(char* mfc_id);
     
 
     /*** manage data ***/
-    
+    // implement in derived classes
 
     /*** logger state variable ***/
-    
-
-    /*** particle webhook data log ***/
-    
+    virtual void assembleStateVariable();
 
 };
