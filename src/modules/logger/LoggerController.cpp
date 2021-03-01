@@ -192,6 +192,7 @@ void LoggerController::update() {
             updateDisplayStateInformation();
             updateDisplayComponentsStateInformation();
             if (state_update_callback) state_update_callback();
+            if (data_update_callback) data_update_callback();
 
             // name capture
             if (!name_handler_registered){
