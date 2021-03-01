@@ -8,6 +8,8 @@
 #define SERIAL_B_NL         10 // \n
 #define SERIAL_B_0          48 // 0
 #define SERIAL_B_9          57 // 9
+#define SERIAL_B_C_START    32 // first regular character (space)
+#define SERIAL_B_C_END      126 // last regular character (~)
 
 /* component */
 class SerialReaderLoggerComponent : public DataReaderLoggerComponent
@@ -24,16 +26,17 @@ class SerialReaderLoggerComponent : public DataReaderLoggerComponent
     unsigned int n_byte = 0;
     unsigned int data_pattern_pos = 0;
     unsigned int data_pattern_size = 0;
+    byte prev_byte;
     byte new_byte;
 
     // buffers
     char data_buffer[2000];
     int data_charcounter;
-    char variable_buffer[25];
+    char variable_buffer[50];
     int variable_charcounter;
-    char value_buffer[25];
+    char value_buffer[50];
     int value_charcounter;
-    char units_buffer[20];
+    char units_buffer[50];
     int units_charcounter;
 
   public:

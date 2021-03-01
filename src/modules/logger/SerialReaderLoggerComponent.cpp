@@ -19,7 +19,7 @@ void SerialReaderLoggerComponent::sendSerialDataRequest() {
     if (ctrl->debug_data) {
         Serial.printlnf("DEBUG: sending command '%s' over serial connection for component '%s'", request_command, id);
     }
-    Serial1.println(*request_command);
+    if (strlen(request_command) > 0) Serial1.println(*request_command);
 }
 
 void SerialReaderLoggerComponent::idleDataRead() {
@@ -39,6 +39,7 @@ void SerialReaderLoggerComponent::readData() {
     while (data_read_status == DATA_READ_WAITING && Serial1.available()) {
 
         // read byte
+        prev_byte = (n_byte > 0) ? new_byte : 0;
         new_byte = Serial1.read();
         n_byte++;
 
@@ -83,11 +84,11 @@ void SerialReaderLoggerComponent::startData() {
 
 void SerialReaderLoggerComponent::processNewByte() {
   if (debug_component) {
-    (new_byte >= 32 && new_byte <= 126) ?
+    (new_byte >= SERIAL_B_C_START && new_byte <= SERIAL_B_C_END) ?
       Serial.printlnf("SERIAL: byte# %03d: %i (dec) = %x (hex) = '%c' (char)", n_byte, (int) new_byte, new_byte, (char) new_byte) :
       Serial.printlnf("SERIAL: byte# %03d: %i (dec) = %x (hex) = (special char)", n_byte, (int) new_byte, new_byte);
   }
-  if (new_byte >= 32 && new_byte <= 126) {
+  if (new_byte >= SERIAL_B_C_START && new_byte <= SERIAL_B_C_END) {
     appendToSerialDataBuffer(new_byte); // all data
   } else if (new_byte == 13 || new_byte == 10) {
     // 13 = carriage return, 10 = line feed
