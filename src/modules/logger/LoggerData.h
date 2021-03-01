@@ -10,7 +10,8 @@ struct LoggerData {
   // data information
   char variable[25]; // the name of the data variable
   int idx; // the index of the data
-  char units[20]; // the units the data is recorded in
+  char units[25]; // the units the data is recorded in
+  char aux[25]; // any auxiliary or temporary information 
 
   // newest data
   unsigned long newest_data_time; // the last recorded datetime (in ms)
