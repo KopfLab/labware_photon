@@ -15,6 +15,25 @@ void SerialReaderLoggerComponent::init() {
 
 /*** read data ***/
 
+bool SerialReaderLoggerComponent::isPastRequestDelay() {
+    // check for min request delay
+    return(
+        (millis() - data_received_last) > min_request_delay &&
+        // and if sequential reader that overall idle is at least the min request delay
+        (!sequential || (millis() - ctrl->sequential_data_idle_start) > min_request_delay)
+    );
+}
+
+bool SerialReaderLoggerComponent::isTimeForRequest() {
+    // check for min request delay
+    return(DataReaderLoggerComponent::isTimeForRequest() && isPastRequestDelay());
+}
+
+bool SerialReaderLoggerComponent::isTimedOut() {
+    // whether the reader is timed out - by default if it's been longer than data_reading_period
+    return((millis() - data_received_last) > timeout);
+}
+
 void SerialReaderLoggerComponent::sendSerialDataRequest() {
     if (ctrl->debug_data) {
         Serial.printlnf("DEBUG: sending command '%s' over serial connection for component '%s'", request_command, id);
@@ -24,7 +43,20 @@ void SerialReaderLoggerComponent::sendSerialDataRequest() {
 
 void SerialReaderLoggerComponent::idleDataRead() {
     // discard everyhing coming from the serial connection
-    while (Serial1.available()) Serial1.read();
+    if (Serial1.available()) {
+      unsigned int i = 0;
+      while (Serial1.available()) { 
+        byte b = Serial1.read();
+        if (debug_component) {
+          i++;
+          (b >= SERIAL_B_C_START && b <= SERIAL_B_C_END) ?
+            Serial.printlnf("SERIAL: IDLE byte #%d: %i (dec) = %x (hex) = '%c' (char)", i, (int) b, b, (char) b) :
+            Serial.printlnf("SERIAL: IDLE byte #%d: %i (dec) = %x (hex) = (special char)", i, (int) b, b, (char) b);
+        }
+      }
+      data_received_last = millis();
+      if (sequential) ctrl->sequential_data_idle_start = millis(); // reset idle start counter
+    }
 }
 
 void SerialReaderLoggerComponent::initiateDataRead() {
@@ -36,24 +68,27 @@ void SerialReaderLoggerComponent::initiateDataRead() {
 
 void SerialReaderLoggerComponent::readData() {
     // check serial connection for data
-    while (data_read_status == DATA_READ_WAITING && Serial1.available()) {
+    if (data_read_status == DATA_READ_WAITING && Serial1.available()) {
+      while (data_read_status == DATA_READ_WAITING && Serial1.available()) {
 
-        // read byte
-        prev_byte = (n_byte > 0) ? new_byte : 0;
-        new_byte = Serial1.read();
-        n_byte++;
+          // read byte
+          prev_byte = (n_byte > 0) ? new_byte : 0;
+          new_byte = Serial1.read();
+          n_byte++;
 
-        // first byte
-        if (n_byte == 1) startData();
+          // first byte
+          if (n_byte == 1) startData();
 
-        // proces byte
-        processNewByte();
+          // proces byte
+          processNewByte();
 
-        // if working with a data pattern --> mark completion
-        if (data_pattern_pos >= data_pattern_size) {
-            data_read_status = DATA_READ_COMPLETE;
-        }
+          // if working with a data pattern --> mark completion
+          if (data_pattern_pos >= data_pattern_size) {
+              data_read_status = DATA_READ_COMPLETE;
+          }
 
+      }
+      data_received_last = millis();
     }
 }
 
@@ -70,7 +105,7 @@ void SerialReaderLoggerComponent::registerDataReadError() {
 void SerialReaderLoggerComponent::handleDataReadTimeout() {
     DataReaderLoggerComponent::handleDataReadTimeout();
     if (ctrl->debug_data) {
-        Serial.printlnf("DEBUG: serial data buffer = '%s'", data_buffer);
+        Serial.printlnf("DEBUG: registering read timeout with serial data at byte# %d and buffer = '%s'", n_byte, data_buffer);
     }
 }
 
@@ -137,7 +172,7 @@ void SerialReaderLoggerComponent::appendToSerialDataBuffer(byte b) {
   } else {
     Serial.println("ERROR: serial data buffer not big enough");
     registerDataReadError();
-    data_read_status = DATA_READ_IDLE;
+    returnToIdle();
   }
 }
 
@@ -148,7 +183,7 @@ void SerialReaderLoggerComponent::appendToSerialVariableBuffer(byte b) {
   } else {
     Serial.println("ERROR: serial variable buffer not big enough");
     registerDataReadError();
-    data_read_status = DATA_READ_IDLE;
+    returnToIdle();
   }
 }
 
@@ -166,7 +201,7 @@ void SerialReaderLoggerComponent::appendToSerialValueBuffer(byte b) {
   } else {
     Serial.println("ERROR: serial value buffer not big enough");
     registerDataReadError();
-    data_read_status = DATA_READ_IDLE;
+    returnToIdle();
   }
 }
 
@@ -184,7 +219,7 @@ void SerialReaderLoggerComponent::appendToSerialUnitsBuffer(byte b) {
   } else {
     Serial.println("ERROR: serial units buffer not big enough");
     registerDataReadError();
-    data_read_status = DATA_READ_IDLE;
+    returnToIdle();
   }
 }
 

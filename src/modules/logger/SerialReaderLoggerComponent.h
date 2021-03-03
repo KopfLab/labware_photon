@@ -20,7 +20,9 @@ class SerialReaderLoggerComponent : public DataReaderLoggerComponent
     // serial communication config
     const long serial_baud_rate;
     const long serial_config;
-  
+    unsigned int min_request_delay = 200; // recommended minimum delay since last data received [in ms]
+    unsigned int timeout = 1000; // timeout if no serial data receivedå
+
     // serial data
     const char *request_command;
     unsigned int n_byte = 0;
@@ -42,8 +44,9 @@ class SerialReaderLoggerComponent : public DataReaderLoggerComponent
   public:
 
     /*** constructors ***/
+    // serial data readers are by default all sequential (last parameter to DataReaderLoggerComponent) because they receive/transmit over the same line
     SerialReaderLoggerComponent (const char *id, LoggerController *ctrl, bool data_have_same_time_offset, const long baud_rate, const long serial_config, const char *request_command, unsigned int data_pattern_size) : 
-      DataReaderLoggerComponent(id, ctrl, data_have_same_time_offset), serial_baud_rate(baud_rate), serial_config(serial_config), request_command(request_command), data_pattern_size(data_pattern_size) {}
+      DataReaderLoggerComponent(id, ctrl, data_have_same_time_offset, true), serial_baud_rate(baud_rate), serial_config(serial_config), request_command(request_command), data_pattern_size(data_pattern_size) {}
     SerialReaderLoggerComponent (const char *id, LoggerController *ctrl, bool data_have_same_time_offset, const long baud_rate, const long serial_config, const char *request_command) : 
       SerialReaderLoggerComponent(id, ctrl, data_have_same_time_offset, baud_rate, serial_config, request_command, 0) {}
 
@@ -51,6 +54,9 @@ class SerialReaderLoggerComponent : public DataReaderLoggerComponent
     virtual void init();
 
     /*** read data ***/
+    virtual bool isPastRequestDelay();
+    virtual bool isTimeForRequest();
+    virtual bool isTimedOut();
     virtual void sendSerialDataRequest();
     virtual void idleDataRead();
     virtual void initiateDataRead();

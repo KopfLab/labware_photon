@@ -358,6 +358,10 @@ class LoggerController {
     LoggerCommand* command = new LoggerCommand();
     std::vector<LoggerComponent*> components;
 
+    // global tracker of sequential data reader
+    bool sequential_data_read_in_progress = false;
+    unsigned long sequential_data_idle_start = 0;
+
     /*** constructors ***/
     LoggerController (const char *version, int reset_pin) : LoggerController(version, reset_pin, new LoggerDisplay()) {}
     LoggerController (const char *version, int reset_pin, LoggerDisplay* lcd) : LoggerController(version, reset_pin, lcd, new LoggerControllerState()) {}
