@@ -46,6 +46,9 @@ class AlicatMFCLoggerComponent : public MFCLoggerComponent
     /*** state changes ***/
     virtual bool changeMFCID(char* mfc_id);
 
+    /*** MFC functions ***/
+    virtual void updateMFC(); // update the actual MFC when status or flow rate changes
+
     /*** loop ***/
     virtual void update();
 

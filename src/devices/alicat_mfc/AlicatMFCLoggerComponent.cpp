@@ -7,7 +7,6 @@
 const char* GAS_REQUEST = "$$R46";
 const char* GAS_LIST_REQUEST = "??G*";
 const char* UNITS_REQUEST = "??D*";
-const unsigned int REQUEST_DELAY = 500; // delay in consecutive requests to allow time for emptying serial buffer
 
 // pattern pieces
 #define MFC_P_UNIT      -1 // A, B, F, K
@@ -57,15 +56,31 @@ uint8_t AlicatMFCLoggerComponent::setupDataVector(uint8_t start_idx) {
 bool AlicatMFCLoggerComponent::changeMFCID (char* mfc_id) {
     bool changed = MFCLoggerComponent::changeMFCID (mfc_id);
     if (changed) resetGas();
-    ctrl->updateDataVariable();
     return(changed);
+}
+
+/*** MFC functions ***/
+void AlicatMFCLoggerComponent::updateMFC() {
+    MFCLoggerComponent::updateMFC();
+    if (state->status == MFC_STATUS_ON) {
+        Serial.printlnf("INFO: switching MFC %s ON to %.3f %s", state->mfc_id, state->setpoint, state->units);
+        char cmd[20];
+        snprintf(cmd, sizeof(cmd), "%sS%.2f\r", state->mfc_id, state->setpoint);
+        Serial1.print(cmd); 
+        // FIXME: should there be a check whether this actually worked on the next data read? in case we have exceeded the allowed max
+        // could use Register 24 - Set Point to get a sense for where on the scale we are (what the setting is), 64000 is full scale so from that should be able to calculate the max_setpoint
+    } else {
+        Serial.printlnf("INFO: switching MFC %s OFF", state->mfc_id);
+        Serial1.print(state->mfc_id);
+        Serial1.print("S0\r"); 
+    }
 }
 
 /*** loop ***/
 
 void AlicatMFCLoggerComponent::update() {
     // check for gas
-    if (serial_mode == MFC_SERIAL_MODE_IDLE) {
+    if (serial_mode == MFC_SERIAL_MODE_IDLE && !update_mfc) {
 
         if (gas_id < 0 || gas[0] == '?') {
             // start serial requests looking for gas id and gas name
@@ -121,7 +136,7 @@ void AlicatMFCLoggerComponent::sendSerialDataRequest() {
         Serial1.print(state->mfc_id);
         Serial1.print("\r");
     } else {
-        data_read_status = DATA_READ_IDLE;
+        returnToIdle();
     }
 }
 
@@ -133,18 +148,17 @@ void AlicatMFCLoggerComponent::finishData() {
             Serial.printlnf("DEBUG: identified gas ID: '%d'", gas_id);
         }
         // jump straight to gas list request
+        data_read_start = 0;
         serial_mode = MFC_SERIAL_MODE_GAS_LIST;
-        data_read_start = millis() - ctrl->state->data_reading_period + REQUEST_DELAY;
     } else if (serial_mode == MFC_SERIAL_MODE_GAS_LIST && error_counter == 0) {
         // get gas from gas list data
         snprintf (gas, sizeof(gas), "%s", value_buffer);
         Serial.printlnf("INFO: identified gas: '%s'", gas);
-        // jump to units request
+        // jump striaght to units request
+        data_read_start = 0;
         serial_mode = MFC_SERIAL_MODE_UNITS_START;
-        // because gas list is rather long, need to make request delay longer
-        data_read_start = millis() - ctrl->state->data_reading_period + 2 * REQUEST_DELAY;
     } else if (serial_mode == MFC_SERIAL_MODE_UNITS && error_counter == 0) {
-        // jump to data request
+        // jump straight to data request
         if (units_switch_counter > 0) {
             // units switch request made, repeat units check before completing switch
             serial_mode = MFC_SERIAL_MODE_UNITS_START;
@@ -152,18 +166,37 @@ void AlicatMFCLoggerComponent::finishData() {
             // units are stable --> request data
             serial_mode = MFC_SERIAL_MODE_DATA;
         }
-        data_read_start = millis() - ctrl->state->data_reading_period + REQUEST_DELAY;
-    } else if (serial_mode == MFC_SERIAL_MODE_DATA && error_counter == 0) {
+        data_read_start = 0;
+    } else if (serial_mode == MFC_SERIAL_MODE_DATA && error_counter == 0 && !update_mfc) {
         // check if gas is correct
         if (strcmp(gas, value_buffer) == 0) {
-            // correct gas
+            // update state with setpoint
+            if (data[4].newest_value == 0 && state->status == MFC_STATUS_ON) {
+                Serial.printlnf("INFO: MFC %s setpoint turned to 0, saving 'off' status.", state->mfc_id);
+                state->status = MFC_STATUS_OFF;
+                saveState();
+                ctrl->updateStateVariable();
+            } else if (data[4].newest_value > 0 && (data[4].newest_value != state->setpoint || state->status == MFC_STATUS_OFF)) {
+                Serial.printlnf("INFO: MFC %s setpoint changed from %.3f to %.3f, saving setpoint and 'on' status.", state->mfc_id, state->setpoint, data[4].newest_value);
+                state->setpoint = data[4].newest_value;
+                state->status = MFC_STATUS_ON;
+                saveState();
+                ctrl->updateStateVariable();
+            }
+            if (strcmp(data[4].units, state->units) != 0) {
+                Serial.printlnf("INFO: MFC %s setpoint units changed from %s to %s, saving new setpoint units.", state->mfc_id, state->units, data[4].units);
+                snprintf (state->units, sizeof(state->units), "%s", data[4].units);
+                saveState();
+                ctrl->updateStateVariable();
+            }
+            // correct gas --> safe data
             for (int i=0; i < data.size(); i++) data[i].saveNewestValue(true); // average for all valid data
             gas_switch_counter = 0;
             serial_mode = MFC_SERIAL_MODE_IDLE;
         } else {
             // incorrect gs
             if (gas_switch_counter == MFC_SWITCH_CHECK_TIMES - 1) {
-                // found incorrect gas several times --> rest
+                // found incorrect gas several times --> reset
                 Serial.printf("WARNING: not the correct gas, expected '%s', found '%s'\n", gas, value_buffer);
                 snprintf(ctrl->lcd->buffer, sizeof(ctrl->lcd->buffer), "MFC gas: %s!=%s", value_buffer, gas);
                 ctrl->lcd->printLineTempFromBuffer(1);
@@ -177,7 +210,7 @@ void AlicatMFCLoggerComponent::finishData() {
                 Serial.printlnf("INFO: gas switch requested, counter at %d", gas_switch_counter);
                 serial_mode = MFC_SERIAL_MODE_DATA; // go read data again
             }
-            data_read_start = millis() - ctrl->state->data_reading_period + REQUEST_DELAY;
+            data_read_start = 0;
         }
     } else {
         serial_mode = MFC_SERIAL_MODE_IDLE;
@@ -210,7 +243,7 @@ void AlicatMFCLoggerComponent::checkUnitID(char c) {
         Serial.printf("WARNING: not the correct unit, expected '%s', found '%s'\n", state->mfc_id, c);
         registerDataReadError();
         ctrl->lcd->printLineTemp(1, "MFC: wrong ID");
-        data_read_status = DATA_READ_IDLE; // reset right away (do we really want this?)
+        returnToIdle();
     }
 }
 

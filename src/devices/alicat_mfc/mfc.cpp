@@ -42,17 +42,26 @@ AlicatMFCLoggerComponent* mfc = new AlicatMFCLoggerComponent(
   /* pointer to state */      mfc_state
 );
 
-// data update callback function
-void data_update_callback() {
+// lcd update callback function (called both for data and state updates)
+void lcd_update_callback() {
     // gas info and setpoint
     char sp[20];
-    int i = 4;
-    getDataDoubleText("SP", mfc->data[i].getValue(), mfc->data[i].units, sp, sizeof(sp), PATTERN_KVU_SIMPLE, mfc->data[i].getDecimals()-1);
-    if (mfc->data[i].getN() > 0)
-      snprintf(lcd->buffer, sizeof(lcd->buffer), "%s=%s %s", mfc_state->mfc_id, mfc->gas, sp);
-    else
-      snprintf(lcd->buffer, sizeof(lcd->buffer), "%s=%s", mfc_state->mfc_id, mfc->gas);
+    //getDataDoubleText("SP", mfc_state->setpoint, mfc_state->units, sp, sizeof(sp), PATTERN_KVU_SIMPLE, );
+    getMFCStateSetpointInfo(mfc_state->setpoint, mfc_state->units, sp, sizeof(sp), true);
+    snprintf(lcd->buffer, sizeof(lcd->buffer), "%s=%s SP=%s", mfc_state->mfc_id, mfc->gas, sp);
     lcd->printLineFromBuffer(2);
+
+    //  actual mass flow
+    int i = 3;
+    if (mfc_state->status == MFC_STATUS_OFF) {
+      lcd->printLine(3, "F: off");
+    } else if (mfc_state->status == MFC_STATUS_ON) {
+      if (mfc->data[i].getN() > 0)
+        getDataDoubleText("F", mfc->data[i].getValue(), mfc->data[i].units, mfc->data[i].getN(), lcd->buffer, sizeof(lcd->buffer), PATTERN_KVUN_SIMPLE, mfc->data[i].getDecimals());
+      else
+        getInfoKeyValue(lcd->buffer, sizeof(lcd->buffer), "F", "no data yet", PATTERN_KV_SIMPLE);
+      lcd->printLineFromBuffer(3);
+    }
 
     // pressure
     i = 0;
@@ -60,15 +69,8 @@ void data_update_callback() {
       getDataDoubleText(mfc->data[i].variable, mfc->data[i].getValue(), mfc->data[i].units, mfc->data[i].getN(), lcd->buffer, sizeof(lcd->buffer), PATTERN_KVUN_SIMPLE, mfc->data[i].getDecimals());
     else
       getInfoKeyValue(lcd->buffer, sizeof(lcd->buffer), mfc->data[i].variable, "no data yet", PATTERN_KV_SIMPLE);
-    lcd->printLineFromBuffer(3);
-    
-    // mass flow
-    i = 3;
-    if (mfc->data[i].getN() > 0)
-      getDataDoubleText("F", mfc->data[i].getValue(), mfc->data[i].units, mfc->data[i].getN(), lcd->buffer, sizeof(lcd->buffer), PATTERN_KVUN_SIMPLE, mfc->data[i].getDecimals());
-    else
-      getInfoKeyValue(lcd->buffer, sizeof(lcd->buffer), "F", "no data yet", PATTERN_KV_SIMPLE);
     lcd->printLineFromBuffer(4);
+    
 
 }
 
@@ -98,7 +100,8 @@ void setup() {
   lcd->setTempTextShowTime(3); // how many seconds temp time
 
   // callbacks
-  controller->setDataUpdateCallback(data_update_callback);
+  controller->setDataUpdateCallback(lcd_update_callback);
+  controller->setStateUpdateCallback(lcd_update_callback);
 
   // add components
   controller->addComponent(mfc);
