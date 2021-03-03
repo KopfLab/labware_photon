@@ -849,7 +849,6 @@ void LoggerController::postStateVariable() {
   if (!Particle.connected()) {
     Serial.println("WARNING: particle not (yet) connected, state variable only available when connected.");
   }
-  Serial.printlnf("INFO: available memory: %lu", System.freeMemory());
 }
 
 /*** particle webhook state log ***/
