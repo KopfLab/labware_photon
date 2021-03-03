@@ -18,14 +18,15 @@ struct MFCState {
     char mfc_id[10];
     unsigned int status; // MFC_STATUS_ON, MFC_STATUS_OFF
     float setpoint;      // setpoint mass flow rate [in units]
+    float setpoint_max;  // setpoint max supported by MFC (0 if unknonw)
     char units[20];      // setpoint mass flow units
-    uint8_t version = 2;
+    uint8_t version = 1;
 
     MFCState() {};
 
     MFCState(const char* mfc_id) : MFCState(mfc_id, MFC_STATUS_OFF, 0, "") {};
 
-    MFCState (const char* mfc_id, unsigned int status, float setpoint, const char* units) : status(status), setpoint(setpoint) {
+    MFCState (const char* mfc_id, unsigned int status, float setpoint, const char* units) : status(status), setpoint(setpoint), setpoint_max(0) {
           strncpy(this->mfc_id, mfc_id, sizeof(this->mfc_id) - 1); this->mfc_id[sizeof(this->mfc_id) - 1] = 0;
           strncpy(this->units, units, sizeof(this->units) - 1); this->units[sizeof(this->units) - 1] = 0;
       };
