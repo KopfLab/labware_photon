@@ -27,7 +27,9 @@ debug/credentials: MODULES=
 debug/i2c_scanner: MODULES=
 debug/lcd: MODULES=modules/logger/LoggerDisplay.h modules/logger/LoggerDisplay.cpp
 debug/logger: MODULES=modules/logger
-ministat: MODULES=modules/logger modules/stepper
+devices/ministat: MODULES=modules/logger modules/stepper
+devices/chemglass_scale: MODULES=modules/logger modules/scale
+devices/alicat_mfc: MODULES=modules/logger modules/mfc
 
 ### HELPERS ###
 
