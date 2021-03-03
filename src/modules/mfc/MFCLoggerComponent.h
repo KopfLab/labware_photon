@@ -3,19 +3,31 @@
 
 /*** general commands ***/
 
-#define CMD_MFC_ID          "mfc"     // set serial ID
-#define CMD_MFC_FLOW        "flow"    // set flow rate
+#define CMD_MFC_ID          "mfc"       // device mfc id [msg] : set serial ID for the MFC
+#define CMD_MFC_SETPOINT    "setpoint"  // device flow numbers units [msg] : set flow rate, must be in the currently registered units
+#define CMD_MFC_START       "start"     // device start [msg] : starts the MFC flow
+#define CMD_MFC_STOP        "stop"      // device stop [msg] : stops the MFC flow
 
 /*** general state ***/
+
+#define MFC_STATUS_ON        1
+#define MFC_STATUS_OFF       2
+
 struct MFCState {
 
     char mfc_id[10];
-    uint8_t version = 1;
+    unsigned int status; // MFC_STATUS_ON, MFC_STATUS_OFF
+    float setpoint;      // setpoint mass flow rate [in units]
+    char units[20];      // setpoint mass flow units
+    uint8_t version = 2;
 
     MFCState() {};
 
-    MFCState (const char* mfc_id) {
+    MFCState(const char* mfc_id) : MFCState(mfc_id, MFC_STATUS_OFF, 0, "") {};
+
+    MFCState (const char* mfc_id, unsigned int status, float setpoint, const char* units) : status(status), setpoint(setpoint) {
           strncpy(this->mfc_id, mfc_id, sizeof(this->mfc_id) - 1); this->mfc_id[sizeof(this->mfc_id) - 1] = 0;
+          strncpy(this->units, units, sizeof(this->units) - 1); this->units[sizeof(this->units) - 1] = 0;
       };
 
 };
@@ -33,12 +45,39 @@ static void getStateMFCIDText(char* mfc_id, char* target, int size, bool value_o
     getStateMFCIDText(mfc_id, target, size, PATTERN_KV_JSON_QUOTED, true);
 }
 
+// MFC status info
+static void getMFCStateStatusInfo(unsigned int status, char* target, int size, char* pattern, bool include_key = true)  {
+  if (status == MFC_STATUS_ON)
+    getStateStringText("status", "on", target, size, pattern, include_key);
+  else if (status == MFC_STATUS_OFF)
+    getStateStringText("status", "off", target, size, pattern, include_key);
+  else // should never happen
+    getStateStringText("status", "?", target, size, pattern, include_key);
+}
+
+static void getMFCStateStatusInfo(unsigned int status, char* target, int size, bool value_only = false) {
+  if (value_only) getMFCStateStatusInfo(status, target, size, PATTERN_V_SIMPLE, false);
+  else getMFCStateStatusInfo(status, target, size, PATTERN_KV_JSON_QUOTED, true);
+}
+
+// MFC setpoint
+static void getMFCStateSetpointInfo(float flow, char* units, char* target, int size, char* pattern, bool include_key = true) {
+  int decimals = find_signif_decimals(flow, 3, true, 3); // 3 significant digits by default, max 3 after decimals
+  getStateDoubleText("setpoint", flow, units, target, size, pattern, decimals, include_key);
+}
+
+static void getMFCStateSetpointInfo(float flow, char* units, char* target, int size, bool value_only = false) {
+  if (value_only) getMFCStateSetpointInfo(flow, units, target, size, PATTERN_VU_SIMPLE, false);
+  else getMFCStateSetpointInfo(flow, units, target, size, PATTERN_KVU_JSON_QUOTED, true);
+}
+
 /*** component ***/
 class MFCLoggerComponent : public SerialReaderLoggerComponent
 {
 
-  private:
+  protected:
 
+    bool update_mfc = false; // flag for mfc update as soon as serial is IDLE
 
   public:
 
@@ -56,6 +95,9 @@ class MFCLoggerComponent : public SerialReaderLoggerComponent
     MFCLoggerComponent (const char *id, LoggerController *ctrl, MFCState* state, const long baud_rate, const long serial_config) : 
       MFCLoggerComponent(id, ctrl, state, baud_rate, serial_config, "", 0) {}
 
+    /*** loop ***/
+    virtual void update();
+
     /*** state management ***/
     virtual size_t getStateSize();
     virtual void saveState();
@@ -63,12 +105,20 @@ class MFCLoggerComponent : public SerialReaderLoggerComponent
     virtual void resetState();
 
     /*** command parsing ***/
-    bool parseCommand(LoggerCommand *command);
-    bool parseMFCID(LoggerCommand *command);
-    
+    virtual bool parseCommand(LoggerCommand *command);
+    virtual bool parseMFCID(LoggerCommand *command);
+    virtual bool parseStatus(LoggerCommand *command);
+    virtual bool parseSetpoint(LoggerCommand *command);
+
     /*** state changes ***/
     virtual bool changeMFCID(char* mfc_id);
-    
+    virtual bool changeStatus(int status);
+    virtual bool start(); // start the flow
+    virtual bool stop(); // stop the flow
+    virtual bool changeSetpoint(float flow);
+
+    /*** MFC functions ***/
+    virtual void updateMFC(); // update the actual MFC when status or flow rate changes
 
     /*** manage data ***/
     // implement in derived classes
