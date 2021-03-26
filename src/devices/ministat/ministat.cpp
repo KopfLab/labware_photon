@@ -5,7 +5,10 @@
 #include "StepperLoggerComponent.h"
 
 // display
-LoggerDisplay* lcd = new LoggerDisplay(16, 2);
+LoggerDisplay* lcd = new LoggerDisplay(
+  /* columns */   16, 
+  /* rows */       2,
+  /* pages */      2);
 
 // controller state
 LoggerControllerState* controller_state = new LoggerControllerState(
@@ -81,18 +84,21 @@ StepperLoggerComponent* stirrer = new StepperLoggerComponent(
 
 // state update callback function
 char state_info[50];
-void state_update_callback() {
+void lcd_update_callback() {
   lcd->resetBuffer();
-  getStepperStateStatusInfo(stepper_state->status, state_info, sizeof(state_info), true); 
-  lcd->addToBuffer(state_info);
-  lcd->addToBuffer(" ");
-  getStepperStateSpeedInfo(stepper_state->rpm, state_info, sizeof(state_info), true);
-  lcd->addToBuffer(state_info);
-  lcd->addToBuffer(" ");
-  getStepperStateDirectionInfo(stepper_state->direction, state_info, sizeof(state_info), true);
-  lcd->addToBuffer(state_info);
+  if (lcd->getCurrentPage() == 1) {
+    getStepperStateStatusInfo(stepper_state->status, state_info, sizeof(state_info), true); 
+    lcd->addToBuffer(state_info);
+    lcd->addToBuffer(" ");
+    getStepperStateSpeedInfo(stepper_state->rpm, state_info, sizeof(state_info), true);
+    lcd->addToBuffer(state_info);
+    lcd->addToBuffer(" ");
+    getStepperStateDirectionInfo(stepper_state->direction, state_info, sizeof(state_info), true);
+    lcd->addToBuffer(state_info);
+  } else if (lcd->getCurrentPage() == 2) {
+    lcd->addToBuffer("OD: ");
+  }
   lcd->printLineFromBuffer(2);
-
 }
 
 // manual wifi management
@@ -110,18 +116,16 @@ void setup() {
 
   // debugging
   //controller->forceReset();
-  //controller->debugDisplay();
-  controller->debugData();
-  controller->debugState();
-  controller->debugCloud();
+  controller->debugDisplay();
+  //controller->debugData();
+  //controller->debugState();
+  //controller->debugCloud();
   //controller->debugWebhooks();
   stirrer->debug();
 
-  // lcd temporary messages
-  lcd->setTempTextShowTime(3); // how many seconds temp time
-
   // callbacks
-  controller->setStateUpdateCallback(state_update_callback);
+  controller->setStateUpdateCallback(lcd_update_callback);
+  controller->setDataUpdateCallback(lcd_update_callback);
 
   // add components
   controller->addComponent(stirrer);

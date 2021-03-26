@@ -41,6 +41,10 @@
 #define CMD_RET_ERR_LOG_SMALLER_READ_TEXT   "log period must be larger than read period"
 #define CMD_RET_ERR_READ_LARGER_MIN         -12 // read period cannot be smaller than its minimum
 #define CMD_RET_ERR_READ_LARGER_MIN_TEXT    "read period must be larger than minimum"
+#define CMD_RET_ERR_NO_PAGES                -13 // there are no display pages
+#define CMD_RET_ERR_NO_PAGES_TEXT           "the display only has one page"
+#define CMD_RET_ERR_PAGE_INVALID            -14 // display paging number is invalid
+#define CMD_RET_ERR_PAGE_INVALID_TEXT       "invalid display page requested"
 #define CMD_RET_WARN_NO_CHANGE              1 // state unchaged because it was already the same
 #define CMD_RET_WARN_NO_CHANGE_TEXT         "state already as requested"
 
@@ -54,7 +58,6 @@
 #define CMD_LOG_TYPE_STATE_UNCHANGED        "state unchanged"
 #define CMD_LOG_TYPE_STATE_UNCHANGED_SHORT  "SAME"
 #define CMD_LOG_TYPE_STARTUP                "startup"
-
 
 // locking
 #define CMD_LOCK            "lock" // device "lock on/off [notes]" : locks/unlocks the Logger
@@ -97,6 +100,10 @@
 
 // restart
 #define CMD_RESTART    "restart" // device "restart" : restarts the device
+
+// paging
+#define CMD_PAGE       "page" // device "page [#]" : switch to the next page (or a specific page number if provided)
+
 
 /*** reset codes ***/
 #define RESET_UNDEF    1
@@ -415,6 +422,7 @@ class LoggerController {
     bool parseDataReadingPeriod();
     bool parseReset();
     bool parseRestart();
+    bool parsePage();
 
     /*** state changes ***/
     bool changeLocked(bool on);

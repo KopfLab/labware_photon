@@ -13,6 +13,10 @@
 // buffers
 #define LCD_MAX_SIZE     80 // maximum number of characters on LCD
 
+// custom characters
+const byte LCD_UP_ARROW	= 1;
+const byte LCD_DOWN_ARROW = 2;
+
 // Display class handles displaying information
 class LoggerDisplay
 {
@@ -25,17 +29,18 @@ private:
 	const uint8_t i2c_addrs[3] = {0x3f, 0x27, 0x23};
 	uint8_t lcd_addr;
 
-	// lcd exists?
+	// logger has a display?
 	bool exists = true;
 
 	// lcd actually present at one of the i2c addresses?
 	bool present = false;
 
-	// display object
-	LiquidCrystal_I2C* lcd;
-
 	// display layout
 	const uint8_t cols, lines;
+
+	// dislay pages
+	uint8_t n_pages = 1;
+	uint8_t current_page = 1;
 
 	// display data
 	uint8_t col_now, line_now;		 // current print position on the display
@@ -55,6 +60,9 @@ private:
 
 public:
 
+	// display object
+	LiquidCrystal_I2C* lcd;
+
 	// text buffer for lcd text assembly by user --> use resetBuffer and addToBuffer
 	char buffer[LCD_MAX_SIZE + 1];	 
 
@@ -63,8 +71,13 @@ public:
 		exists = false;
 	}
 
+	// colums and lines with default number pages (1)
+	LoggerDisplay(uint8_t lcd_cols, uint8_t lcd_lines) : LoggerDisplay(lcd_cols, lcd_lines, 1) {
+
+	}
+
 	// standard constructor
-	LoggerDisplay(uint8_t lcd_cols, uint8_t lcd_lines) : cols(lcd_cols), lines(lcd_lines)
+	LoggerDisplay(uint8_t lcd_cols, uint8_t lcd_lines, uint8_t n_pages) : cols(lcd_cols), lines(lcd_lines), n_pages(n_pages)
 	{
 		if (cols * lines > LCD_MAX_SIZE)
 		{
@@ -86,6 +99,16 @@ public:
 
 	// set temporary text show time (in seconds)
 	void setTempTextShowTime(uint8_t show_time);
+
+	/*** paging functions ***/
+	void setNumberOfPages(uint8_t n_pages);
+	uint8_t getNumberOfPages();
+	bool setCurrentPage(uint8_t page);
+	bool nextPage(bool loop = true);
+	uint8_t getCurrentPage();
+	void printPageInfo();
+
+	/*** high level printing functions ***/
 
 	// clears the line (overwrites spaces)
 	void clearLine(uint8_t line, uint8_t start = 1, uint8_t end = LCD_LINE_END);

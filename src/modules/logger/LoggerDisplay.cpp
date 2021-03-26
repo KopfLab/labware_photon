@@ -14,14 +14,20 @@ void LoggerDisplay::init()
 	else Serial.println("WARNING: no I2C LCD fouund, LCD functionality disabled.");
 
 	if (present)
-	{
-		// create the lcd object and initialize it
+	{	
+		// create the lcd object with custom characters and initialize it
 		lcd = new LiquidCrystal_I2C(lcd_addr, cols, lines);
+		// initalize
 		lcd->init();
-		//LiquidCrystal_I2C::init();
-		//backlight();
-		//clear();
+		// up arrow
+		byte UP_ARROW_PIXEL_MAP[8] = {4, 14, 21, 4, 4, 4, 4};
+		lcd->createChar(LCD_UP_ARROW, UP_ARROW_PIXEL_MAP);
+		// down arrow
+		byte DOWN_ARROW_PIXEL_MAP[8] = {4, 4, 4, 4, 21, 14, 4};
+		lcd->createChar(LCD_DOWN_ARROW, DOWN_ARROW_PIXEL_MAP);
+		// backlighting
 		lcd->backlight();
+		// start with a clear
 		lcd->clear();
 		for (int i = 0; i < cols * lines; i++)
 		{
@@ -67,8 +73,54 @@ bool LoggerDisplay::checkPresent()
 void LoggerDisplay::setTempTextShowTime(uint8_t show_time)
 {
 	temp_text_show_time = show_time * 1000L;
-	Serial.printf("INFO: setting LCD temporary text timer to %d seconds (%d ms)\n", show_time, temp_text_show_time);
+	Serial.printlnf("INFO: setting LCD temporary text timer to %d seconds (%d ms)", show_time, temp_text_show_time);
 }
+
+/*** paging functions ***/
+
+void LoggerDisplay::setNumberOfPages(uint8_t n) {
+	// make sure current page does no exceed the available number of pages
+	if (n < current_page) current_page = n;
+	n_pages = n;
+}
+
+uint8_t LoggerDisplay::getNumberOfPages() {
+	return(n_pages);
+}
+
+bool LoggerDisplay::setCurrentPage(uint8_t page) {
+	if (page > n_pages) {
+		Serial.printlnf("ERROR: requested page %d but there are only %d pages", page, n_pages);
+		return(false);
+	}
+	if(debug_display)
+		Serial.printlnf("DEBUG: moving from page %d to page %d", current_page, page);
+	current_page = page;
+	printPageInfo();
+	return(true);
+}
+
+bool LoggerDisplay::nextPage(bool loop) {
+	if ((current_page + 1) > n_pages && loop) {
+		// loop back to first page
+		if(debug_display)
+			Serial.printlnf("DEBUG: requested page %d but there are only %d pages, looping back to first page", current_page + 1, n_pages);
+		return(setCurrentPage(1));
+	} else {
+		return(setCurrentPage(current_page + 1));
+	}
+}
+
+uint8_t LoggerDisplay::getCurrentPage() {
+	return(current_page);
+}
+
+void LoggerDisplay::printPageInfo() {
+	// reprinting last line will automaticlaly update page info
+	printLine(lines, memory + getPos(lines, 1) + 1);
+}
+
+/*** position navigation ***/
 
 void LoggerDisplay::moveToPos(uint8_t line, uint8_t col)
 {
@@ -94,18 +146,16 @@ uint16_t LoggerDisplay::getPos()
 
 void LoggerDisplay::goToLine(uint8_t line)
 {
-	if (checkPresent())
-	{
-		if (line > lines)
-		{
-			Serial.printf("ERROR: requested move to line %d. Display only has %d lines.\n", line, lines);
-		}
-		else
-		{
+	if (checkPresent()) {
+		if (line > lines) {
+			Serial.printlnf("ERROR: requested move to line %d. Display only has %d lines.", line, lines);
+		} else {
 			moveToPos(line, 1);
 		}
 	}
 }
+
+/*** high level printing functions ***/
 
 void LoggerDisplay::print(const char c[], bool temp)
 {
@@ -130,21 +180,11 @@ void LoggerDisplay::print(const char c[], bool temp)
 				// either at the end OR text buffer the same as new text but prior text has needs_update flag on -> write text
 				strncpy(update, c + needs_update, i - needs_update);
 				update[i - needs_update] = 0; // make sure it's 0-pointer terminated
-
-				if (debug_display) {
-					Serial.printf(
-						" - part '%s' (%d to %d, length %d)  sent to lcd on line %d, col %d\n",
-						update, needs_update + 1, i, length, line_now, col_init + needs_update);
-				}
-
 				// update lcd
 				moveToPos(line_now, col_init + needs_update);
 				lcd->print(update);
-				//LiquidCrystal_I2C::print(update);
-
 				// store new text in text buffer
 				strncpy(text + pos_now + needs_update, update, i - needs_update);
-
 				needs_update = -1; // reset
 			}
 			else if (needs_update == -1 && i < length && (temp || !temp_pos[pos_now + i]) && text[pos_now + i] != c[i])
@@ -164,7 +204,7 @@ void LoggerDisplay::print(const char c[], bool temp)
 			temp_text = true;
 			temp_text_show_start = millis();
 			if (debug_display) {
-				Serial.printf(" - flagging positions %d to %d as TEMPORARY\n", pos_now, pos_now + length - 1);
+				Serial.printlnf(" - flagging positions %d to %d as TEMPORARY", pos_now, pos_now + length - 1);
 			}
 
 			for (uint8_t i = pos_now; i < pos_now + length; i++)
@@ -179,7 +219,7 @@ void LoggerDisplay::print(const char c[], bool temp)
 		}
 
 		if (debug_display) {
-			Serial.printf(" - finished (new cursor location = line %d, col %d), text buffer:\n[1]%s[%d]\n", line_now, col_now, text, strlen(text));
+			Serial.printlnf(" - finished (new cursor location = line %d, col %d), text buffer:\n[1]%s[%d]", line_now, col_now, text, strlen(text));
 		}
 	}
 }
@@ -193,7 +233,7 @@ void LoggerDisplay::printLine(uint8_t line, const char text[], uint8_t start, ui
 		// safety check
 		if (line > lines)
 		{
-			Serial.printf("ERROR: requested print on line %d. Display only has %d lines.\n", line, lines);
+			Serial.printlnf("ERROR: requested print on line %d. Display only has %d lines.", line, lines);
 			return;
 		}
 
@@ -208,27 +248,32 @@ void LoggerDisplay::printLine(uint8_t line, const char text[], uint8_t start, ui
 		// assemble print text (pad the start/end according to align)
 		char full_text[length + 1] = "";
 		uint8_t space_start, space_end = 0;
-		if (align == LCD_ALIGN_LEFT)
-		{
+		if (align == LCD_ALIGN_LEFT) {
 			space_start = strlen(text);
 			space_end = length;
 			strncpy(full_text, text, length);
-		}
-		else if (align == LCD_ALIGN_RIGHT)
-		{
+		} else if (align == LCD_ALIGN_RIGHT) {
 			space_start = 0;
 			space_end = (strlen(text) < length) ? length - strlen(text) : 0;
 			strncpy(full_text + space_end, text, length - space_end);
-		}
-		else
-		{
+		} else {
 			Serial.println("ERROR: unsupported alignment");
 		}
 
 		// spaces
-		for (int i = space_start; i < space_end; i++)
-		{
+		for (int i = space_start; i < space_end; i++) {
 			full_text[i] = ' ';
+		}
+
+		// paging information - include if we're printing the end part of the line
+		if (n_pages > 1 && line == lines && end == cols && length >= 3) {
+			if (debug_display)
+				Serial.printlnf("DEBUG: updating paging info with current page %d", current_page);
+			snprintf(full_text + length - 3, 4, "  %d", current_page);
+			if (current_page == n_pages)
+				full_text[length - 2] = LCD_UP_ARROW;
+			else 
+				full_text[length - 2] = LCD_DOWN_ARROW;
 		}
 
 		// make sure 0 pointer at the end
@@ -357,7 +402,7 @@ void LoggerDisplay::clearTempText()
 				revert[pos - needs_revert] = 0; // make sure it's 0-pointer terminated
 
 				if (debug_display) {
-					Serial.printf(" - reverting line %d, col %d to %d to '%s'\n",
+					Serial.printlnf(" - reverting line %d, col %d to %d to '%s'",
 								line, col - (pos - needs_revert), col - 1, revert);
 				}
 

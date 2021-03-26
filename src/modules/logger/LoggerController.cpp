@@ -402,6 +402,8 @@ void LoggerController::parseCommand() {
     // reset getting parsed
   } else if (parseRestart()) {
     // restart getting parsed
+  } else if (parsePage()) {
+    // lcd paging
   } else {
     parseComponentsCommand();
   }
@@ -588,6 +590,40 @@ bool LoggerController::parseDataReadingPeriod() {
     // include current read period in data
     if(state->data_reader) {
       getStateDataReadingPeriodText(state->data_reading_period, command->data, sizeof(command->data));
+    }
+  }
+  return(command->isTypeDefined());
+}
+
+bool LoggerController::parsePage() {
+  if (command->parseVariable(CMD_PAGE)) {
+    if (lcd->getNumberOfPages() > 0) {
+      // parse page to jump to
+      command->extractValue();
+      int page = atoi(command->value);
+      bool changed = false;
+      if (page > 0) {
+        // jumpt to specific page
+        if (page == lcd->getCurrentPage()) {
+          // already on that page
+          command->success(false);
+          return(command->isTypeDefined());
+        } else {
+          changed = lcd->setCurrentPage(page);
+        }
+      } else {
+        // just page by one
+        changed = lcd->nextPage();
+      }
+      if (changed)
+        // successfully jumped to requested page
+        command->success(true);
+      else
+        // invalid page requested
+        command->error(CMD_RET_ERR_PAGE_INVALID, CMD_RET_ERR_PAGE_INVALID_TEXT);
+    } else {
+      // doesn't have pages
+      command->error(CMD_RET_ERR_NO_PAGES, CMD_RET_ERR_NO_PAGES_TEXT);
     }
   }
   return(command->isTypeDefined());
