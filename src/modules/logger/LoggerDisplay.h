@@ -1,5 +1,8 @@
+/**
+ * LCD display adapted/simplified from
+ * https://github.com/BulldogLowell/LiquidCrystal_I2C_Spark
+ **/
 #pragma once
-#include <LiquidCrystal_I2C_Spark.h> // requirement: https://github.com/BulldogLowell/LiquidCrystal_I2C_Spark
 
 // alignments
 #define LCD_ALIGN_LEFT   1
@@ -17,8 +20,49 @@
 const byte LCD_UP_ARROW	= 1;
 const byte LCD_DOWN_ARROW = 2;
 
+// lcd constants
+#define LCD_CLEARDISPLAY 0x01
+#define LCD_RETURNHOME 0x02
+#define LCD_ENTRYMODESET 0x04
+#define LCD_DISPLAYCONTROL 0x08
+#define LCD_CURSORSHIFT 0x10
+#define LCD_FUNCTIONSET 0x20
+#define LCD_SETCGRAMADDR 0x40
+#define LCD_SETDDRAMADDR 0x80
+
+#define LCD_ENTRYRIGHT 0x00
+#define LCD_ENTRYLEFT 0x02
+#define LCD_ENTRYSHIFTINCREMENT 0x01
+#define LCD_ENTRYSHIFTDECREMENT 0x00
+
+// flags for display on/off control
+#define LCD_DISPLAYON 0x04
+#define LCD_DISPLAYOFF 0x00
+#define LCD_CURSORON 0x02
+#define LCD_CURSOROFF 0x00
+#define LCD_BLINKON 0x01
+#define LCD_BLINKOFF 0x00
+
+// flags for display/cursor shift
+#define LCD_DISPLAYMOVE 0x08
+#define LCD_CURSORMOVE 0x00
+#define LCD_MOVERIGHT 0x04
+#define LCD_MOVELEFT 0x00
+
+// flags for function set
+#define LCD_8BITMODE 0x10
+#define LCD_4BITMODE 0x00
+#define LCD_2LINE 0x08
+#define LCD_1LINE 0x00
+#define LCD_5x10DOTS 0x04
+#define LCD_5x8DOTS 0x00
+
+// flags for backlight control
+#define LCD_BACKLIGHT 0x08
+#define LCD_NOBACKLIGHT 0x00
+
 // Display class handles displaying information
-class LoggerDisplay
+class LoggerDisplay : public Print 
 {
 private:
 
@@ -60,9 +104,6 @@ private:
 
 public:
 
-	// display object
-	LiquidCrystal_I2C* lcd;
-
 	// text buffer for lcd text assembly by user --> use resetBuffer and addToBuffer
 	char buffer[LCD_MAX_SIZE + 1];	 
 
@@ -79,10 +120,11 @@ public:
 	// standard constructor
 	LoggerDisplay(uint8_t lcd_cols, uint8_t lcd_lines, uint8_t n_pages) : cols(lcd_cols), lines(lcd_lines), n_pages(n_pages)
 	{
-		if (cols * lines > LCD_MAX_SIZE)
-		{
+		if (cols * lines > LCD_MAX_SIZE) {
 			Serial.println("ERROR: LCD size larger than text buffers, you must adjust LCD_MAX_SIZE or prepare for unexpected behaviour!!!");
 		}
+		// turn backlight on by default
+		_backlightval = LCD_BACKLIGHT;
 	}
 
 	// turn debug on
@@ -152,4 +194,27 @@ public:
 
 	// call in loop to keep temporary text up to date
 	void update();
+
+	/*** lcd configuration ***/
+	void init_lcd();
+	void clear();
+	void createChar(uint8_t, uint8_t[]);
+	void home();
+	void setCursor(uint8_t, uint8_t);
+	void noBacklight();
+  	void backlight();
+
+	/*** low level functions ***/
+	virtual size_t write(uint8_t); //extended from Print class
+
+	private:
+		void command(uint8_t);
+		void send(uint8_t, uint8_t);
+		void write4bits(uint8_t);
+		void expanderWrite(uint8_t);
+		void pulseEnable(uint8_t);
+		uint8_t _displayfunction;
+		uint8_t _displaycontrol;
+		uint8_t _displaymode;
+		uint8_t _backlightval;
 };

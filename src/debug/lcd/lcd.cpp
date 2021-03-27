@@ -6,7 +6,7 @@
  *   - GND to GND
  *
  */
-
+#include "application.h"
 #include "LoggerDisplay.h"
 
 // Which display to debug?

@@ -21,7 +21,7 @@ LoggerControllerState* controller_state = new LoggerControllerState(
 
 // controller
 LoggerController* controller = new LoggerController(
-  /* version */           "ms 0.2",
+  /* version */           "ms 0.3",
   /* reset pin */         A5,
   /* lcd screen */        lcd,
   /* pointer to state */  controller_state
@@ -116,7 +116,7 @@ void setup() {
 
   // debugging
   //controller->forceReset();
-  controller->debugDisplay();
+  //controller->debugDisplay();
   //controller->debugData();
   //controller->debugState();
   //controller->debugCloud();

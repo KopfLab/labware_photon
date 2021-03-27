@@ -597,7 +597,7 @@ bool LoggerController::parseDataReadingPeriod() {
 
 bool LoggerController::parsePage() {
   if (command->parseVariable(CMD_PAGE)) {
-    if (lcd->getNumberOfPages() > 0) {
+    if (lcd->getNumberOfPages() > 1) {
       // parse page to jump to
       command->extractValue();
       int page = atoi(command->value);
