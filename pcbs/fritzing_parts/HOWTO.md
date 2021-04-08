@@ -9,6 +9,8 @@ Install the [Fritzing fonts](https://fritzing.org/learning/tutorials/creating-cu
 
 ## PCB parts
 
+- sometimes easiest to switch the artboard units to `mm` for design but remember to switch back to `points` for final save
+- the layers really matter, connections need to be in `copper0/copper1` layer to be on both sides, normal text an other drawings should be in `silkscreen`
 - everything needs to have the right colors, make sure in the svg for `nonconn` cutouts to include `stroke='black' stroke-width='0' fill='black'`
 
 # To add to fritzing
