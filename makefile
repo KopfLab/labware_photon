@@ -30,6 +30,7 @@ debug/logger: MODULES=modules/logger
 devices/ministat: MODULES=modules/logger modules/stepper
 devices/chemglass_scale: MODULES=modules/logger modules/scale
 devices/alicat_mfc: MODULES=modules/logger modules/mfc
+devices/jkem_stirrer: MODULES=modules/logger modules/stirrer
 
 ### HELPERS ###
 
