@@ -16,7 +16,7 @@ LoggerControllerState* controller_state = new LoggerControllerState(
   /* locked */                    false,
   /* state_logging */             true,
   /* data_logging */              false,
-  /* data_logging_period */       3600, // in seconds
+  /* data_logging_period */       600, // in seconds
   /* data_logging_type */         LOG_BY_TIME,
   /* data_reading_period_min */   2000, // in ms
   /* data_reading_period */       5000  // in ms

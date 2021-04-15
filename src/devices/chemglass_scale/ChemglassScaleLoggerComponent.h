@@ -23,7 +23,7 @@ class ChemglassScaleLoggerComponent : public ScaleLoggerComponent
             id, ctrl, state, 
             /* baud rate */             4800,
             /* serial config */         SERIAL_8N1,
-            /* request command */       "#",
+            /* request command */       "#\n",
             /* data pattern size */     sizeof(SCALE_DATA_PATTERN) / sizeof(SCALE_DATA_PATTERN[0])
         ) {}
 

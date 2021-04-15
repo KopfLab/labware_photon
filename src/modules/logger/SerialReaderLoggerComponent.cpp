@@ -35,10 +35,13 @@ bool SerialReaderLoggerComponent::isTimedOut() {
 }
 
 void SerialReaderLoggerComponent::sendSerialDataRequest() {
+  if (strlen(request_command) > 0) {
     if (ctrl->debug_data) {
-        Serial.printlnf("DEBUG: sending command '%s' over serial connection for component '%s'", request_command, id);
+        Serial.printlnf("DEBUG: sending the following command over serial connection for component '%s'", id);
+        Serial.println(request_command);
     }
-    if (strlen(request_command) > 0) Serial1.println(*request_command);
+    Serial1.print(request_command);
+  }
 }
 
 void SerialReaderLoggerComponent::idleDataRead() {
