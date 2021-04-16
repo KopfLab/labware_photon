@@ -2,11 +2,7 @@
 #include "StirrerLoggerComponent.h"
 
 /*** serial data parameters ***/
-
-// pattern pieces
-#define P_NUMBER       -1 // [0-9]
-
-const int STIRRER_DATA_PATTERN[] = {'S', 'S', P_NUMBER, SERIAL_B_CR};
+const int STIRRER_DATA_PATTERN[] = {'S', 'S', SERIAL_P_DIGIT, SERIAL_B_CR};
 
 /*** component ***/
 class JKemStirrerLoggerComponent : public StirrerLoggerComponent
@@ -27,6 +23,9 @@ class JKemStirrerLoggerComponent : public StirrerLoggerComponent
     /*** manage data ***/
     virtual void processNewByte();
     
+    /*** stirrer functions ***/
+    virtual void updateStirrer(); 
+
 };
 
 /*** manage data ***/
@@ -36,7 +35,37 @@ void JKemStirrerLoggerComponent::processNewByte() {
     // keep track of all data
     SerialReaderLoggerComponent::processNewByte();
 
-    // next data pattern position
-    data_pattern_pos++;
+    // check whether to move on from stayed on pattern
+    moveStayedOnPattern();
+
+    // process current pattern
+    int pattern = STIRRER_DATA_PATTERN[data_pattern_pos];
+    if ( pattern == SERIAL_P_DIGIT && matchesPattern(new_byte, pattern)) {
+        // number value (don't move pattern forward, could be multiple numbers)
+        appendToSerialValueBuffer(new_byte);
+        stayOnPattern(pattern);
+    } else if (pattern > 0 && new_byte == pattern) {
+        // specific ascii characters
+        data_pattern_pos++;
+    } else {
+        // unrecognized part of data --> error
+        registerDataReadError();
+        data_pattern_pos++;
+    }
 }
 
+/*** stirrer functions ***/
+
+void JKemStirrerLoggerComponent::updateStirrer() {
+    StirrerLoggerComponent::updateStirrer();
+    if (state->status == STIRRER_STATUS_ON) {
+        Serial.printlnf("INFO: switching stirrer %s ON to %.0f rpm", id, state->rpm);
+        char cmd[20];
+        snprintf(cmd, sizeof(cmd), "SS%.0f\r", state->rpm);
+        Serial1.print(cmd); 
+        // FIXME: should there be a check whether this actually worked on the next data read? in case we have exceeded the valid min or max?
+    } else if (state->status == STIRRER_STATUS_OFF) {
+        Serial.printlnf("INFO: switching stirrer OFF");
+        Serial1.print("SS0\r"); 
+    }
+}

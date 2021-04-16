@@ -17,10 +17,10 @@ LoggerControllerState* controller_state = new LoggerControllerState(
   /* locked */                    false,
   /* state_logging */             true,
   /* data_logging */              false,
-  /* data_logging_period */       600, // in seconds
+  /* data_logging_period */       3600, // in seconds
   /* data_logging_type */         LOG_BY_TIME,
-  /* data_reading_period_min */   2000, // in ms
-  /* data_reading_period */       10000  // in ms
+  /* data_reading_period_min */   500, // in ms
+  /* data_reading_period */       1000  // in ms
 );
 
 // controller
@@ -37,16 +37,19 @@ StirrerState* stirrer_state = new StirrerState(
   /* status */            STIRRER_STATUS_MANUAL
 );
 
-// scale component
+// stirrer component
 JKemStirrerLoggerComponent* stirrer = new JKemStirrerLoggerComponent(
   /* component name */        "stirrer", 
   /* pointer to controller */ controller,
   /* pointer to state */      stirrer_state
 );
 
-// data update callback function
+// lcd update callback function
 void lcd_update_callback() {
-  Serial.println("implement lcd update");
+  lcd->resetBuffer();
+  getStirrerStateStatusInfo(stirrer_state->status, lcd->buffer, sizeof(lcd->buffer), true);
+  getStateDoubleText("speed", stirrer_state->rpm, "rpm", lcd->buffer + strlen(lcd->buffer), sizeof(lcd->buffer) - strlen(lcd->buffer), " %s %s", 0, false);
+  lcd->printLineFromBuffer(3);
 }
 
 // manual wifi management
@@ -63,13 +66,13 @@ void setup() {
   delay(1000);
 
   // debugging
-  //controller->forceReset();
+  controller->forceReset();
   //controller->debugDisplay();
   controller->debugData();
   //controller->debugState();
-  //controller->debugCloud();
+  controller->debugCloud();
   //controller->debugWebhooks();
-  stirrer->debug();
+  //stirrer->debug();
 
   // lcd temporary messages
   lcd->setTempTextShowTime(3); // how many seconds temp time
