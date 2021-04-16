@@ -118,6 +118,7 @@ void SerialReaderLoggerComponent::startData() {
   DataReaderLoggerComponent::startData();
   resetSerialBuffers();
   data_pattern_pos = 0;
+  stay_on = false;
 }
 
 void SerialReaderLoggerComponent::processNewByte() {
@@ -137,6 +138,43 @@ void SerialReaderLoggerComponent::processNewByte() {
 
 void SerialReaderLoggerComponent::finishData() {
     // extend in derived classes, typically only save values if error_count == 0
+}
+
+/*** work with data patterns ***/
+
+void SerialReaderLoggerComponent::stayOnPattern(int pattern) {
+  stay_on = true;
+  stay_on_pattern = pattern;
+}
+
+void SerialReaderLoggerComponent::nextPatternPos() {
+  // next data pattern position
+  data_pattern_pos++;
+  stay_on = false;
+}
+
+bool SerialReaderLoggerComponent::matchesPattern(byte b, int pattern) {
+  if (pattern == SERIAL_P_DIGIT && (b >= SERIAL_B_0 && b <= SERIAL_B_9)) {
+    return(true);
+  } else if (pattern == SERIAL_P_NUMBER && ((b >= SERIAL_B_0 && b <= SERIAL_B_9) || b == SERIAL_B_PLUS || b == SERIAL_B_MINUS || b == SERIAL_B_DOT)) {
+    return(true);
+  } else if (pattern == SERIAL_P_ASCII && (b >= SERIAL_B_C_START && b <= SERIAL_B_C_END)) {
+    return(true);
+  } else if (pattern == SERIAL_P_ANY && b > 0) {
+    return(true);
+  }
+  return(false);
+}
+
+bool SerialReaderLoggerComponent::moveStayedOnPattern() {
+  // if preivously stayed on pattern but now no longer on that same pattern
+  if (stay_on && !matchesPattern(new_byte, stay_on_pattern)) {
+    // be save about moving to next pattern pos
+    if (data_pattern_pos + 1 < data_pattern_size) nextPatternPos();
+    stay_on = false;
+    return(true);
+  }
+  return(false);
 }
 
 /*** interact with serial data buffers ***/

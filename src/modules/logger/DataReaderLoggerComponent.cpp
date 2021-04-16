@@ -18,14 +18,16 @@ void DataReaderLoggerComponent::update() {
         } else if (data_read_status == DATA_READ_WAITING) {
             // read data
             readData();
-        } else if (data_read_status == DATA_READ_IDLE && (!sequential || !ctrl->sequential_data_read_in_progress) && isTimeForRequest()) {
-            // it's time for data read request
-            data_read_status = DATA_READ_REQUEST;
-        } else if (data_read_status == DATA_READ_IDLE) {
-            // idle data read but not yet time for a new request
-            idleDataRead();
-            // keep track of idle time for sequential readers
-            if (sequential && ctrl->sequential_data_idle_start == 0) ctrl->sequential_data_idle_start = millis(); 
+        } else if (data_read_status == DATA_READ_IDLE && (!sequential || !ctrl->sequential_data_read_in_progress)) {
+            if (isTimeForRequest()) {
+                // it's time for data read request
+                data_read_status = DATA_READ_REQUEST;
+            } else {
+                // idle data read but not yet time for a new request
+                idleDataRead();
+                // keep track of idle time for sequential readers
+                if (sequential && ctrl->sequential_data_idle_start == 0) ctrl->sequential_data_idle_start = millis(); 
+            } 
         } else if (data_read_status == DATA_READ_REQUEST && (!sequential || !ctrl->sequential_data_read_in_progress)) {
             // new data read request
             initiateDataRead();
