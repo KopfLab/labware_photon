@@ -22,7 +22,12 @@ uint8_t StirrerLoggerComponent::setupDataVector(uint8_t start_idx) {
 
 void StirrerLoggerComponent::completeStartup() {
     SerialReaderLoggerComponent::completeStartup();
-    Serial.printlnf("INFO: logging %s speed at startup (%.3f rpm)", id, state->rpm);
+    if (state->status == STIRRER_STATUS_OFF)
+      Serial.printlnf("INFO: logging %s speed at startup (OFF / %.3f rpm)", id, state->rpm);
+    else if (state->status == STIRRER_STATUS_ON) 
+      Serial.printlnf("INFO: logging %s speed at startup (ON / %.3f rpm)", id, state->rpm);
+    else if (state->status == STIRRER_STATUS_MANUAL) 
+      Serial.printlnf("INFO: logging %s speed at startup (MANUAL / %.3f rpm)", id, state->rpm);
     logCurrent(state->status, state->rpm);
 }
 
@@ -88,26 +93,43 @@ bool StirrerLoggerComponent::parseStatus(LoggerCommand *command) {
 
 bool StirrerLoggerComponent::parseSpeed(LoggerCommand *command) {
   if (command->parseVariable(CMD_STIRRER_SPEED)) {
-    // FIXME: process manual as well and figure out how to switch from m
     command->extractValue();
-    command->extractUnits();
-    // check if units match
-    if (command->parseUnits(STIRRER_SPEED_RPM)) {
-      // units are correct -> save value
-      char* end;
-      float number = strtof (command->value, &end);
-      int converted = end - command->value;
-      if (converted > 0) {
-        // valid number
-        if (state->rpm > 0) changeStatus(STIRRER_STATUS_ON);
-        else changeStatus(STIRRER_STATUS_OFF);
-        command->success(changeSpeed(number, true));
-      } else {
-        // no number, invalid value
-        command->errorValue();
-      }
+    if (command->parseValue(STIRRER_SPEED_MANUAL)) {
+        // manual mode
+        command->success(changeStatus(STIRRER_STATUS_MANUAL));
     } else {
-      command->errorUnits();
+        // specific speed
+        command->extractUnits();
+        // check if units match
+        if (command->parseUnits(STIRRER_SPEED_RPM)) {
+            // units are correct -> save value
+            char* end;
+            float number = strtof (command->value, &end);
+            int converted = end - command->value;
+            if (converted > 0 && number >= 0) {
+                // valid number 
+                // switch out of manual mode
+                if (state->status == STIRRER_STATUS_MANUAL) {
+                    if (state->rpm > 0) changeStatus(STIRRER_STATUS_ON);
+                    else changeStatus(STIRRER_STATUS_OFF);
+                }
+                // set new speed
+                command->success(changeSpeed(number, true));
+                if( (state->rpm - number) < -rpm_change_threshold ) {
+                    // could not set to rpm, hit the max --> set warning
+                    command->warning(CMD_STIRRER_RET_WARN_MAX_RPM, CMD_STIRRER_RET_WARN_MAX_RPM_TEXT);
+                } else if ( (state->rpm - number) > rpm_change_threshold ) {
+                    // could not set to rpm, below the min --> set warning
+                    command->warning(CMD_STIRRER_RET_WARN_MIN_RPM, CMD_STIRRER_RET_WARN_MIN_RPM_TEXT);
+                }
+            } else {
+                // no number, invalid value
+                command->errorValue();
+            }
+        } else {
+            // units don't fit
+            command->errorUnits();
+        }
     }
   }
 
@@ -150,17 +172,22 @@ bool StirrerLoggerComponent::changeStatus(int status) {
 }
 
 bool StirrerLoggerComponent::changeSpeed(float rpm, bool update) {
-    bool changed = fabs(state->rpm - rpm) > 0.0001;
+    bool changed = fabs(state->rpm - rpm) > rpm_change_threshold;
 
     if (changed) {
+        if (state->status != STIRRER_STATUS_MANUAL && max_rpm > 0 && rpm > max_rpm) {
+            Serial.printf("WARNING: stirrer is not fast enough for the requested rpm: %.3f --> switching to max rpm %.3f\n", rpm, max_rpm);
+            rpm = max_rpm;
+        } else if (state->status != STIRRER_STATUS_MANUAL && min_rpm > 0 && rpm < min_rpm) {
+            Serial.printf("WARNING: stirrer is cannot go slow enough for the requested rpm: %.3f --> switching to min rpm %.3f\n", rpm, min_rpm);
+            rpm = min_rpm;
+        }
         Serial.printlnf("INFO: changing %s speed from %.3f to %.3f rpm", id, state->rpm, rpm);
         logChange(state->status, state->rpm, state->status, rpm);
         state->rpm = rpm;
         saveState();
         // update stirrer if it's actually on
         if (update && state->status == STIRRER_STATUS_ON) update_stirrer = true;
-    } else {
-        Serial.printf("INFO: %s speed staying unchanged (%.3f rpm)\n", id, state->rpm);
     }
     return(changed);
 }
@@ -204,7 +231,7 @@ void StirrerLoggerComponent::finishData() {
         data[0].setNewestValue(value_buffer);
         data[0].saveNewestValue(false); // don't average
         // see if anything changed
-        if (fabs(state->rpm - data[0].getValue()) > 0.0001) {
+        if (fabs(state->rpm - data[0].getValue()) > rpm_change_threshold) {
             if (state->status == STIRRER_STATUS_MANUAL) {
                 // update speed
                 changeSpeed(data[0].getValue(), false);

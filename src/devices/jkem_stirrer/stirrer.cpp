@@ -10,7 +10,7 @@
 #include "JKemStirrerLoggerComponent.h"
 
 // display
-LoggerDisplay* lcd = new LoggerDisplay(20, 4);
+LoggerDisplay* lcd = new LoggerDisplay(16, 2);
 
 // controller state
 LoggerControllerState* controller_state = new LoggerControllerState(
@@ -33,8 +33,8 @@ LoggerController* controller = new LoggerController(
 
 // scale state
 StirrerState* stirrer_state = new StirrerState(
-  /* speed [rpm] */       0,
-  /* status */            STIRRER_STATUS_MANUAL
+  /* status */            STIRRER_STATUS_MANUAL,
+  /* speed [rpm] */       0
 );
 
 // stirrer component
@@ -49,7 +49,7 @@ void lcd_update_callback() {
   lcd->resetBuffer();
   getStirrerStateStatusInfo(stirrer_state->status, lcd->buffer, sizeof(lcd->buffer), true);
   getStateDoubleText("speed", stirrer_state->rpm, "rpm", lcd->buffer + strlen(lcd->buffer), sizeof(lcd->buffer) - strlen(lcd->buffer), " %s %s", 0, false);
-  lcd->printLineFromBuffer(3);
+  lcd->printLineFromBuffer(2);
 }
 
 // manual wifi management
@@ -66,16 +66,13 @@ void setup() {
   delay(1000);
 
   // debugging
-  controller->forceReset();
+  //controller->forceReset();
   //controller->debugDisplay();
-  controller->debugData();
+  //controller->debugData();
   //controller->debugState();
-  controller->debugCloud();
+  //controller->debugCloud();
   //controller->debugWebhooks();
   //stirrer->debug();
-
-  // lcd temporary messages
-  lcd->setTempTextShowTime(3); // how many seconds temp time
 
   // callbacks
   controller->setDataUpdateCallback(lcd_update_callback);

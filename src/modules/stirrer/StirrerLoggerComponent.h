@@ -9,8 +9,15 @@
 #define CMD_STIRRER_STOP        "stop" // device stop [msg] : stops the stepper (stops power)
 
 // speed
-#define CMD_STIRRER_SPEED       "speed" // device speed number rpm/fpm [msg] : set the stepper speed
-#define STIRRER_SPEED_RPM       "rpm" // device speed number rpm [msg] : set speed in rotations per minute (requires step-angle)
+#define CMD_STIRRER_SPEED       "speed" // device speed manual/number rpm [msg]: set the stirrer speed
+#define STIRRER_SPEED_MANUAL    "manual" // device speed manual [msg]: set the stirrer speed to be controlled manually
+#define STIRRER_SPEED_RPM       "rpm" // device speed number rpm [msg] : set speed in rotations per minute
+
+// warnings
+#define CMD_STIRRER_RET_WARN_MIN_RPM      101
+#define CMD_STIRRER_RET_WARN_MIN_RPM_TEXT "below min rpm"
+#define CMD_STIRRER_RET_WARN_MAX_RPM      102
+#define CMD_STIRRER_RET_WARN_MAX_RPM_TEXT "exceeds max rpm"
 
 /*** state ***/
 
@@ -23,12 +30,11 @@ struct StirrerState {
 
   unsigned int status = STIRRER_STATUS_MANUAL; //  on/off/manual
   float rpm = 0; // setpoint speed in rotations / minute
-
-  uint8_t version = 1;
+  uint8_t version = 2;
 
   StirrerState() {};
 
-  StirrerState (float rpm, unsigned int status) : rpm(rpm), status(status) {};
+  StirrerState (unsigned int status, float rpm) : status(status), rpm(rpm) {};
 
 };
 
@@ -68,7 +74,11 @@ class StirrerLoggerComponent : public SerialReaderLoggerComponent
 
   protected:
 
-    bool update_stirrer = false; // flag for stirrer update as soon as serial is IDLE
+    float min_rpm = 0; // if > 0 use as limit on rpm
+    float max_rpm = 0; // if > 0 use as limit on rpm
+    float rpm_change_threshold = 0.0001; // what is recognized as change
+
+    bool update_stirrer = true; // flag for stirrer update as soon as serial is IDLE
 
   public:
 
@@ -77,8 +87,12 @@ class StirrerLoggerComponent : public SerialReaderLoggerComponent
 
     /*** constructors ***/
     // stirrer has a global time offset
+    StirrerLoggerComponent (const char *id, LoggerController *ctrl, StirrerState* state, const long baud_rate, const long serial_config, const char *request_command, unsigned int data_pattern_size, float min_rpm, float max_rpm, float rpm_change_threshold) : 
+      SerialReaderLoggerComponent(id, ctrl, false, baud_rate, serial_config, request_command, data_pattern_size), state(state), min_rpm(min_rpm), max_rpm(max_rpm), rpm_change_threshold(rpm_change_threshold) {}
     StirrerLoggerComponent (const char *id, LoggerController *ctrl, StirrerState* state, const long baud_rate, const long serial_config, const char *request_command, unsigned int data_pattern_size) : 
-      SerialReaderLoggerComponent(id, ctrl, false, baud_rate, serial_config, request_command, data_pattern_size), state(state) {}
+      StirrerLoggerComponent(id, ctrl, state, baud_rate, serial_config, request_command, data_pattern_size, 0, 0, 0.0001) {}
+    StirrerLoggerComponent (const char *id, LoggerController *ctrl, StirrerState* state, const long baud_rate, const long serial_config, const char *request_command, float min_rpm, float max_rpm, float rpm_change_threshold) : 
+      StirrerLoggerComponent(id, ctrl, state, baud_rate, serial_config, request_command, 0, min_rpm, max_rpm, rpm_change_threshold) {}
     StirrerLoggerComponent (const char *id, LoggerController *ctrl, StirrerState* state, const long baud_rate, const long serial_config, const char *request_command) : 
       StirrerLoggerComponent(id, ctrl, state, baud_rate, serial_config, request_command, 0) {}
     StirrerLoggerComponent (const char *id, LoggerController *ctrl, StirrerState* state, const long baud_rate, const long serial_config, unsigned int data_pattern_size) : 

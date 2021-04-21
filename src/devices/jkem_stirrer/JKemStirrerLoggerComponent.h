@@ -17,7 +17,10 @@ class JKemStirrerLoggerComponent : public StirrerLoggerComponent
             /* baud rate */             9600,
             /* serial config */         SERIAL_8N1,
             /* request command */       "SS\r",
-            /* data pattern size */     sizeof(STIRRER_DATA_PATTERN) / sizeof(STIRRER_DATA_PATTERN[0])
+            /* data pattern size */     sizeof(STIRRER_DATA_PATTERN) / sizeof(STIRRER_DATA_PATTERN[0]),
+            /* min RPM */               50,
+            /* max RPM */               750,
+            /* RPM change threshold */  1.0
         ) {}
 
     /*** manage data ***/
@@ -67,5 +70,8 @@ void JKemStirrerLoggerComponent::updateStirrer() {
     } else if (state->status == STIRRER_STATUS_OFF) {
         Serial.printlnf("INFO: switching stirrer OFF");
         Serial1.print("SS0\r"); 
+    } else if (state->status == STIRRER_STATUS_MANUAL) {
+        Serial.printlnf("INFO: switching stirrer to MANUAL mode");
+        Serial1.print("RM\r"); 
     }
 }
