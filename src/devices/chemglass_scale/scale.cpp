@@ -97,14 +97,11 @@ void setup() {
   // debugging
   //controller->forceReset();
   //controller->debugDisplay();
-  controller->debugData();
-  controller->debugState();
-  controller->debugCloud();
+  //controller->debugData();
+  //controller->debugState();
+  //controller->debugCloud();
   //controller->debugWebhooks();
-  scale->debug();
-
-  // lcd temporary messages
-  lcd->setTempTextShowTime(3); // how many seconds temp time
+  //scale->debug();
 
   // callbacks
   controller->setDataUpdateCallback(data_update_callback);
