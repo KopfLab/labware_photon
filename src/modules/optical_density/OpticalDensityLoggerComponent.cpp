@@ -110,10 +110,12 @@ bool OpticalDensityLoggerComponent::changeBeam(int beam) {
 
   if (changed) {
     Serial.printlnf("INFO: %s beam updating to (%s)", id, info);  
+    // beam changes reset data logging
+    ctrl->restartLastDataLog();
+    clearData();
     if (beam == BEAM_OFF) {
       // switching beam off also resets zero
       state->is_zeroed = false;
-      clearData();
     }
     state->beam = beam;
     saveState();
