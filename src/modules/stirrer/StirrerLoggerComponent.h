@@ -86,7 +86,7 @@ class StirrerLoggerComponent : public SerialReaderLoggerComponent
     StirrerState* state;
 
     /*** constructors ***/
-    // stirrer has a global time offset
+    // stirrer doesn't have global offset, it uses individual data points with different time offsets to report step change
     StirrerLoggerComponent (const char *id, LoggerController *ctrl, StirrerState* state, const long baud_rate, const long serial_config, const char *request_command, unsigned int data_pattern_size, float min_rpm, float max_rpm, float rpm_change_threshold) : 
       SerialReaderLoggerComponent(id, ctrl, false, baud_rate, serial_config, request_command, data_pattern_size), state(state), min_rpm(min_rpm), max_rpm(max_rpm), rpm_change_threshold(rpm_change_threshold) {}
     StirrerLoggerComponent (const char *id, LoggerController *ctrl, StirrerState* state, const long baud_rate, const long serial_config, const char *request_command, unsigned int data_pattern_size) : 
