@@ -49,6 +49,8 @@ static void print_to_signif (char* target, int size, double number, int signif) 
 /**** Value statistics ****/
 
 // implemented based on Welford's algorithm
+// forward declaration for component
+struct RunningStats;
 struct RunningStats {
 
     int n;
@@ -65,6 +67,12 @@ struct RunningStats {
             n = 0;
             mean = 0.0;
             M2 = 0.0;
+        }
+
+        void set(RunningStats rs) {
+            n = rs.n;
+            mean = rs.mean;
+            M2 = rs.M2;
         }
 
         void add(double x) {
