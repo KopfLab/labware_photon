@@ -223,8 +223,8 @@ void LoggerController::update() {
 
     // time to generate data logs?
     if (startup_complete && isTimeForDataLogAndClear()) {
-        last_data_log = millis();
         logData();
+        restartLastDataLog();
         clearData(false);
     }
 
@@ -470,7 +470,7 @@ bool LoggerController::parseReset() {
   if (command->parseVariable(CMD_RESET)) {
     command->extractValue();
     if (command->parseValue(CMD_RESET_DATA)) {
-      last_data_log = millis(); // reset last log
+      restartLastDataLog(); 
       clearData(true); // clear all data
       updateDataVariable(); // update data variable
       command->success(true);
@@ -1038,6 +1038,10 @@ bool LoggerController::isTimeForDataLogAndClear() {
     Serial.printf("ERROR: unknown logging type stored in state - this should be impossible! %d\n", state->data_logging_type);
   }
   return(false);
+}
+
+void LoggerController::restartLastDataLog() {
+  last_data_log = millis();
 }
 
 void LoggerController::clearData(bool clear_persistent) {
