@@ -67,6 +67,7 @@ struct LoggerData {
   bool setNewestValue(char* val, bool strict = true, bool infer_decimals = false, int add_decimals = 1, const char* sep = ".");
   void setNewestValueInvalid();
   void saveNewestValue(bool average); // set value based on current newest_value (calculate average if true)
+  void saveRunningStatsValue(RunningStats rs); // set value from existing running stats
   void setNewestDataTime(unsigned long dt);
   void setUnits(char* u);
   void setDecimals(int d);

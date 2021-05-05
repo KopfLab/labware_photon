@@ -130,6 +130,25 @@ void LoggerData::saveNewestValue(bool average) {
   }
 }
 
+void LoggerData::saveRunningStatsValue(RunningStats rs) {
+  if (rs.getN() > 0) {
+    setNewestValue(rs.getMean());
+    value.clear();
+    value.set(rs);
+    data_time.clear();
+    data_time.add(newest_data_time);
+    if (debug_data) {
+      Serial.print("DEBUG: new value saved from running stats for ");
+      (getN() > 1) ?
+        getDataDoubleWithSigmaText(idx, variable, getValue(), getStdDev(), units, getN(), json, sizeof(json), PATTERN_IKVSUN_SIMPLE, decimals) :
+        getDataDoubleText(idx, variable, getValue(), units, json, sizeof(json), PATTERN_IKVU_SIMPLE, decimals);
+      Serial.printf("%s (data time = %Lu ms)\n", json, getDataTime());
+    }
+  } else {
+    Serial.printf("WARNING: running stats for #%d (%s) has no data and is therefore not saved\n", idx, variable);
+  }
+}
+
 void LoggerData::setUnits(char* u) {
   strncpy(units, u, sizeof(units) - 1);
   units[sizeof(units)-1] = 0;
