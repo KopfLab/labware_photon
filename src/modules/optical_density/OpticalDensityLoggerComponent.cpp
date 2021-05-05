@@ -305,7 +305,7 @@ void OpticalDensityLoggerComponent::finishData() {
   } else if (state->is_zeroed) {
     // storing actual data
     data[7].setNewestValue(ref_dark.getMean()); data[7].saveNewestValue(true); // ref beam bgrd
-    data[6].setNewestValue(sig_beam.getMean()); data[6].saveNewestValue(true); // ref beam value
+    data[6].setNewestValue(ref_beam.getMean()); data[6].saveNewestValue(true); // ref beam value
     data[5].setNewestValue(sig_dark.getMean()); data[5].saveNewestValue(true); // sig beam bgrd
     data[4].setNewestValue(sig_beam.getMean()); data[4].saveNewestValue(true); // sig beam value
     data[3].saveRunningStatsValue(state->ratio_zero); // sig/ref zero value - this is a good idea to include, otherwise measurements can't be reconstructed
