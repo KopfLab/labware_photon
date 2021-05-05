@@ -13,7 +13,7 @@ uint8_t StepperLoggerComponent::setupDataVector(uint8_t start_idx) {
     // idx, key, units, digits
     data.push_back(LoggerData(1, "speed", "rpm", 1));
     data.push_back(LoggerData(1, "speed", "rpm", 1));
-    return(start_idx + data.size()); 
+    return(start_idx + 1); 
 }
 
 void StepperLoggerComponent::init() {
