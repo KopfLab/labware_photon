@@ -27,6 +27,8 @@ Microcontrollers for lablogger.
 
  - `devices/ministat`: ministat controller including a stepper component for stirring and an OD reader component for recording optical density 
  - `devices/chemglass_scale` : logger for chemglass scales (pulls weight data via serial and calculates rates on the fly)
+ - `devices/alicat_mfc` : logger for Alicat mass flow controllers (pulls various data via serial connection and allows for remote flow rate adjustments)
+ - `devices/jkem_stirrer` : logger for JKem overhead drive stirrer (pulls rpm via serial connection and allows for remote adjustment of stir speed)
 
 ### debug
 
