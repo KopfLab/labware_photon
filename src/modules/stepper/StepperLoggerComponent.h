@@ -41,10 +41,6 @@ class StepperLoggerComponent : public ControllerLoggerComponent {
     StepperBoard* board;
     StepperDriver* driver;
     StepperMotor* motor;
-    AccelStepper stepper;
-
-    // state
-    StepperState* state;
 
     // startup
     bool startup_rpm_logged = false;
@@ -54,7 +50,14 @@ class StepperLoggerComponent : public ControllerLoggerComponent {
 
   public:
 
+    // state
+    StepperState* state;
+
+    // the actual stepper
+    AccelStepper stepper;
+
     /*** constructors ***/
+    // derived from controllerlogger component which has NO global time offsets and manages own data clearing by default --> keep defaults
     StepperLoggerComponent (const char *id, LoggerController *ctrl, StepperState* state, StepperBoard* board, StepperDriver* driver, StepperMotor* motor) : ControllerLoggerComponent(id, ctrl), state(state), board(board), driver(driver), motor(motor) {}
 
     /*** debug ***/

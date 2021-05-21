@@ -8,8 +8,6 @@
 #define DATA_READ_WAITING   2 // waiting for (more) data
 #define DATA_READ_COMPLETE  3 // all data received
 #define DATA_READ_TIMEOUT   4 // read timed out
-#define DATA_READ_ERROR     5 // encountered an error
-
 
 /* component */
 class DataReaderLoggerComponent : public LoggerComponent
@@ -17,22 +15,31 @@ class DataReaderLoggerComponent : public LoggerComponent
 
   protected:
 
-    // data reader - whether this component is a data reader
+    // reader properties
+    bool sequential = false; // whether this reader belongs to the sequential readers that don't run in parallel with each other
+
+    // data reading
     uint8_t data_read_status = DATA_READ_IDLE;
     unsigned long data_read_start = 0; // time the read started
+    unsigned long data_received_last = 0; // last time data was received
     unsigned int error_counter = 0; // number of errors encountered during the read
 
   public:
 
     /*** constructors ***/
     // data clearing usually managed automatically -> set to true
-    DataReaderLoggerComponent (const char *id, LoggerController *ctrl, bool data_have_same_time_offset) : LoggerComponent(id, ctrl, data_have_same_time_offset, true) {}
+    DataReaderLoggerComponent (const char *id, LoggerController *ctrl, bool data_have_same_time_offset, bool sequential) : LoggerComponent(id, ctrl, data_have_same_time_offset, true), sequential(sequential) {};
+    // data readers by default are non-blocking
+    DataReaderLoggerComponent (const char *id, LoggerController *ctrl, bool data_have_same_time_offset) : DataReaderLoggerComponent(id, ctrl, data_have_same_time_offset, false) {};
 
     /*** loop ***/
     virtual void update();
 
     /*** read data ***/
     virtual bool isManualDataReader();
+    virtual bool isTimeForRequest();
+    virtual bool isTimedOut();
+    virtual void returnToIdle();
     virtual void idleDataRead();
     virtual void initiateDataRead();
     virtual void readData();

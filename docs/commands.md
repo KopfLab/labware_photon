@@ -46,9 +46,10 @@ The following commands are available for all loggers. Addtional commands are pro
 # [`MFCLoggerComponent`](/src/modules/mfc/MFCLoggerComponent.h) commands:
 
   - all `LoggerController` commands PLUS:
-  - `unit <ID>` to specify the ID of the mass flow controller to communicate with (typically a letter from A-Z)
-  - `gas <name>` to specify the name of the gas, must match what is set on the mass flow controller
-  - `totalizer <yes/no>` whether MFC has a totalizer or not (if not correct, will not process serial data correctly!)
+  - `mfc <ID>` to specify the ID of the mass flow controller to communicate with (for Alicat MFCs typically a letter from A-Z)
+  - `setpoint <value> <units>` to specify the mass flow setpoint (must be in the units the MFC is set to)
+  - `start` start the MFC flow (at the set setpoint)
+  - `stop` stop the MFC flow
 
 # [`StepperLoggerComponent`](/src/modules/mfc/StepperLoggerComponent.h) commands:
 

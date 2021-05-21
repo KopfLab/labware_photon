@@ -192,6 +192,7 @@ void LoggerController::update() {
             updateDisplayStateInformation();
             updateDisplayComponentsStateInformation();
             if (state_update_callback) state_update_callback();
+            if (data_update_callback) data_update_callback();
 
             // name capture
             if (!name_handler_registered){
@@ -222,8 +223,8 @@ void LoggerController::update() {
 
     // time to generate data logs?
     if (startup_complete && isTimeForDataLogAndClear()) {
-        last_data_log = millis();
         logData();
+        restartLastDataLog();
         clearData(false);
     }
 
@@ -401,6 +402,8 @@ void LoggerController::parseCommand() {
     // reset getting parsed
   } else if (parseRestart()) {
     // restart getting parsed
+  } else if (parsePage()) {
+    // lcd paging
   } else {
     parseComponentsCommand();
   }
@@ -467,7 +470,7 @@ bool LoggerController::parseReset() {
   if (command->parseVariable(CMD_RESET)) {
     command->extractValue();
     if (command->parseValue(CMD_RESET_DATA)) {
-      last_data_log = millis(); // reset last log
+      restartLastDataLog(); 
       clearData(true); // clear all data
       updateDataVariable(); // update data variable
       command->success(true);
@@ -587,6 +590,40 @@ bool LoggerController::parseDataReadingPeriod() {
     // include current read period in data
     if(state->data_reader) {
       getStateDataReadingPeriodText(state->data_reading_period, command->data, sizeof(command->data));
+    }
+  }
+  return(command->isTypeDefined());
+}
+
+bool LoggerController::parsePage() {
+  if (command->parseVariable(CMD_PAGE)) {
+    if (lcd->getNumberOfPages() > 1) {
+      // parse page to jump to
+      command->extractValue();
+      int page = atoi(command->value);
+      bool changed = false;
+      if (page > 0) {
+        // jumpt to specific page
+        if (page == lcd->getCurrentPage()) {
+          // already on that page
+          command->success(false);
+          return(command->isTypeDefined());
+        } else {
+          changed = lcd->setCurrentPage(page);
+        }
+      } else {
+        // just page by one
+        changed = lcd->nextPage();
+      }
+      if (changed)
+        // successfully jumped to requested page
+        command->success(true);
+      else
+        // invalid page requested
+        command->error(CMD_RET_ERR_PAGE_INVALID, CMD_RET_ERR_PAGE_INVALID_TEXT);
+    } else {
+      // doesn't have pages
+      command->error(CMD_RET_ERR_NO_PAGES, CMD_RET_ERR_NO_PAGES_TEXT);
     }
   }
   return(command->isTypeDefined());
@@ -848,7 +885,6 @@ void LoggerController::postStateVariable() {
   if (!Particle.connected()) {
     Serial.println("WARNING: particle not (yet) connected, state variable only available when connected.");
   }
-  Serial.printlnf("INFO: available memory: %lu", System.freeMemory());
 }
 
 /*** particle webhook state log ***/
@@ -1002,6 +1038,10 @@ bool LoggerController::isTimeForDataLogAndClear() {
     Serial.printf("ERROR: unknown logging type stored in state - this should be impossible! %d\n", state->data_logging_type);
   }
   return(false);
+}
+
+void LoggerController::restartLastDataLog() {
+  last_data_log = millis();
 }
 
 void LoggerController::clearData(bool clear_persistent) {
