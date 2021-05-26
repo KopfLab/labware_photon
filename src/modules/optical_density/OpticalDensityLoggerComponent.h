@@ -105,12 +105,6 @@ class OpticalDensityLoggerComponent : public DataReaderLoggerComponent
     bool stirrer_temp_off = false;
     StepperLoggerComponent* stirrer = NULL;
 
-    // data
-    RunningStats ref_dark;
-    RunningStats ref_beam;
-    RunningStats sig_dark;
-    RunningStats sig_beam;
-
     // zero
     RunningStats ref_zero_dark;
     RunningStats ref_zero;
@@ -119,6 +113,12 @@ class OpticalDensityLoggerComponent : public DataReaderLoggerComponent
     RunningStats ratio_zero;
 
   public:
+
+    // data
+    RunningStats ref_dark;
+    RunningStats ref_beam;
+    RunningStats sig_dark;
+    RunningStats sig_beam;
 
     // state
     OpticalDensityState* state;
