@@ -27,7 +27,7 @@ debug/credentials: MODULES=
 debug/i2c_scanner: MODULES=
 debug/lcd: MODULES=modules/logger/LoggerDisplay.h modules/logger/LoggerDisplay.cpp
 debug/logger: MODULES=modules/logger
-devices/ministat: MODULES=modules/logger modules/stepper
+devices/ministat: MODULES=modules/logger modules/stepper modules/optical_density
 devices/chemglass_scale: MODULES=modules/logger modules/scale
 devices/alicat_mfc: MODULES=modules/logger modules/mfc
 devices/jkem_stirrer: MODULES=modules/logger modules/stirrer
@@ -70,10 +70,12 @@ endif
 # flash via the cloud
 cloud_flash: 
 ifeq ($(device),)
-	@echo "ERROR: no device provided, specify the name to flash via make ... device=???."
+	@echo "ERROR: no device provided, specify the name(s) to flash via make ... device=???."
 else
-	@echo "\nINFO: flashing $(BIN) to $(device) via the cloud..."
-	@particle flash $(device) $(BIN)
+	@for dev in $(device);  \
+		do echo "\nINFO: flashing $(BIN) to '$${dev}' via the cloud..."; \
+		particle flash $${dev} $(BIN); \
+	done;
 endif
 
 # usb flash
