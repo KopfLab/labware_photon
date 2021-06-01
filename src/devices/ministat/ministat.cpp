@@ -110,7 +110,11 @@ void lcd_update_callback() {
   lcd->resetBuffer();
   if (lcd->getCurrentPage() == 1) {
     if (od_logger->state->beam == BEAM_OFF) {
-      lcd->addToBuffer("OD: beam OFF");
+      snprintf(lcd->buffer, sizeof(lcd->buffer), "OFF:%4.0f/%4.0f", od_logger->sig_dark.getMean(), od_logger->ref_dark.getMean());
+    } else if (od_logger->state->beam == BEAM_ON) {
+      snprintf(lcd->buffer, sizeof(lcd->buffer), "ON: %4.0f/%4.0f", od_logger->sig_beam.getMean(), od_logger->ref_beam.getMean());
+    } else if (od_logger->state->beam == BEAM_PAUSE) {
+      lcd->addToBuffer("OD: paused");
     } else if (od_logger->state->is_zeroed && od_logger->data[0].newest_value_valid) {
       getDataDoubleText("OD", od_logger->data[0].newest_value, 
           lcd->buffer, sizeof(lcd->buffer), PATTERN_KV_SIMPLE, 3);
@@ -153,7 +157,7 @@ void setup() {
   //controller->debugCloud();
   //controller->debugWebhooks();
   //stirrer->debug();
-  //od_logger->debug();
+  od_logger->debug();
   
   // callbacks
   controller->setStateUpdateCallback(lcd_update_callback);
