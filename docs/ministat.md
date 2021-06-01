@@ -1,5 +1,6 @@
+# Operation
 
-
+See the [`LoggerController`](/docs/commands.md#LoggerController), [`StepperLoggerComponent`](/docs/commands.md#StepperLoggerComponent), and [`OpticalDensityLoggerComponent`](/docs/commands.md#OpticalDensityLoggerComponent) sections of the [`commands.md`](/docs/commands.md) file for the available ministat commands.
 
 # Parts
 
@@ -114,4 +115,4 @@ where x is the shift, d is the thickness of the cover slip, $\theta$ is the inci
 
 ### Focusing effects
 
- Round bottles with water act as a convex lens focusing light in the horizontal and thus increasing the light intensity depending on the bottle shape, exact position, etc.
+ Round bottles with water act as a convex lens focusing light in the horizontal and thus increasing the light intensity depending on the bottle shape, exact position, etc. - this could be addressed with a separate focusing lens in front of the sensor but would raise the cost and complicate the 3D printed design. Instead for now, key is to mark the orientation of the media bottle carefully to make sure focusing remains the same throughout the experiment (ideally leave the bottle in the same position at all times).
