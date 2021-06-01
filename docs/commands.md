@@ -64,3 +64,24 @@ The following commands are available for all loggers. Addtional commands are pro
   - `direction cc` to set the direction to counter clockwise
   - `direction cw` to set the direction to clockwise
   - `direction switch` to reverse the direction (note that any direction changes stops the motor if it is in `rotate <x>` mode)
+
+# [`OpticalDensityLoggerComponent`](/src/modules/stirrer/OpticalDensityLoggerComponent.h) commands:
+
+  - all `LoggerController` commands PLUS:
+  - `beam on/auto/pause/off` 
+    - `on` : to turn the beam permanently on to see the signal/reference intensity (as percentages of the maximum detector signal). This makes it possible to check ideal bottle orientation and make sure the read is not at `MAX` intensity (100%).
+    - `auto` : to have the beam turn on/off automatically as needed for OD readings. This mode needs to be active for OD readings to occur.
+    - `pause` : to pause the beam and thus OD readings (e.g. to remove the bottle and bring it back later). To resume OD readings, switch the beam back to `auto`. 
+    - `off` : to turn the beam permnantely off which also resets the `zero` information for the logger (i.e. requires zero-ing again before reading ODs).
+  - `zero` to zero the optical density logger for the current media bottle (typically this is done once before inoculation). The zero values are the reference against which OD is calculated (i.e. it becomes OD = 0.0) and is stored in the logger to protect against power outtages (i.e. it will remember its own zero) until `beam off` or another `zero` command is sent.
+  - `read-length <options>` how long should dark background and beam be integrated for each read. NOTE: this command is not yet implemented but always uses the defaults of a 200 ms warmup and 500 ms read. `read-length * 2 + warmup * 2` must be shorter than the `read-period` to allow for enough time to cool down LED,read dark background, warmup the LED and read the beam. 
+     - examples: `500 ms` read for 500ms, `1 s` read for 1s
+  - `warmup <options>` how long to warm up the LEd for before taking a reading, example values: `100 ms`, `1 s`. NOTE: this command is not yet implemented but always uses the defaults of a 200 ms warmup and 500 ms read.
+
+# [`StirrerLoggerComponent`](/src/modules/stirrer/StirrerLoggerComponent.h) commands:
+
+  - all `LoggerController` commands PLUS:
+  - `speed manual` to let the overhead stirrer speed be set manually from the stirrer panel (records what the user sets it too)
+  - `speed <value> rpm` to set the speed of the overhead stirrer in rotations per minute (for the JKem stirrer this is between 50 and 750 rpm)
+  - `start` start the stirrer at the specified rpm
+  - `stop` stop the stirrer

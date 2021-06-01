@@ -121,6 +121,9 @@ bool OpticalDensityLoggerComponent::changeBeam(int beam) {
     state->beam = beam;
     saveState();
     updateBeam(state->beam);
+    // make a read right away
+    beam_read_status = BEAM_READ_IDLE;
+    data_read_status = DATA_READ_REQUEST;
   } else {
      Serial.printlnf("INFO: %s beam unchanged (%s)", id, info);  
   }
@@ -129,6 +132,7 @@ bool OpticalDensityLoggerComponent::changeBeam(int beam) {
 }
 
 bool OpticalDensityLoggerComponent::startZero() {
+  // clear all zeroing data and reset counter
   ref_zero_dark.clear();
   ref_zero.clear();
   sig_zero_dark.clear();
@@ -136,6 +140,9 @@ bool OpticalDensityLoggerComponent::startZero() {
   ratio_zero.clear();
   zeroing = true;
   zero_read_counter = 1;
+  // make sure beam is on auto when starting zero
+  if (state->beam != BEAM_AUTO) changeBeam(BEAM_AUTO); 
+  // make a read right away
   data_read_status = DATA_READ_REQUEST;
   beam_read_status = BEAM_READ_IDLE;
   return(true);
@@ -168,6 +175,12 @@ void OpticalDensityLoggerComponent::updateBeam(uint beam) {
 
 /*** read data ***/
 
+void OpticalDensityLoggerComponent::returnToIdle() {
+    DataReaderLoggerComponent::returnToIdle();
+    beam_read_status = BEAM_READ_IDLE;
+}
+
+
 void OpticalDensityLoggerComponent::readData() {
 
     if (state->beam == BEAM_PAUSE) {
@@ -187,7 +200,7 @@ void OpticalDensityLoggerComponent::readData() {
         // beam is OFF --> read dark
         if (debug_component) Serial.printlnf("DEBUG at %lu: beam is permanently OFF - starting dark read", millis());
         beam_read_status = BEAM_READ_DARK;
-      } else if (state->beam == BEAM_AUTO) {
+      } else if (state->beam == BEAM_AUTO && (state->is_zeroed || zeroing)) {
         // beam is on AUTO --> start OD read sequence
         // stop stirrer if it's on
         if (stirrer && stirrer->state->status == STATUS_ON) {
@@ -200,6 +213,9 @@ void OpticalDensityLoggerComponent::readData() {
         if (debug_component) Serial.printlnf("DEBUG at %lu: beam is on AUTO - starting dark wait (cooldown)", millis());
         updateBeam(BEAM_OFF);
         beam_read_status = BEAM_READ_WAIT_DARK;
+      } else {
+        // skip to finish read
+        data_read_status = DATA_READ_COMPLETE;
       }
     } else if (beam_read_status == BEAM_READ_WAIT_DARK) {
       // wait for potential beam cooldown to finish
@@ -314,7 +330,7 @@ void OpticalDensityLoggerComponent::finishData() {
       sig_zero_dark.add(sig_dark.getMean());
       ref_zero.add(ref_beam.getMean());
       sig_zero.add(sig_beam.getMean());
-      ratio_zero.add((sig_beam.getMean() - sig_dark.getMean()) / (ref_beam.getMean() - ref_dark.getMean()));
+      ratio_zero.add((sig_beam.getMean() - sig_dark.getMean() - led_offset) / (ref_beam.getMean() - ref_dark.getMean() - led_offset));
       zero_read_counter++;
       if (zero_read_counter > zero_read_n) {
         zeroing = false;
@@ -339,7 +355,7 @@ void OpticalDensityLoggerComponent::finishData() {
       data[5].setNewestValue(sig_dark.getMean()); data[5].saveNewestValue(true); // sig beam bgrd
       data[4].setNewestValue(sig_beam.getMean()); data[4].saveNewestValue(true); // sig beam value
       data[3].saveRunningStatsValue(state->ratio_zero); // sig/ref zero value - this is a good idea to include, otherwise measurements can't be reconstructed
-      float ratio = (sig_beam.getMean() - sig_dark.getMean()) / (ref_beam.getMean() - ref_dark.getMean());
+      float ratio = (sig_beam.getMean() - sig_dark.getMean() - led_offset) / (ref_beam.getMean() - ref_dark.getMean() - led_offset);
       data[2].setNewestValue(ratio); data[2].saveNewestValue(true); // sig/ref beam value
       float transmittance = ratio / state->ratio_zero.getMean();
       data[1].setNewestValue(transmittance); data[1].saveNewestValue(true); // transmittance
@@ -355,10 +371,11 @@ void OpticalDensityLoggerComponent::assembleStateVariable() {
   char pair[80];
   getOpticalDensityStateBeamInfo(state->beam, pair, sizeof(pair)); ctrl->addToStateVariableBuffer(pair);
   getOpticalDensityStateZeroedInfo(state->is_zeroed, state->last_zero_datetime, pair, sizeof(pair)); ctrl->addToStateVariableBuffer(pair);
-  // FIXME: use NAs (or NuLL?) when 
-  getStateDoubleText("zero-ratio", state->ratio_zero.getMean(), "", pair, sizeof(pair), PATTERN_KV_JSON_QUOTED, 4, true); ctrl->addToStateVariableBuffer(pair);
-  getStateDoubleText("zero-beam-signal", state->sig_zero.getMean(), "", pair, sizeof(pair), PATTERN_KV_JSON_QUOTED, 1, true); ctrl->addToStateVariableBuffer(pair);
-  getStateDoubleText("zero-beam-bgrd", state->sig_zero_dark.getMean(), "", pair, sizeof(pair), PATTERN_KV_JSON_QUOTED, 1, true); ctrl->addToStateVariableBuffer(pair);
-  getStateDoubleText("zero-ref-signal", state->ref_zero.getMean(), "", pair, sizeof(pair), PATTERN_KV_JSON_QUOTED, 1, true); ctrl->addToStateVariableBuffer(pair);
-  getStateDoubleText("zero-ref-bgrd", state->ref_zero_dark.getMean(), "", pair, sizeof(pair), PATTERN_KV_JSON_QUOTED, 1, true); ctrl->addToStateVariableBuffer(pair);
+  if (state->is_zeroed) {
+    getStateDoubleText("zero-ratio", state->ratio_zero.getMean(), "", pair, sizeof(pair), PATTERN_KV_JSON_QUOTED, 4, true); ctrl->addToStateVariableBuffer(pair);
+    getStateDoubleText("zero-beam-signal", state->sig_zero.getMean(), "", pair, sizeof(pair), PATTERN_KV_JSON_QUOTED, 1, true); ctrl->addToStateVariableBuffer(pair);
+    getStateDoubleText("zero-beam-bgrd", state->sig_zero_dark.getMean(), "", pair, sizeof(pair), PATTERN_KV_JSON_QUOTED, 1, true); ctrl->addToStateVariableBuffer(pair);
+    getStateDoubleText("zero-ref-signal", state->ref_zero.getMean(), "", pair, sizeof(pair), PATTERN_KV_JSON_QUOTED, 1, true); ctrl->addToStateVariableBuffer(pair);
+    getStateDoubleText("zero-ref-bgrd", state->ref_zero_dark.getMean(), "", pair, sizeof(pair), PATTERN_KV_JSON_QUOTED, 1, true); ctrl->addToStateVariableBuffer(pair);
+  }
 }

@@ -5,6 +5,7 @@
 
 /*** general commands ***/
 
+#define CMD_BLACK           "black"     // device black : black the reader
 #define CMD_OD_ZERO         "zero"      // device zero : zero the reader
 
 #define CMD_BEAM            "beam"      // device beam [on/auto/off] : clarify the beam
@@ -22,24 +23,25 @@
 
 struct OpticalDensityState {
 
-    uint beam; //  on/off/auto
-    uint read_length; // length of dark/beam reads (stored in ms)
-    uint warmup; // length of warmup (stored in ms)
-    bool is_zeroed;      // whether has been zerod
+    uint beam;                    // on/off/auto
+    uint read_length;             // length of dark/beam reads (stored in ms)
+    uint warmup;                  // length of warmup (stored in ms)
+    bool is_zeroed;               // whether has been zerod
     char last_zero_datetime[30];  // last zero datetime
+    RunningStats led_offset;      // not used yet (just a constant in the class instead, but for later use)
     RunningStats ref_zero_dark;
     RunningStats ref_zero;
     RunningStats sig_zero_dark;
     RunningStats sig_zero;
     RunningStats ratio_zero;
     
-    uint8_t version = 1;
+    uint8_t version = 2;
 
     OpticalDensityState() {};
 
     OpticalDensityState(uint beam, uint read_length, uint warmup) : 
         beam(beam), read_length(read_length), warmup(warmup), is_zeroed(false), 
-        ref_zero_dark(RunningStats()), ref_zero(RunningStats()), sig_zero_dark(RunningStats()), sig_zero(RunningStats()), ratio_zero(RunningStats()) {};    
+        led_offset(RunningStats()), ref_zero_dark(RunningStats()), ref_zero(RunningStats()), sig_zero_dark(RunningStats()), sig_zero(RunningStats()), ratio_zero(RunningStats()) {};    
 
 };
 
@@ -105,6 +107,9 @@ class OpticalDensityLoggerComponent : public DataReaderLoggerComponent
     bool stirrer_temp_off = false;
     StepperLoggerComponent* stirrer = NULL;
 
+    // led on background signal
+    float led_offset;
+
     // zero
     RunningStats ref_zero_dark;
     RunningStats ref_zero;
@@ -125,10 +130,10 @@ class OpticalDensityLoggerComponent : public DataReaderLoggerComponent
 
     /*** constructors ***/
     // OpticalDensity has a global time offset
-    OpticalDensityLoggerComponent (const char *id, LoggerController *ctrl, OpticalDensityState* state, int led_pin, int ref_pin, int sig_pin, uint zero_read_n, StepperLoggerComponent* stirrer) : 
-        DataReaderLoggerComponent(id, ctrl, true), state(state), led_pin(led_pin), ref_pin(ref_pin), sig_pin(sig_pin), stirrer(stirrer), zero_read_n(zero_read_n) {}
-    OpticalDensityLoggerComponent (const char *id, LoggerController *ctrl, OpticalDensityState* state, int led_pin, int ref_pin, int sig_pin, uint zero_read_n) : 
-        OpticalDensityLoggerComponent(id, ctrl, state, led_pin, ref_pin, sig_pin, zero_read_n, NULL) {}
+    OpticalDensityLoggerComponent (const char *id, LoggerController *ctrl, OpticalDensityState* state, int led_pin, int ref_pin, int sig_pin, uint zero_read_n, float led_offset, StepperLoggerComponent* stirrer) : 
+        DataReaderLoggerComponent(id, ctrl, true), state(state), led_pin(led_pin), ref_pin(ref_pin), sig_pin(sig_pin), stirrer(stirrer), zero_read_n(zero_read_n), led_offset(led_offset) {}
+    OpticalDensityLoggerComponent (const char *id, LoggerController *ctrl, OpticalDensityState* state, int led_pin, int ref_pin, int sig_pin, uint zero_read_n, float led_offset) : 
+        OpticalDensityLoggerComponent(id, ctrl, state, led_pin, ref_pin, sig_pin, zero_read_n, led_offset, NULL) {}
 
     /*** setup ***/
     virtual void init();
@@ -154,6 +159,7 @@ class OpticalDensityLoggerComponent : public DataReaderLoggerComponent
     virtual void updateBeam(uint beam);
 
     /*** read data ***/
+    virtual void returnToIdle();
     virtual void readData();
 
     /*** manage data ***/
