@@ -1,6 +1,6 @@
 # Operation
 
-See the [`LoggerController`](/docs/commands.md#LoggerController), [`StepperLoggerComponent`](/docs/commands.md#StepperLoggerComponent), and [`OpticalDensityLoggerComponent`](/docs/commands.md#OpticalDensityLoggerComponent) sections of the [`commands.md`](/docs/commands.md) file for the available ministat commands.
+See the [`LoggerController`](/docs/commands.md#logggercontroller-commands), [`StepperLoggerComponent`](/docs/commands.md#stepperloggercomponent-commands), and [`OpticalDensityLoggerComponent`](/docs/commands.md#opticaldensityloggercomponent-commands) sections of the [`commands.md`](/docs/commands.md) file for the available ministat commands.
 
 # Parts
 
