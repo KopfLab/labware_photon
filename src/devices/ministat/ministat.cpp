@@ -16,15 +16,15 @@ LoggerControllerState* controller_state = new LoggerControllerState(
   /* locked */                    false,
   /* state_logging */             true,
   /* data_logging */              false,
-  /* data_logging_period */       3600, // in seconds
+  /* data_logging_period */       300, // in seconds
   /* data_logging_type */         LOG_BY_TIME,
   /* data_reading_period_min */   5000, // in ms
-  /* data_reading_period */       10000  // in ms
+  /* data_reading_period */       30000  // in ms
 );
 
 // controller
 LoggerController* controller = new LoggerController(
-  /* version */           "ms 0.3",
+  /* version */           "ms 0.6",
   /* reset pin */         A5,
   /* lcd screen */        lcd,
   /* pointer to state */  controller_state
@@ -70,7 +70,7 @@ StepperMotor* motor = new StepperMotor(
 // stepper state
 StepperState* stepper_state = new StepperState(
   /* direction */                 DIR_CW, // start clockwise
-  /* status */                    STATUS_ON, // start off
+  /* status */                    STATUS_OFF, // start off
   /* rpm */                       600 // start speed [rpm]
   // no specification of microstepping mode = automatic mode
 );
@@ -101,6 +101,7 @@ OpticalDensityLoggerComponent* od_logger = new OpticalDensityLoggerComponent(
   /* ref pin */               A1,
   /* sig pin */               A0,
   /* zero read # */           10,
+  /* led offset */            11.0, // tested manually, FIXME: move to state (variable already there so no updates necessary later) and implement an automatic led offset read?
   /* stirrer */               stirrer
 );
 
@@ -109,10 +110,31 @@ char state_info[50];
 void lcd_update_callback() {
   lcd->resetBuffer();
   if (lcd->getCurrentPage() == 1) {
+    float sig_percent = 0;
+    float ref_percent = 0;
     if (od_logger->state->beam == BEAM_OFF) {
-      snprintf(lcd->buffer, sizeof(lcd->buffer), "OFF:%4.0f/%4.0f", od_logger->sig_dark.getMean(), od_logger->ref_dark.getMean());
-    } else if (od_logger->state->beam == BEAM_ON) {
-      snprintf(lcd->buffer, sizeof(lcd->buffer), "ON: %4.0f/%4.0f", od_logger->sig_beam.getMean(), od_logger->ref_beam.getMean());
+      sig_percent = od_logger->sig_dark.getMean() / 4095.0 * 100.0;
+      ref_percent = od_logger->ref_dark.getMean() / 4095.0 * 100.0;
+      snprintf(lcd->buffer, sizeof(lcd->buffer), "OFF:%4.1f/%4.1f", sig_percent, ref_percent);
+    } else if (od_logger->isMaxing()) {
+      sig_percent = od_logger->sig_beam.getMean() / 4095.0 * 100.0;
+      // in zeroing max mode
+      if (sig_percent >= 99.95)
+        lcd->addToBuffer("SATURATED!");
+      else
+        snprintf(lcd->buffer, sizeof(lcd->buffer), "max %4.1f&next", sig_percent);
+    } else if (od_logger->state->beam == BEAM_ON || od_logger->isMaxing()) {
+      sig_percent = od_logger->sig_beam.getMean() / 4095.0 * 100.0;
+      ref_percent = od_logger->ref_beam.getMean() / 4095.0 * 100.0;
+      // regular beam on
+      if (sig_percent >= 99.95 && ref_percent >= 99.95)
+        lcd->addToBuffer("ON: SAT!/SAT!");
+      else if (sig_percent >= 99.95)
+        snprintf(lcd->buffer, sizeof(lcd->buffer), "ON: SAT!/%4.1f", ref_percent);
+      else if (ref_percent >= 99.95)
+        snprintf(lcd->buffer, sizeof(lcd->buffer), "ON: %4.1f/SAT!", sig_percent);
+      else
+        snprintf(lcd->buffer, sizeof(lcd->buffer), "ON: %4.1f/%4.1f", sig_percent, ref_percent);
     } else if (od_logger->state->beam == BEAM_PAUSE) {
       lcd->addToBuffer("OD: paused");
     } else if (od_logger->state->is_zeroed && od_logger->data[0].newest_value_valid) {
@@ -171,25 +193,6 @@ void setup() {
   controller->init();
 }
 
-long read_od = 0;
-
 void loop() {
   controller->update();
-  // beam events outline:
-  // when it's time for a read
-  // read dark for x seconds
-  // turn beam off let prewarm for y seconds
-  // turn motor off and read OD for x secods
-  // --> fixme need some sort of callback function for the motor controller OR allow a motorcontroller references to be passed to the opticaldensityloggercomponent
-  // (latter is probably better)
-  // turn beam off and motor back on
-  // calculate last value OD and newest OD
-  // if beam is permanently ON, use dark background from zero-ing procedure
-  // usually beam is set to "beam auto"
-  // if beam is permanently OFF, show OD page on lcd as "beam off"
-  // cmds: beam on/auto/off
-  // cmds: 
-
-  // zero-ing procedure
-  // same as with 
 }
