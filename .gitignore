@@ -33,6 +33,7 @@
 
 # PCB
 *pcb_dev
+pcbs
 
 # docs
 *.pdf

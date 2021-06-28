@@ -7,6 +7,7 @@
 
 #define CMD_BLACK           "black"     // device black : black the reader
 #define CMD_OD_ZERO         "zero"      // device zero : zero the reader
+#define CMD_OD_ZERO_NEXT    "next"      // trigger next step in the zero-ing process
 
 #define CMD_BEAM            "beam"      // device beam [on/auto/off] : clarify the beam
   #define CMD_BEAM_ON         "on"      // beam permanently on (for troubleshooting)
@@ -102,6 +103,7 @@ class OpticalDensityLoggerComponent : public DataReaderLoggerComponent
 
     // reading
     uint beam_read_status = BEAM_READ_IDLE;
+    bool maxing = false;
     bool zeroing = false;
     uint zero_read_counter = 0;
     bool stirrer_temp_off = false;
@@ -149,11 +151,14 @@ class OpticalDensityLoggerComponent : public DataReaderLoggerComponent
     virtual bool parseCommand(LoggerCommand *command);
     virtual bool parseBeam(LoggerCommand *command);
     virtual bool parseZero(LoggerCommand *command);
+    virtual bool parseZeroNext(LoggerCommand *command);
 
     /*** state changes ***/
     virtual bool changeBeam(int beam);
     virtual bool startZero();
+    virtual bool continueZero();
     virtual void changeZero();
+    bool isMaxing();
 
     /*** beam management ***/
     virtual void updateBeam(uint beam);

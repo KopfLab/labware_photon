@@ -27,7 +27,7 @@ for stirrer only
  - 4p4c telephone wire
  - telephone cable union
 stirrer and OD reader
- - 10p10c cable (FIXME)
+ - 10p10c cable (Winford [CBM10R2TS-10](https://www.winford.com/products/cbm10.php))
 
 ## Boards
 
@@ -89,7 +89,7 @@ Measure the reference voltage between logic ground and the tiny trimpot on the D
 optiona:
  - 4x 6mm long M3 rounded head machine screws to attach size adapter ring to stirrer base
 
-Cut off the connector at the end of the motor cables with a wire cutter and crimp a telephone cable wire crimp (6p4c) on the end in its stead. Be careful about wire order. Looking from the back of the connector (where the wires go in) with the connector clip facing up, the order should be *yellow, orange, brown, black* from left to right.
+Cut off the connector at the end of the motor cables with a wire cutter and crimp a telephone cable wire crimp (6p4c) on the end in its stead. Be careful about wire order. Looking from the back of the connector (where the wires go in) with the connector clip facing up, the order should be **yellow, orange, brown, black** from left to right.
 
 ## OD attachment
 
@@ -98,6 +98,10 @@ Either
  - 4x 18mm long M3 flat head machine screw to attach optical density reader to stirrer base
 OR
  - 4x 22mm long M3 flat head machine screw to attach OD reader AND a size adapter ring to stirrer base
+ - 1x 47 Ohm 1/4 W resistor for LED
+ - 2x 10 kOhm 1/4 W resistor for A0 and A1 analog signal pulldowns
+ - 1x 180 kOhm, 200 kOhm, 220 kOhm or 240 kOhm resistor for fixed gain on reference light sensor
+ - 1x trimmer to 250 kOhm (or higher)? for adjustable gain on signal light sensor
 
 # Implementatoin Notes
 
