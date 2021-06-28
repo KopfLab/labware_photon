@@ -31,6 +31,9 @@ class DS18B20TemperatureLoggerComponent : public DataReaderLoggerComponent
     /*** read data ***/
     virtual void readData();
 
+    /*** manage data ***/
+    virtual void finishData();
+
     /*** sensor ***/
     bool foundSensor();
 
@@ -109,6 +112,12 @@ void DS18B20TemperatureLoggerComponent::readData() {
             sensor_found = false;
         }
     } 
+}
+
+/*** manage data ***/
+
+void DS18B20TemperatureLoggerComponent::finishData() {
+    if (error_counter == 0) data[0].saveNewestValue(true); // average
 }
 
 /*** sensor ***/
